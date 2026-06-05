@@ -903,11 +903,63 @@ function showKD(kpi){
   const pTotal=pv.reduce((a,b)=>a+b,0);
   const chg=pTotal>0?Math.round((total-pTotal)/pTotal*100):0;
 
+  // Tranzaksiyalar jadvalini oldin hisoblash (IIFE dan qochish uchun)
+  var allRawRows = dirId
+    ? fil(dirId).map(function(r){return Object.assign({},r,{_rowDir:dirId});})
+    : DIRS.reduce(function(acc,d){
+        return acc.concat(fil(d.id).map(function(r){return Object.assign({},r,{_rowDir:d.id});}));
+      },[]);
+  allRawRows.sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+  var showDirCol = !dirId;
+
+  var txTableHTML = '<div class="twrap"><div class="thdr"><div class="tlbl">Tranzaksiyalar detali</div>'
+    +'<div style="font-size:11px;color:var(--t3);font-family:var(--mono)">'+allRawRows.length+' ta yozuv</div></div>'
+    +'<div style="overflow-x:auto"><table><thead><tr>'
+    +'<th>Sana</th>'+(showDirCol?'<th>Yo\'nalish</th>':'')
+    +'<th>Klient</th><th>Kategoriya</th>'
+    +'<th style="text-align:right">Qiymat</th>'
+    +'<th style="text-align:right">Foyda/Zarar</th>'
+    +'<th>Status</th><th>Izoh</th>'
+    +'</tr></thead><tbody>';
+
+  allRawRows.forEach(function(r){
+    var rd=r._rowDir;
+    var dc=DIRS.find(function(x){return x.id===rd;})||dir;
+    var cat='—', mainVal=0, profit=0, statusOk=true, statusLabel='', statusColor='', clientTxt='';
+    if(rd==='cargo'||rd==='logistics'){
+      cat=r.sku||'—'; mainVal=r.revenue||0; profit=r.margin||0; clientTxt=r.client||'—';
+      statusOk=profit>=0; statusLabel=profit>=0?'Foydali':'Zarar'; statusColor=profit>=0?'#00E5A0':'#FF4D6A';
+    } else if(rd==='exchange'){
+      cat='RMB↔USD'; mainVal=r.spread||0; profit=r.net||0;
+      statusOk=profit>=0; statusLabel=profit>=0?'Foydali':'Zarar'; statusColor=profit>=0?'#00E5A0':'#FF4D6A';
+    } else if(rd==='procurement'){
+      cat=r.sku||'—'; mainVal=r.order_value||0; profit=r.net||0; clientTxt=r.client||'—';
+      statusOk=profit>=0; statusLabel=profit>=0?'Foydali':'Zarar'; statusColor=profit>=0?'#00E5A0':'#FF4D6A';
+    } else {
+      cat=r.div_in>0?'Dividend':r.loan_in>0?'Qarz':r.tr_out>0?'Perebroska':'Xarajat';
+      mainVal=r.div_in||r.loan_in||r.tr_out||r.exp_out||0; profit=mainVal;
+      statusOk=r.div_in>0||r.loan_in>0; statusLabel=statusOk?'Kirim':'Chiqim'; statusColor=statusOk?'#00E5A0':'#FFB830';
+    }
+    var note=r.note||'';
+    var safeR=JSON.stringify(Object.assign({},r,{_dir:rd})).replace(/"/g,'&quot;');
+    txTableHTML += '<tr class="cr" onclick="showRow('+safeR+')">'
+      +'<td style="font-family:var(--mono);color:var(--t3)">'+(r.date?r.date.slice(5):'—')+'</td>'
+      +(showDirCol?'<td><span class="bdg" style="background:'+dc.c+'18;color:'+dc.c+'">'+dc.e+' '+dc.name+'</span></td>':'')
+      +'<td style="font-weight:500">'+(clientTxt||r.div_from||r.tr_to||'—')+'</td>'
+      +'<td><span class="bdg" style="background:'+dc.c+'15;color:'+dc.c+'">'+cat+'</span></td>'
+      +'<td style="text-align:right;font-family:var(--mono)">'+$$(mainVal)+'</td>'
+      +'<td style="text-align:right;font-family:var(--mono);font-weight:600;color:'+(profit>=0?'#00E5A0':'#FF4D6A')+'">'+(profit>=0?'+':'')+$$(profit)+'</td>'
+      +'<td><span style="padding:2px 8px;border-radius:4px;font-size:10px;font-family:var(--mono);background:'+statusColor+'18;color:'+statusColor+';border:1px solid '+statusColor+'44">'+(statusOk?'▲':'▼')+' '+statusLabel+'</span></td>'
+      +'<td style="color:var(--t3);font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+note+'</td>'
+      +'</tr>';
+  });
+  txTableHTML += '</tbody></table></div></div>';
+
   ['l1','l2','l3','l4'].forEach(l=>{const p=document.getElementById('pg-'+l);p.classList.remove('on');p.style.display='';});
   const el=document.getElementById('pg-l3');
   el.classList.add('on');
-  const backFn = dirId ? `renderL2('${dirId}')` : `goNav('l1')`;
-  setBc([{lbl:'Holding',fn:"goNav('l1')"},{lbl:dir.name,fn:dirId?`renderL2('${dirId}')`:''},{lbl:kpi.title,fn:''}]);
+  const backFn = dirId ? "renderL2('"+dirId+"')" : "goNav('l1')";
+  setBc([{lbl:'Holding',fn:"goNav('l1')"},{lbl:dir.name,fn:dirId?"renderL2('"+dirId+"')":''},{ lbl:kpi.title,fn:''}]);
 
   el.innerHTML=`
   <div class="dhdr">
@@ -948,78 +1000,7 @@ function showKD(kpi){
     </tbody></table>
   </div>
 
-  ${(()=>{
-    // dirId bo'lsa o'sha yo'nalish, bo'lmasa barcha yo'nalishlar
-    const allRawRows = dirId
-      ? fil(dirId).map(r=>({...r,_rowDir:dirId}))
-      : DIRS.flatMap(d=>fil(d.id).map(r=>({...r,_rowDir:d.id})));
-
-    allRawRows.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-
-    function rowInfo(r, rd){
-      const dc = DIRS.find(x=>x.id===rd)||dir;
-      let cat='—', mainVal=0, profit=0, statusOk=true, statusLabel='', statusColor='', clientTxt='';
-      if(rd==='cargo'||rd==='logistics'){
-        cat=r.sku||'—'; mainVal=r.revenue||0; profit=r.margin||0;
-        clientTxt=r.client||'—';
-        statusOk=profit>=0; statusLabel=profit>=0?'Foydali':'Zarar';
-        statusColor=profit>=0?'#00E5A0':'#FF4D6A';
-      } else if(rd==='exchange'){
-        cat='RMB↔USD'; mainVal=r.spread||0; profit=r.net||0;
-        statusOk=profit>=0; statusLabel=profit>=0?'Foydali':'Zarar';
-        statusColor=profit>=0?'#00E5A0':'#FF4D6A';
-      } else if(rd==='procurement'){
-        cat=r.sku||'—'; mainVal=r.order_value||0; profit=r.net||0;
-        clientTxt=r.client||'—';
-        statusOk=profit>=0; statusLabel=profit>=0?'Foydali':'Zarar';
-        statusColor=profit>=0?'#00E5A0':'#FF4D6A';
-      } else {
-        cat=r.div_in>0?'Dividend':r.loan_in>0?'Qarz':r.tr_out>0?'Perebroska':'Xarajat';
-        mainVal=r.div_in||r.loan_in||r.tr_out||r.exp_out||0; profit=mainVal;
-        statusOk=r.div_in>0||r.loan_in>0;
-        statusLabel=statusOk?'Kirim':'Chiqim';
-        statusColor=statusOk?'#00E5A0':'#FFB830';
-      }
-      return{cat,mainVal,profit,statusOk,statusLabel,statusColor,clientTxt,dc};
-    }
-
-    const showDirCol = !dirId;
-    return`<div class="twrap">
-      <div class="thdr">
-        <div class="tlbl">Tranzaksiyalar detali — kategoriya, status, izoh</div>
-        <div style="font-size:11px;color:var(--t3);font-family:var(--mono)">${allRawRows.length} ta yozuv</div>
-      </div>
-      <div style="overflow-x:auto">
-      <table><thead><tr>
-        <th>Sana</th>
-        ${showDirCol?'<th>Yo\'nalish</th>':''}
-        <th>Klient / Manba</th>
-        <th>Kategoriya</th>
-        <th style="text-align:right">Asosiy qiymat</th>
-        <th style="text-align:right">Foyda / Zarar</th>
-        <th>Status</th>
-        <th>Izoh</th>
-      </tr></thead><tbody>
-      ${allRawRows.map(r=>{
-        const rd=r._rowDir;
-        const {cat,mainVal,profit,statusOk,statusLabel,statusColor,clientTxt,dc}=rowInfo(r,rd);
-        const note=r.note||(r.sku?r.sku+' xizmati':'');
-        const safeR = JSON.stringify({...r,_dir:rd}).replace(/"/g,'&quot;');
-        return`<tr class="cr" onclick="showRow(${safeR})">
-          <td style="font-family:var(--mono);color:var(--t3);white-space:nowrap">${r.date?.slice(5)||'—'}</td>
-          ${showDirCol?`<td><span class="bdg" style="background:${dc.c}18;color:${dc.c};border:1px solid ${dc.c}33">${dc.e} ${dc.name}</span></td>`:''}
-          <td style="font-weight:500">${clientTxt||r.div_from||r.tr_to||'—'}</td>
-          <td><span class="bdg" style="background:${dc.c}15;color:${dc.c}">${cat}</span></td>
-          <td style="text-align:right;font-family:var(--mono);color:var(--t2)">${$$(mainVal)}</td>
-          <td style="text-align:right;font-family:var(--mono);font-weight:600;color:${profit>=0?'#00E5A0':'#FF4D6A'}">${profit>=0?'+':''}${$$(profit)}</td>
-          <td><span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:4px;font-size:10px;font-family:var(--mono);background:${statusColor}18;color:${statusColor};border:1px solid ${statusColor}44">${statusOk?'▲':'▼'} ${statusLabel}</span></td>
-          <td style="color:var(--t3);font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${note}">${note||'—'}</td>
-        </tr>`;
-      }).join('')}
-      </tbody></table>
-      </div>
-    </div>`;
-  })()}
+  ${txTableHTML}
 
   setTimeout(()=>{
     mkC('l3m',{type:'line',data:{labels:ad.map(d=>d.slice(5)),datasets:[
