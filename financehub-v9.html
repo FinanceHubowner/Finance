@@ -95,6 +95,11 @@ tr.cr:hover td{background:rgba(255,255,255,.015)}
 .flow:hover{background:rgba(255,255,255,.015)}
 .fpill{padding:3px 7px;border-radius:4px;font-size:10px;font-family:var(--mono);white-space:nowrap}
 /* --- MISC --- */
+/* Light tema uchun override */
+body[style*="--is-light: 1"] .topbar,
+.light-mode .topbar { border-bottom-color: rgba(100,116,139,0.25) !important; }
+.kpi{box-shadow:none;transition:all .2s}
+.kpi:hover{box-shadow:0 4px 16px rgba(0,0,0,0.08)}
 ::-webkit-scrollbar{width:3px;height:3px}
 ::-webkit-scrollbar-thumb{background:rgba(108,142,255,0.2);border-radius:2px}::-webkit-scrollbar-thumb:hover{background:rgba(108,142,255,0.4)}
 #toast{position:fixed;bottom:16px;right:16px;padding:10px 16px;border-radius:8px;font-size:11px;font-family:var(--mono);background:rgba(0,229,160,.1);border:1px solid rgba(0,229,160,.3);color:var(--grn);box-shadow:0 8px 32px rgba(0,229,160,0.15);transform:translateY(50px);opacity:0;transition:.25s;z-index:999}
@@ -262,11 +267,13 @@ window.addEventListener("load", async function() {
 <style id="TS">:root{--bg:#0A0E1A;--s1:#0F1424;--s2:#141929;--s3:#1A2035;--b1:#1E2840;--b2:#263352;--b3:#2E3D63;--t1:#F0EFFF;--t2:#94A3C4;--t3:#506080;--acc:#6C8EFF;--grn:#00E5A0;--red:#FF4D6A;--amb:#FFB830;--pur:#A78BFF;--tel:#00D4FF;--cargo:#6C8EFF;--log:#00E5A0;--exc:#FFB830;--proc:#A78BFF;--hold:#FF7A50}</style>
 <div style="display:flex;gap:4px;align-items:center">
   <span style="font-size:10px;color:#506080;margin-right:2px">Tema:</span>
-  <button title="Slate Pro" onclick="setT('slate')" style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#6C8EFF,#00E5A0);border:2px solid #6C8EFF;cursor:pointer;padding:0" id="tb_slate"></button>
+  <button title="Slate (Qorang'u)" onclick="setT('slate')" style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#6C8EFF,#00E5A0);border:2px solid transparent;cursor:pointer;padding:0" id="tb_slate"></button>
   <button title="Midnight" onclick="setT('midnight')" style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#38BDF8,#34D399);border:2px solid transparent;cursor:pointer;padding:0" id="tb_midnight"></button>
   <button title="Aurora" onclick="setT('aurora')" style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#818CF8,#F9A8D4);border:2px solid transparent;cursor:pointer;padding:0" id="tb_aurora"></button>
   <button title="Carbon Gold" onclick="setT('carbon')" style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#F59E0B,#8B5CF6);border:2px solid transparent;cursor:pointer;padding:0" id="tb_carbon"></button>
   <button title="Forest Dark" onclick="setT('forest')" style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#4ADE80,#60A5FA);border:2px solid transparent;cursor:pointer;padding:0" id="tb_forest"></button>
+  <button title="Light (Yorqin)" onclick="setT('light')" style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#FFFFFF,#E0E7FF);border:2px solid #CBD5E1;cursor:pointer;padding:0" id="tb_light"></button>
+  <button title="Sky Blue (Ko'k-Oq)" onclick="setT('sky')" style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#BAE6FD,#6366F1);border:2px solid transparent;cursor:pointer;padding:0" id="tb_sky"></button>
 </div>
     <div style="display:flex;align-items:center;gap:6px" id="periodBar">
       <button class="pb on" onclick="setQuick('today',this)">Bugun</button>
@@ -1544,17 +1551,24 @@ var TCSS = {
   midnight:":root{--bg:#020817;--s1:#050D1F;--s2:#091428;--s3:#0F1D35;--b1:#162238;--b2:#1E3050;--b3:#274068;--t1:#E2E8F0;--t2:#8BA0C0;--t3:#4A6080;--acc:#38BDF8;--grn:#34D399;--red:#FB7185;--amb:#FBBF24;--pur:#C084FC;--tel:#22D3EE;--cargo:#38BDF8;--log:#34D399;--exc:#FBBF24;--proc:#C084FC;--hold:#FB923C}",
   aurora:  ":root{--bg:#0D0B1E;--s1:#12102A;--s2:#171533;--s3:#1D1B3D;--b1:#252348;--b2:#2F2D5C;--b3:#3A3870;--t1:#EEF2FF;--t2:#A5A3C8;--t3:#5C5A80;--acc:#818CF8;--grn:#34D399;--red:#F87171;--amb:#FCD34D;--pur:#C084FC;--tel:#67E8F9;--cargo:#818CF8;--log:#34D399;--exc:#FCD34D;--proc:#C084FC;--hold:#FB923C}",
   carbon:  ":root{--bg:#0C0C0C;--s1:#111111;--s2:#161616;--s3:#1C1C1C;--b1:#242424;--b2:#2E2E2E;--b3:#383838;--t1:#FAFAFA;--t2:#A0A0A0;--t3:#606060;--acc:#F59E0B;--grn:#10B981;--red:#EF4444;--amb:#F59E0B;--pur:#8B5CF6;--tel:#06B6D4;--cargo:#F59E0B;--log:#10B981;--exc:#06B6D4;--proc:#8B5CF6;--hold:#F97316}",
-  forest:  ":root{--bg:#080F0D;--s1:#0C1410;--s2:#111A14;--s3:#16221A;--b1:#1C2E22;--b2:#243A2A;--b3:#2C4832;--t1:#ECFDF5;--t2:#86B09A;--t3:#4A7060;--acc:#4ADE80;--grn:#4ADE80;--red:#F87171;--amb:#FACC15;--pur:#A78BFA;--tel:#60A5FA;--cargo:#60A5FA;--log:#4ADE80;--exc:#FACC15;--proc:#A78BFA;--hold:#FB923C}"
+  forest:  ":root{--bg:#080F0D;--s1:#0C1410;--s2:#111A14;--s3:#16221A;--b1:#1C2E22;--b2:#243A2A;--b3:#2C4832;--t1:#ECFDF5;--t2:#86B09A;--t3:#4A7060;--acc:#4ADE80;--grn:#4ADE80;--red:#F87171;--amb:#FACC15;--pur:#A78BFA;--tel:#60A5FA;--cargo:#60A5FA;--log:#4ADE80;--exc:#FACC15;--proc:#A78BFA;--hold:#FB923C}",
+  light:   ":root{--bg:#F1F5F9;--s1:#FFFFFF;--s2:#F8FAFC;--s3:#E2E8F0;--b1:#CBD5E1;--b2:#94A3B8;--b3:#64748B;--t1:#0F172A;--t2:#334155;--t3:#64748B;--acc:#6366F1;--grn:#059669;--red:#DC2626;--amb:#D97706;--pur:#7C3AED;--tel:#0284C7;--cargo:#6366F1;--log:#059669;--exc:#D97706;--proc:#7C3AED;--hold:#EA580C}",
+  sky:     ":root{--bg:#EFF6FF;--s1:#FFFFFF;--s2:#F0F9FF;--s3:#E0F2FE;--b1:#BAE6FD;--b2:#7DD3FC;--b3:#38BDF8;--t1:#0C1A2E;--t2:#1E3A5F;--t3:#4A7FA5;--acc:#2563EB;--grn:#059669;--red:#DC2626;--amb:#D97706;--pur:#7C3AED;--tel:#0284C7;--cargo:#2563EB;--log:#059669;--exc:#D97706;--proc:#7C3AED;--hold:#EA580C}"
 };
 
 function setT(id) {
   var el = document.getElementById("TS");
   if (el) el.textContent = TCSS[id] || TCSS.slate;
   localStorage.setItem("fht", id);
-  ["slate","midnight","aurora","carbon","forest"].forEach(function(t) {
+  var isLight = (id==='light'||id==='sky');
+  ["slate","midnight","aurora","carbon","forest","light","sky"].forEach(function(t) {
     var btn = document.getElementById("tb_" + t);
-    if (btn) btn.style.border = t === id ? "2px solid white" : "2px solid transparent";
+    if (btn) btn.style.border = t === id ? ("2px solid "+(isLight?"#334155":"white")) : (t==='light'?"2px solid #CBD5E1":"2px solid transparent");
   });
+  // Light temalarda matn va border ranglarini moslashtirish
+  document.body.style.setProperty('--is-light', isLight?'1':'0');
+  var topbar = document.querySelector('.topbar');
+  if(topbar) topbar.style.borderBottomColor = isLight?'rgba(100,116,139,0.3)':'rgba(108,142,255,0.15)';
 }
 
 window.addEventListener("load", function() {
