@@ -371,6 +371,18 @@ const HOLD_TR_REASONS=[
   'Yo\'nalish likvidligini ta\'minlash','Kvartal moliyaviy yordam','Operatsion mablag\' uzatish',
   'Yangi loyiha uchun boshlang\'ich kapital'];
 
+var PIPELINE_DATA = [
+  {id:'BO-2024-001', contract:'SHT-2024-001', client:'Toshkent Trade LLC', product:'Elektronika',
+   direction:'logistics', manager:'Alisher Karimov', total:1250, paid:625, stage:'Yetkazildi',
+   date:'2024-05-01', delivery:'2024-05-20', transport:'Avtomobil', note:'Birinchi buyurtma'},
+  {id:'BO-2024-002', contract:'SHT-2024-002', client:'Samarqand Style', product:'Kiyim-kechak',
+   direction:'logistics', manager:'Nodira Yusupova', total:135, paid:135, stage:"To'landi",
+   date:'2024-05-05', delivery:'2024-05-28', transport:"Temir yo'l", note:''},
+  {id:'BO-2024-003', contract:'SHT-2024-003', client:'Namangan Food', product:'Oziq-ovqat',
+   direction:'logistics', manager:'Bobur Toshmatov', total:900, paid:0, stage:'Shartnoma',
+   date:'2024-05-08', delivery:'2024-06-01', transport:'Avtomobil', note:"Ruxsat hujjatlari kerak"},
+];
+
 function genData(){
   DATA={};
   const ad=dys(30);
@@ -439,6 +451,7 @@ const NAVS=[
   {id:'logistics',lbl:'🚛 Logistics'},
   {id:'exchange',lbl:'💱 Exchange'},
   {id:'procurement',lbl:'🏭 Procurement'},
+  {id:'pipeline',lbl:'📈 Pipeline'},
   {id:'pl',lbl:'📊 P&L'},
   {id:'kassa',lbl:'💳 Kassalar'},
   {id:'cashflow',lbl:'💵 Cash Flow'},
@@ -468,6 +481,7 @@ function goNav(id){
     DRILL.dir=id;
     renderL2(id);
   }
+  else if(id==='pipeline') renderPipeline();
   else if(id==='pl') renderPL();
   else if(id==='kassa') renderKassa();
   else if(id==='cashflow') renderCashflow();
@@ -1170,6 +1184,105 @@ function showSkuD(sku,dirId){
   showKD({id:'sku_'+sku,title:'SKU: '+sku,color:dir.c,metric:'revenue',type:'kpi',dirId});
 }
 
+
+// ════════════════════════════════════════════
+// SALES PIPELINE
+// ════════════════════════════════════════════
+function renderPipeline(){
+  var el = document.getElementById('pg-l1');
+  el.classList.add('on');
+  setBc([{lbl:'Holding',fn:"goNav('l1')"},{lbl:'Sales Pipeline',fn:''}]);
+
+  var data = PIPELINE_DATA;
+  var totalDeals = data.length;
+  var activeDeals = data.filter(function(d){ return d.stage !== "To'landi"; }).length;
+  var jamiSumma = data.reduce(function(s,d){ return s+d.total; }, 0);
+  var qoldiq = data.reduce(function(s,d){ return s+(d.total-d.paid); }, 0);
+
+  var STAGES = ['Lead','Muzokara','Taklifnoma','Shartnoma','Jarayonda','Yetkazildi',"To'landi"];
+  var STAGE_COLORS = {
+    'Lead':'#506080',
+    'Muzokara':'#6C8EFF',
+    'Taklifnoma':'#A78BFF',
+    'Shartnoma':'#FFB830',
+    'Jarayonda':'#FF7A50',
+    'Yetkazildi':'#00E5A0',
+    "To'landi":'#00E5A0'
+  };
+
+  var cards = '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:24px;">';
+  var summaryItems = [
+    {lbl:'Total Deals', val: totalDeals, fmt: ''},
+    {lbl:'Active Deals', val: activeDeals, fmt: ''},
+    {lbl:'Jami Summa', val: '$' + jamiSumma.toLocaleString(), fmt: ''},
+    {lbl:'Qoldiq', val: '$' + qoldiq.toLocaleString(), fmt: ''},
+  ];
+  summaryItems.forEach(function(item){
+    cards += '<div style="background:var(--c2,#1e2a3a);border-radius:12px;padding:18px 28px;min-width:160px;flex:1;">';
+    cards += '<div style="color:var(--muted,#8899aa);font-size:12px;">' + item.lbl + '</div>';
+    cards += '<div style="color:var(--fg,#e0eaff);font-size:26px;font-weight:700;margin-top:4px;">' + item.val + '</div>';
+    cards += '</div>';
+  });
+  cards += '</div>';
+
+  var kanban = '<div style="display:flex;gap:12px;overflow-x:auto;margin-bottom:28px;">';
+  STAGES.forEach(function(stage){
+    var stageDeals = data.filter(function(d){ return d.stage === stage; });
+    var color = STAGE_COLORS[stage] || '#506080';
+    kanban += '<div style="min-width:180px;flex:1;background:var(--c2,#1e2a3a);border-radius:10px;padding:12px;">';
+    kanban += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">';
+    kanban += '<span style="font-weight:700;color:' + color + ';font-size:13px;">' + stage + '</span>';
+    kanban += '<span style="background:' + color + ';color:#fff;border-radius:999px;padding:1px 8px;font-size:11px;">' + stageDeals.length + '</span>';
+    kanban += '</div>';
+    stageDeals.forEach(function(d){
+      kanban += '<div style="background:var(--bg,#111827);border-radius:8px;padding:10px;margin-bottom:8px;border-left:3px solid ' + color + ';">';
+      kanban += '<div style="font-size:12px;font-weight:600;color:var(--fg,#e0eaff);">' + d.id + '</div>';
+      kanban += '<div style="font-size:11px;color:var(--muted,#8899aa);margin-top:2px;">' + d.client + '</div>';
+      kanban += '<div style="font-size:12px;color:' + color + ';font-weight:700;margin-top:4px;">$' + d.total.toLocaleString() + '</div>';
+      kanban += '</div>';
+    });
+    kanban += '</div>';
+  });
+  kanban += '</div>';
+
+  var tblHdr = ['Buyurtma ID','Shartnoma №','Mijoz','Tovar','Summa','To\'langan','Qoldiq','Bosqich','Mas\'ul','Sana','Status'];
+  var tbl = '<div style="overflow-x:auto;">';
+  tbl += '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+  tbl += '<thead><tr>';
+  tblHdr.forEach(function(h){
+    tbl += '<th style="background:#1F3864;color:#fff;padding:9px 12px;text-align:left;white-space:nowrap;">' + h + '</th>';
+  });
+  tbl += '</tr></thead><tbody>';
+  data.forEach(function(d, idx){
+    var bg = idx%2===0 ? 'transparent' : 'rgba(255,255,255,0.03)';
+    var stageColor = STAGE_COLORS[d.stage] || '#888';
+    var rem = d.total - d.paid;
+    tbl += '<tr style="background:' + bg + ';">';
+    tbl += '<td style="padding:8px 12px;color:var(--fg,#e0eaff);">' + d.id + '</td>';
+    tbl += '<td style="padding:8px 12px;color:var(--muted,#8899aa);">' + d.contract + '</td>';
+    tbl += '<td style="padding:8px 12px;color:var(--fg,#e0eaff);">' + d.client + '</td>';
+    tbl += '<td style="padding:8px 12px;color:var(--muted,#8899aa);">' + d.product + '</td>';
+    tbl += '<td style="padding:8px 12px;color:var(--fg,#e0eaff);font-weight:600;">$' + d.total.toLocaleString() + '</td>';
+    tbl += '<td style="padding:8px 12px;color:#00E5A0;">$' + d.paid.toLocaleString() + '</td>';
+    tbl += '<td style="padding:8px 12px;color:#FF7A50;">$' + rem.toLocaleString() + '</td>';
+    tbl += '<td style="padding:8px 12px;"><span style="background:' + stageColor + ';color:#fff;border-radius:6px;padding:2px 8px;font-size:11px;">' + d.stage + '</span></td>';
+    tbl += '<td style="padding:8px 12px;color:var(--muted,#8899aa);">' + d.manager + '</td>';
+    tbl += '<td style="padding:8px 12px;color:var(--muted,#8899aa);">' + d.date + '</td>';
+    var statusColor = d.stage === "To'landi" ? '#C6EFCE' : (d.stage === 'Jarayonda' ? '#FFEB9C' : '#ddd');
+    tbl += '<td style="padding:8px 12px;"><span style="background:' + statusColor + ';color:#333;border-radius:6px;padding:2px 8px;font-size:11px;">' + d.stage + '</span></td>';
+    tbl += '</tr>';
+  });
+  tbl += '</tbody></table></div>';
+
+  el.innerHTML = '<div style="padding:20px;">'
+    + '<h2 style="color:var(--fg,#e0eaff);margin-bottom:20px;">📈 Sales Pipeline</h2>'
+    + cards
+    + '<h3 style="color:var(--fg,#e0eaff);margin-bottom:12px;">Kanban Bosqichlari</h3>'
+    + kanban
+    + '<h3 style="color:var(--fg,#e0eaff);margin-bottom:12px;">Buyurtmalar Jadvali</h3>'
+    + tbl
+    + '</div>';
+}
 
 // ════════════════════════════════════════════
 // P&L + 3-STATEMENT MODEL
