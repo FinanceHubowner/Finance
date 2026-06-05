@@ -658,10 +658,9 @@ function goDirNav(id){
 function renderL2(dirId){
   const dir=DIRS.find(d=>d.id===dirId);
   DRILL.dir=dirId;
+  ['l1','l2','l3','l4'].forEach(l=>{const p=document.getElementById('pg-'+l);p.classList.remove('on');p.style.display='';});
   const el=document.getElementById('pg-l2');
   el.classList.add('on');
-  el.style.display='block';
-  document.getElementById('pg-l1').classList.remove('on');
   setBc([{lbl:'Holding',fn:'goNav("l1")'},{lbl:dir.name,fn:''}]);
 
   const rows=fil(dirId);
@@ -728,7 +727,7 @@ function renderL2(dirId){
       {id:'cm',t:'Komissiya',v:$$(cm),c:'#17B374',m:'commission',s:`O'rt: ${ac.toFixed(1)}%`},
       {id:'ex',t:'Xarajat',v:$$(ex),c:'#E83535',m:'expense',s:''},
       {id:'nt',t:'Sof foyda',v:$$(nt),c:'#4A7FF5',m:'net',s:''},
-      {id:'ac',t:'O\'rt. komissiya',v:`${ac.toFixed(1)}%`,c:'#0DB5A0',m:'avg_cr',s:''},
+      {id:'ac',t:'Ort. komissiya',v:`${ac.toFixed(1)}%`,c:'#0DB5A0',m:'avg_cr',s:''},
     ];
     tableHTML=`<div class="twrap"><div class="thdr"><div class="tlbl">Tranzaksiyalar</div></div>
     <table><thead><tr><th>Klient</th><th>Kategoriya</th><th style="text-align:right">Buyurtma</th><th style="text-align:right">Komissiya</th><th style="text-align:right">Net</th><th>Sana</th></tr></thead><tbody>
@@ -869,15 +868,15 @@ function showKD(kpi){
   const pTotal=pv.reduce((a,b)=>a+b,0);
   const chg=pTotal>0?Math.round((total-pTotal)/pTotal*100):0;
 
+  ['l1','l2','l3','l4'].forEach(l=>{const p=document.getElementById('pg-'+l);p.classList.remove('on');p.style.display='';});
   const el=document.getElementById('pg-l3');
-  document.getElementById('pg-l1').classList.remove('on');
-  document.getElementById('pg-l2').classList.remove('on');
   el.classList.add('on');
-  setBc([{lbl:'Holding',fn:'goNav("l1")'},{lbl:dir.name,fn:`renderL2('${dirId}')`},{lbl:kpi.title,fn:''}]);
+  const backFn = dirId ? `renderL2('${dirId}')` : `goNav('l1')`;
+  setBc([{lbl:'Holding',fn:"goNav('l1')"},{lbl:dir.name,fn:dirId?`renderL2('${dirId}')`:''},{lbl:kpi.title,fn:''}]);
 
   el.innerHTML=`
   <div class="dhdr">
-    <button class="dbtn" onclick="renderL2('${dirId}')">← Orqaga</button>
+    <button class="dbtn" onclick="${backFn}">← Orqaga</button>
     <div style="width:38px;height:38px;border-radius:8px;background:${kpi.color}18;border:1px solid ${kpi.color}33;display:flex;align-items:center;justify-content:center;font-size:18px">${dir.e}</div>
     <div><div style="font-size:15px;font-weight:600">${kpi.title}</div>
     <div style="font-size:11px;color:var(--t3)">${dir.name} · ${PER} kunlik chuqur tahlil</div></div>
@@ -927,8 +926,8 @@ function showRow(row){
   DRILL.row=row;
   const dirId=row._dir||DRILL.dir;
   const dir=DIRS.find(d=>d.id===dirId)||{name:'',c:'#4A7FF5',e:'📋'};
+  ['l1','l2','l3','l4'].forEach(l=>{const p=document.getElementById('pg-'+l);p.classList.remove('on');p.style.display='';});
   const el=document.getElementById('pg-l4');
-  ['l1','l2','l3'].forEach(l=>document.getElementById('pg-'+l).classList.remove('on'));
   el.classList.add('on');
   const labels={date:'Sana',client:'Klient',sku:'Xizmat/SKU',revenue:'Daromad',cogs:'COGS',expense:'Xarajat',margin:'Marjin',
     rmb_to_usd:'RMB→USD',rmb_rate:'Kurs(RMB)',usd_to_rmb:'USD→RMB',usd_rate:'Kurs(USD)',spread:'Spread',net:'Sof foyda',
