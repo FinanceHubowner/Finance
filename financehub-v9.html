@@ -1,0 +1,1567 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinanceHub — To'liq Tizim</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Geist:wght@300;400;500;600&display=swap');
+:root{
+  --bg:#0A0E1A;--s1:#0F1424;--s2:#141929;--s3:#1A2035;
+  --b1:#1E2840;--b2:#263352;--b3:#2E3D63;
+  --t1:#F0EFFF;--t2:#94A3C4;--t3:#506080;
+  --acc:#6C8EFF;--grn:#00E5A0;--red:#FF4D6A;
+  --amb:#FFB830;--pur:#A78BFF;--tel:#00D4FF;
+  --cargo:#6C8EFF;--log:#00E5A0;--exc:#FFB830;--proc:#A78BFF;--hold:#FF7A50;
+  --mono:'Geist Mono',monospace;--sans:'Geist',sans-serif;
+  --r:10px;--r2:14px;
+  --glow-blue:0 0 20px rgba(108,142,255,0.15);
+  --glow-green:0 0 20px rgba(0,229,160,0.15);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg) !important;color:var(--t1);font-family:var(--sans);font-size:13px}
+/* --- TOPBAR --- */
+.topbar{height:52px;display:flex;align-items:center;padding:0 24px;border-bottom:1px solid rgba(108,142,255,0.15);background:var(--s1);position:sticky;top:0;z-index:100;gap:10px;position:relative}
+.logo{font-family:var(--mono);font-size:13px;font-weight:600}
+.logo em{color:var(--acc);font-style:normal;text-shadow:0 0 20px rgba(108,142,255,0.6)}
+.bc{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--t3)}
+.bc-sep{color:var(--b3)}
+.bc-item{cursor:pointer;padding:3px 7px;border-radius:4px;transition:.15s}
+.bc-item:hover,.bc-item.cur{color:var(--t1)}
+.bc-item:hover{background:var(--s3)}
+.tr{margin-left:auto;display:flex;gap:6px;align-items:center}
+.pb{padding:4px 9px;border-radius:5px;border:1px solid var(--b1);background:transparent;color:var(--t3);cursor:pointer;font-size:11px;font-family:var(--sans)}
+.pb.on{background:rgba(108,142,255,.15);border-color:rgba(108,142,255,.5);color:var(--acc);box-shadow:0 0 12px rgba(108,142,255,0.2)}
+/* --- NAV --- */
+.nav{display:flex;border-bottom:1px solid rgba(108,142,255,0.12);background:var(--s1);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);padding:0 24px;overflow-x:auto}
+.navbtn{padding:10px 14px;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--t3);cursor:pointer;font-size:12px;font-family:var(--sans);white-space:nowrap;transition:.15s}
+.navbtn.on{color:var(--acc);border-bottom-color:var(--acc);font-weight:500;text-shadow:0 0 12px rgba(108,142,255,0.5)}
+/* --- PAGES --- */
+.page{display:none;padding:20px 24px;animation:fi .25s ease}
+.page.on{display:block}
+@keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+/* --- CARDS --- */
+.card{background:var(--s2);border:1px solid rgba(108,142,255,0.12);border-radius:var(--r2);padding:14px;backdrop-filter:blur(8px)}
+.kgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:9px;margin-bottom:14px}
+.kpi{background:var(--s2);border:1px solid var(--b1);border-radius:var(--r);padding:14px;cursor:pointer;position:relative;transition:all .2s}
+.kpi:hover{border-color:var(--acc);transform:translateY(-3px);background:var(--s3)}
+.kpi:hover::after{content:'→';position:absolute;bottom:7px;right:10px;font-size:10px;color:var(--acc);font-family:var(--mono)}
+.kpi-l{font-size:11px;color:var(--t3);margin-bottom:5px}
+.kpi-v{font-size:20px;font-weight:600;font-family:var(--mono)}
+.kpi-s{font-size:11px;color:var(--t3);margin-top:3px}
+/* --- CHART GRID --- */
+.cgrid{display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:10px}
+.cc{background:var(--s2);border:1px solid var(--b1);border-radius:var(--r2);padding:14px;cursor:pointer;transition:.2s}
+.cc:hover{border-color:var(--b2)}
+.cc-lbl{font-size:10px;color:var(--t3);letter-spacing:.7px;text-transform:uppercase;font-family:var(--mono);margin-bottom:9px}
+/* --- TABLE --- */
+.twrap{background:var(--s2);border:1px solid var(--b1);border-radius:var(--r2);overflow:hidden;margin-bottom:10px}
+.thdr{padding:9px 13px;border-bottom:1px solid var(--b1);background:var(--s2);display:flex;align-items:center;justify-content:space-between}
+.tlbl{font-size:10px;font-family:var(--mono);color:var(--t3);letter-spacing:.7px;text-transform:uppercase}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;padding:6px 11px;color:var(--t3);font-weight:500;border-bottom:1px solid var(--b1);font-size:10px}
+td{padding:7px 11px;border-bottom:1px solid rgba(26,32,53,.4)}
+tr.cr{cursor:pointer}
+tr.cr:hover td{background:rgba(255,255,255,.015)}
+.bdg{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-family:var(--mono)}
+/* --- DIR CARDS --- */
+.dgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;margin-bottom:16px}
+.dc{background:var(--s2);border:1px solid var(--b1);border-radius:var(--r2);padding:16px;cursor:pointer;position:relative;overflow:hidden;transition:all .25s}
+.dc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.dc:hover{transform:translateY(-4px);border-color:var(--acc)}
+/* --- KASSA --- */
+.kassgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.kcard{background:var(--s2);border:1px solid var(--b1);border-radius:var(--r);padding:12px;transition:.2s}.kcard:hover{border-color:var(--acc);transform:translateY(-1px)}
+.kcard.neg{border-color:rgba(232,53,53,.3)}
+/* --- DETAIL --- */
+.dhdr{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.dbtn{padding:6px 13px;border-radius:6px;border:1px solid rgba(108,142,255,0.2);background:rgba(108,142,255,0.06);color:var(--t2);cursor:pointer;font-size:12px;font-family:var(--sans);transition:.15s}
+.dbtn:hover{border-color:rgba(108,142,255,0.6);color:var(--acc);background:rgba(108,142,255,0.1)}
+.srow{display:flex;gap:14px;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--b1);margin-bottom:14px}
+.st{display:flex;flex-direction:column;gap:2px}
+.stl{font-size:10px;color:var(--t3)}
+.stv{font-size:17px;font-weight:600;font-family:var(--mono)}
+/* --- CHECK --- */
+.cpanel{background:var(--s2);border:1px solid var(--b1);border-radius:var(--r2);padding:14px;margin-bottom:14px}
+.crows{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:7px}
+.crow{display:flex;align-items:center;justify-content:space-between;padding:7px 11px;background:var(--bg);border-radius:6px;border:1px solid var(--b1)}
+.cstat{display:flex;align-items:center;gap:7px;padding:5px 13px;border-radius:6px;font-family:var(--mono);font-size:12px;font-weight:600}
+.cstat.ok{background:rgba(0,229,160,.08);border:1px solid rgba(0,229,160,.3);color:var(--grn);box-shadow:0 0 12px rgba(0,229,160,0.1)}
+.cstat.err{background:rgba(232,53,53,.1);border:1px solid rgba(232,53,53,.3);color:var(--red)}
+/* --- TRANSFER --- */
+.flow{display:grid;grid-template-columns:90px 1fr 18px 1fr 100px 70px;gap:7px;align-items:center;padding:8px 11px;border-bottom:1px solid rgba(26,32,53,.4);cursor:pointer;transition:.15s}
+.flow:hover{background:rgba(255,255,255,.015)}
+.fpill{padding:3px 7px;border-radius:4px;font-size:10px;font-family:var(--mono);white-space:nowrap}
+/* --- MISC --- */
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-thumb{background:rgba(108,142,255,0.2);border-radius:2px}::-webkit-scrollbar-thumb:hover{background:rgba(108,142,255,0.4)}
+#toast{position:fixed;bottom:16px;right:16px;padding:10px 16px;border-radius:8px;font-size:11px;font-family:var(--mono);background:rgba(0,229,160,.1);border:1px solid rgba(0,229,160,.3);color:var(--grn);box-shadow:0 8px 32px rgba(0,229,160,0.15);transform:translateY(50px);opacity:0;transition:.25s;z-index:999}
+#toast.on{transform:none;opacity:1}
+.slbl{font-size:10px;color:var(--t3);letter-spacing:.7px;text-transform:uppercase;font-family:var(--mono);margin-bottom:8px}
+.sep{color:var(--b3)}
+</style>
+</head>
+<body>
+
+
+<div id="LGN" style="position:fixed;top:0;left:0;right:0;bottom:0;background:#0A0E1A;display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px">
+<div style="background:#0F1424;border:1px solid rgba(108,142,255,0.25);border-radius:16px;padding:36px;width:100%;max-width:360px">
+  <div style="font-size:22px;font-weight:700;font-family:monospace;margin-bottom:6px"><span style="color:#6C8EFF">Finance</span>Hub</div>
+  <div style="font-size:12px;color:#506080;margin-bottom:24px">Holding moliyaviy boshqaruv tizimi</div>
+  <div style="margin-bottom:12px">
+    <div style="font-size:11px;color:#506080;margin-bottom:5px">Email</div>
+    <input id="LE" type="email" placeholder="email@example.com"
+      style="width:100%;background:#0A0E1A;border:1px solid rgba(108,142,255,0.2);border-radius:8px;padding:10px 12px;color:#F0EFFF;font-size:13px;outline:none;box-sizing:border-box"
+      onkeydown="if(event.key==='Enter')LGO()">
+  </div>
+  <div style="margin-bottom:16px">
+    <div style="font-size:11px;color:#506080;margin-bottom:5px">Parol</div>
+    <input id="LP" type="password" placeholder="••••••••"
+      style="width:100%;background:#0A0E1A;border:1px solid rgba(108,142,255,0.2);border-radius:8px;padding:10px 12px;color:#F0EFFF;font-size:13px;outline:none;box-sizing:border-box"
+      onkeydown="if(event.key==='Enter')LGO()">
+  </div>
+  <button id="LB" onclick="LGO()"
+    style="width:100%;padding:12px;border-radius:8px;border:none;background:#6C8EFF;color:#fff;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit">
+    Kirish
+  </button>
+  <div id="LE2" style="color:#FF4D6A;font-size:12px;text-align:center;margin-top:8px;min-height:18px"></div>
+  <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(108,142,255,0.1);font-size:11px;color:#3A4860;text-align:center;line-height:1.9">
+    Supabase da yaratilgan email va parol bilan kiring
+  </div>
+</div>
+</div>
+
+<script>
+var SB = null;
+var CUR_USER = null;
+
+// Init Supabase
+try {
+  SB = supabase.createClient(
+    "https://khgnirqhuyswjmxxkonc.supabase.co",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtoZ25pcnFodXlzd2pteHhrb25jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0NjM3NDAsImV4cCI6MjA5NjAzOTc0MH0.leKaMvt2jiUX1MLS6FW-jd6R_Ql17iUBYvcT-p7y8rY"
+  );
+} catch(e) { console.log("Supabase init error:", e); }
+
+function showDash(profile) {
+  CUR_USER = profile;
+  document.getElementById("LGN").style.display = "none";
+  
+  setTimeout(function() {
+    var el = document.getElementById("UI");
+    if (el) {
+      var rc = {owner:"#00E5A0", manager:"#6C8EFF", staff:"#FFB830"};
+      var role = profile.role || "staff";
+      el.innerHTML =
+        "<span style='color:#94A3C4;font-size:11px'>" + (profile.full_name || profile.email) + "</span> " +
+        "<span style='background:rgba(108,142,255,0.1);color:" + (rc[role]||"#6C8EFF") + ";font-size:10px;padding:2px 8px;border-radius:999px'>" + role + "</span> " +
+        "<button onclick='LGOUT()' style='padding:4px 10px;border-radius:5px;border:1px solid rgba(108,142,255,0.2);background:transparent;color:#506080;cursor:pointer;font-size:11px'>Chiqish</button>";
+    }
+
+    var DIR_LBL = {cargo:"Cargo",logistics:"Logistics",exchange:"Exchange",procurement:"Procurement",holding:"Holding Kassa"};
+    var DIR_ICO = {cargo:"📦",logistics:"🚛",exchange:"💱",procurement:"🏭",holding:"🏦"};
+    var d = profile.direction;
+
+    if (profile.role !== "owner" && d) {
+      window.NAVS = [
+        {id: d, lbl: DIR_ICO[d] + " " + DIR_LBL[d]},
+        {id: "pl",       lbl: "📊 P&L"},
+        {id: "cashflow", lbl: "💵 Cash Flow"},
+        {id: "balance",  lbl: "⚖️ Balans"},
+        {id: "kassa",    lbl: "💳 Kassalar"},
+        {id: "entry",    lbl: "✏️ Kiritish"}
+      ];
+      ACTV = d;
+      DRILL = {dir: d, kpi: null, row: null};
+      buildNav();
+      renderL2(d);
+    } else {
+      window.NAVS = [
+        {id:"l1",lbl:"🏦 Holding"},
+        {id:"cargo",lbl:"📦 Cargo"},
+        {id:"logistics",lbl:"🚛 Logistics"},
+        {id:"exchange",lbl:"💱 Exchange"},
+        {id:"procurement",lbl:"🏭 Procurement"},
+        {id:"pl",lbl:"📊 P&L"},
+        {id:"kassa",lbl:"💳 Kassalar"},
+        {id:"cashflow",lbl:"💵 Cash Flow"},
+        {id:"balance",lbl:"⚖️ Balans"},
+        {id:"entry",lbl:"✏️ Kiritish"}
+      ];
+      ACTV = "l1";
+      buildNav();
+      renderL1();
+    }
+  }, 100);
+}
+
+async function LGO() {
+  var email = (document.getElementById("LE").value || "").trim();
+  var pass = document.getElementById("LP").value;
+  var err = document.getElementById("LE2");
+  var btn = document.getElementById("LB");
+  
+  if (!email || !pass) { err.textContent = "Email va parol kiriting!"; return; }
+  
+  err.textContent = "";
+  btn.textContent = "Tekshirilmoqda...";
+  btn.disabled = true;
+
+  try {
+    var res = await SB.auth.signInWithPassword({email: email, password: pass});
+    if (res.error) throw res.error;
+    
+    var uid = res.data.user.id;
+    var prof = await SB.from("profiles").select("*").eq("id", uid).single();
+    
+    var profile = prof.data || {role:"owner", direction:null, full_name: email};
+    profile.email = email;
+    
+    showDash(profile);
+  } catch(e) {
+    err.textContent = "Email yoki parol xato!";
+    btn.textContent = "Kirish";
+    btn.disabled = false;
+  }
+}
+
+async function LGOUT() {
+  await SB.auth.signOut();
+  CUR_USER = null;
+  document.getElementById("LE").value = "";
+  document.getElementById("LP").value = "";
+  document.getElementById("LE2").textContent = "";
+  document.getElementById("LB").textContent = "Kirish";
+  document.getElementById("LB").disabled = false;
+  document.getElementById("LGN").style.display = "flex";
+}
+
+// Check existing session
+window.addEventListener("load", async function() {
+  if (!SB) return;
+  try {
+    var s = await SB.auth.getSession();
+    if (s.data && s.data.session) {
+      var uid = s.data.session.user.id;
+      var prof = await SB.from("profiles").select("*").eq("id", uid).single();
+      var profile = prof.data || {role:"owner", direction:null, full_name: s.data.session.user.email};
+      profile.email = s.data.session.user.email;
+      showDash(profile);
+    }
+  } catch(e) {}
+});
+</script>
+
+<div class="topbar">
+  <div class="logo"><em>Finance</em>Hub</div>
+  <div class="sep">/</div>
+  <div class="bc" id="bc"></div>
+  <div class="tr">
+<style id="TS">:root{--bg:#0A0E1A;--s1:#0F1424;--s2:#141929;--s3:#1A2035;--b1:#1E2840;--b2:#263352;--b3:#2E3D63;--t1:#F0EFFF;--t2:#94A3C4;--t3:#506080;--acc:#6C8EFF;--grn:#00E5A0;--red:#FF4D6A;--amb:#FFB830;--pur:#A78BFF;--tel:#00D4FF;--cargo:#6C8EFF;--log:#00E5A0;--exc:#FFB830;--proc:#A78BFF;--hold:#FF7A50}</style>
+<div style="display:flex;gap:4px;align-items:center">
+  <span style="font-size:10px;color:#506080;margin-right:2px">Tema:</span>
+  <button title="Slate Pro" onclick="setT('slate')" style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#6C8EFF,#00E5A0);border:2px solid #6C8EFF;cursor:pointer;padding:0" id="tb_slate"></button>
+  <button title="Midnight" onclick="setT('midnight')" style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#38BDF8,#34D399);border:2px solid transparent;cursor:pointer;padding:0" id="tb_midnight"></button>
+  <button title="Aurora" onclick="setT('aurora')" style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#818CF8,#F9A8D4);border:2px solid transparent;cursor:pointer;padding:0" id="tb_aurora"></button>
+  <button title="Carbon Gold" onclick="setT('carbon')" style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#F59E0B,#8B5CF6);border:2px solid transparent;cursor:pointer;padding:0" id="tb_carbon"></button>
+  <button title="Forest Dark" onclick="setT('forest')" style="width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#4ADE80,#60A5FA);border:2px solid transparent;cursor:pointer;padding:0" id="tb_forest"></button>
+</div>
+    <div style="display:flex;align-items:center;gap:6px" id="periodBar">
+      <button class="pb on" onclick="setQuick('today',this)">Bugun</button>
+      <button class="pb" onclick="setQuick('week',this)">Hafta</button>
+      <button class="pb" onclick="setQuick('month',this)">Oy</button>
+      <button class="pb" onclick="setQuick('quarter',this)">Kvartal</button>
+      <button class="pb" onclick="setQuick('all',this)">Hammasi</button>
+      <button class="pb" onclick="toggleCustom()" id="customBtn" style="border-color:var(--amb)">📅 Belgilash</button>
+    </div>
+    <div id="customPicker" style="display:none;align-items:center;gap:6px;background:var(--s2);border:1px solid var(--b2);border-radius:6px;padding:4px 8px">
+      <input type="date" id="dateFrom" style="background:transparent;border:none;color:var(--t1);font-family:var(--mono);font-size:11px;outline:none;cursor:pointer">
+      <span style="color:var(--t3);font-size:11px">→</span>
+      <input type="date" id="dateTo" style="background:transparent;border:none;color:var(--t1);font-family:var(--mono);font-size:11px;outline:none;cursor:pointer">
+      <button onclick="applyCustom()" style="padding:3px 10px;border-radius:4px;border:1px solid var(--grn);background:rgba(23,179,116,.1);color:var(--grn);cursor:pointer;font-size:11px;font-family:var(--sans)">OK</button>
+    </div>
+    <div style="font-size:11px;color:var(--t3);font-family:var(--mono);padding:3px 8px;border:1px solid var(--b1);border-radius:5px" id="dateLabel"></div>
+  </div>
+<div id="UI" style="display:flex;align-items:center;gap:8px;margin-left:8px"></div>
+</div>
+<div class="nav" id="mainNav"></div>
+<div id="pg-l1" class="page on"></div>
+<div id="pg-l2" class="page"></div>
+<div id="pg-l3" class="page"></div>
+<div id="pg-l4" class="page"></div>
+<div id="toast"></div>
+
+<script>
+
+// ════════════════════════════════════════════
+// SUPABASE CONFIG
+// ════════════════════════════════════════════
+const SUPABASE_URL = 'https://khgnirqhuyswjmxxkonc.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtoZ25pcnFodXlzd2pteHhrb25jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0NjM3NDAsImV4cCI6MjA5NjAzOTc0MH0.leKaMvt2jiUX1MLS6FW-jd6R_Ql17iUBYvcT-p7y8rY';
+const DEMO_MODE = false;
+
+// ════════════════════════════════════════════
+// CONFIG
+// ════════════════════════════════════════════
+const DIRS=[
+  {id:'cargo',name:'Cargo',e:'📦',c:'#4A7FF5',s:'CRG',d:'CN→UZB'},
+  {id:'logistics',name:'Logistics',e:'🚛',c:'#17B374',s:'LOG',d:'CN→UZB'},
+  {id:'exchange',name:'Exchange',e:'💱',c:'#D48C0A',s:'EXC',d:'RMB↔USD'},
+  {id:'procurement',name:'Procurement',e:'🏭',c:'#7B55F5',s:'PRC',d:'China'},
+  {id:'holding',name:'Holding Kassa',e:'🏦',c:'#E8652A',s:'HLD',d:'Dividends'},
+];
+const CURS=['USD','RMB','UZS'];
+const KTYPES=['Naqd','Karta','Bank'];
+const CLIENTS=['Alibaba Co.','Huawei Ltd.','BYD Group','Midea Corp.','Haier Inc.','SAIC Motor'];
+const CSKUS=['Air Freight','Sea Freight','Express','Bulk'];
+const LSKUS=['Full Truck','LTL','Warehouse','Last Mile'];
+const PSKUS=['Electronics','Textiles','Machinery','Auto Parts','Chemicals'];
+
+// ════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════
+const rnd=(a,b)=>Math.round(Math.random()*(b-a)+a);
+const dys=(n)=>{const d=[];for(let i=n-1;i>=0;i--){const dt=new Date();dt.setDate(dt.getDate()-i);d.push(dt.toISOString().split('T')[0]);}return d;}
+const sym=c=>({USD:'$',RMB:'¥',UZS:"so'm"}[c]||c);
+const fmt=(n,d=0)=>isNaN(+n)?'—':(+n).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+const fS=(n)=>{const a=Math.abs(n);return a>=1e6?(n/1e6).toFixed(1)+'M':a>=1e3?(n/1e3).toFixed(0)+'K':fmt(n);}
+const $$=(n)=>`$${fS(n)}`;
+const sk=(a,k)=>a.reduce((s,r)=>s+(+r[k]||0),0);
+const pct=(a,b)=>b?Math.round(a/b*100):0;
+const TIP={backgroundColor:'rgba(12,15,22,.96)',titleColor:'#4A5570',bodyColor:'#E8E4DC',cornerRadius:4,padding:8};
+const GR={color:'rgba(255,255,255,.04)'};
+const TX={color:'#4A5570',font:{size:10,family:'Geist Mono'}};
+const LG={labels:{color:'#4A5570',font:{size:10},boxWidth:10}};
+
+let PER=14, ACTV='l1', DRILL={dir:null,kpi:null,row:null};
+let DATA={}, CHARTS={};
+
+// ════════════════════════════════════════════
+// DATA GEN
+// ════════════════════════════════════════════
+function genData(){
+  DATA={};
+  const ad=dys(30);
+  DIRS.forEach(d=>{
+    const rows=[];
+    ad.forEach((date,i)=>{
+      if(d.id==='cargo'||d.id==='logistics'){
+        const sk2=d.id==='cargo'?CSKUS:LSKUS;
+        CLIENTS.slice(0,rnd(3,5)).forEach(cl=>{
+          const rv=rnd(2000,15000),cg=Math.round(rv*rnd(40,62)/100),ex=rnd(200,1200);
+          rows.push({date,client:cl,sku:sk2[rnd(0,sk2.length-1)],revenue:rv,cogs:cg,expense:ex,margin:rv-cg-ex,
+            bank_usd:rnd(40000,120000),bank_cny:rnd(100000,600000)});
+        });
+      } else if(d.id==='exchange'){
+        const sp=rnd(400,2500),ex=rnd(80,500);
+        rows.push({date,rmb_to_usd:rnd(30000,200000),rmb_rate:(rnd(688,722)/100),
+          usd_to_rmb:rnd(20000,150000),usd_rate:(rnd(688,722)/100),
+          spread:sp,expense:ex,net:sp-ex,cash_usd:rnd(80000,400000),cash_cny:rnd(300000,2000000)});
+      } else if(d.id==='procurement'){
+        CLIENTS.slice(0,rnd(2,4)).forEach(cl=>{
+          const ov=rnd(3000,40000),cr=rnd(3,9)/100,cm=Math.round(ov*cr),ex=rnd(100,800);
+          rows.push({date,client:cl,sku:PSKUS[rnd(0,PSKUS.length-1)],order_value:ov,commission_rate:cr,commission:cm,
+            expense:ex,net:cm-ex,bank_usd:rnd(20000,80000)});
+        });
+      } else {
+        const dv=i%7===0?rnd(4000,25000):0;
+        const ln=i%11===0?rnd(8000,60000):0;
+        const eo=rnd(300,4000),to=i%8===0?rnd(3000,30000):0;
+        rows.push({date,div_in:dv,div_from:dv>0?['Cargo','Logistics'][rnd(0,1)]:'',
+          loan_in:ln,exp_out:eo,tr_out:to,tr_to:to>0?DIRS.filter(x=>x.id!=='holding')[rnd(0,3)].name:'',
+          cash_usd:rnd(60000,220000)});
+      }
+    });
+    DATA[d.id]=rows;
+  });
+  DATA.kassas={};
+  DIRS.forEach(d=>{
+    DATA.kassas[d.id]={};
+    CURS.forEach(cur=>KTYPES.forEach(tp=>{
+      const base={USD:rnd(5000,90000),RMB:rnd(50000,600000),UZS:rnd(5e6,200e6)}[cur];
+      DATA.kassas[d.id][`${cur}_${tp}`]={balance:base,prev:base-rnd(-8000,12000),in:rnd(0,20000),out:rnd(0,15000)};
+    }));
+  });
+}
+genData();
+
+const fil=(k)=>{
+  if(DATE_FROM&&DATE_TO){
+    return(DATA[k]||[]).filter(r=>r.date>=DATE_FROM&&r.date<=DATE_TO);
+  }
+  const d=new Set(dys(PER));
+  return(DATA[k]||[]).filter(r=>d.has(r.date));
+}
+
+// ════════════════════════════════════════════
+// NAV
+// ════════════════════════════════════════════
+const NAVS=[
+  {id:'l1',lbl:'🏦 Holding'},
+  {id:'cargo',lbl:'📦 Cargo'},
+  {id:'logistics',lbl:'🚛 Logistics'},
+  {id:'exchange',lbl:'💱 Exchange'},
+  {id:'procurement',lbl:'🏭 Procurement'},
+  {id:'pl',lbl:'📊 P&L'},
+  {id:'kassa',lbl:'💳 Kassalar'},
+  {id:'cashflow',lbl:'💵 Cash Flow'},
+  {id:'balance',lbl:'⚖️ Balans'},
+  {id:'entry',lbl:'✏️ Kiritish'},
+];
+
+function buildNav(){updateDateLabel&&updateDateLabel();
+  document.getElementById('mainNav').innerHTML=NAVS.map(n=>
+    `<button class="navbtn${ACTV===n.id?' on':''}" onclick="goNav('${n.id}')">${n.lbl}</button>`).join('');
+  document.getElementById('dateLabel').textContent=new Date().toISOString().split('T')[0];
+}
+
+function goNav(id){
+  ACTV=id;
+  DRILL={dir:null,kpi:null,row:null};
+  ['l1','l2','l3','l4'].forEach(l=>{
+    const el=document.getElementById('pg-'+l);
+    el.classList.remove('on');
+    el.innerHTML='';
+  });
+  Object.values(CHARTS).forEach(c=>c.destroy());
+  CHARTS={};
+  buildNav();
+  if(id==='l1') renderL1();
+  else if(['cargo','logistics','exchange','procurement','holding'].includes(id)){
+    DRILL.dir=id;
+    renderL2(id);
+  }
+  else if(id==='pl') renderPL();
+  else if(id==='kassa') renderKassa();
+  else if(id==='cashflow') renderCashflow();
+  else if(id==='balance') renderBalance();
+  else if(id==='entry') renderEntry();
+}
+
+function setBc(items){
+  document.getElementById('bc').innerHTML=items.map((it,i)=>
+    `<span class="bc-item${i===items.length-1?' cur':''}" onclick="${it.fn||''}">${it.lbl}</span>${i<items.length-1?'<span class="bc-sep">/</span>':''}`
+  ).join('');
+}
+
+function mkC(id,cfg){
+  if(CHARTS[id]){CHARTS[id].destroy();delete CHARTS[id];}
+  const ctx=document.getElementById(id);if(!ctx)return;
+  CHARTS[id]=new Chart(ctx,cfg);
+}
+
+// ── DATE RANGE ──────────────────────────────────────────────
+let DATE_FROM=null, DATE_TO=null, CUSTOM_MODE=false;
+
+function setQuick(mode, btn){
+  CUSTOM_MODE=false;
+  document.getElementById('customPicker').style.display='none';
+  document.querySelectorAll('.pb').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  const today=new Date();
+  const fmt=d=>d.toISOString().split('T')[0];
+  if(mode==='today'){
+    DATE_FROM=fmt(today); DATE_TO=fmt(today); PER=1;
+  } else if(mode==='week'){
+    const f=new Date(today); f.setDate(f.getDate()-6);
+    DATE_FROM=fmt(f); DATE_TO=fmt(today); PER=7;
+  } else if(mode==='month'){
+    const f=new Date(today); f.setDate(f.getDate()-29);
+    DATE_FROM=fmt(f); DATE_TO=fmt(today); PER=30;
+  } else if(mode==='quarter'){
+    const f=new Date(today); f.setDate(f.getDate()-89);
+    DATE_FROM=fmt(f); DATE_TO=fmt(today); PER=90;
+  } else if(mode==='all'){
+    DATE_FROM=null; DATE_TO=null; PER=365;
+  }
+  updateDateLabel();
+  genData();
+  goNav(ACTV);
+}
+
+function toggleCustom(){
+  const p=document.getElementById('customPicker');
+  const showing=p.style.display==='flex';
+  p.style.display=showing?'none':'flex';
+  if(!showing){
+    const today=new Date();
+    const fmt=d=>d.toISOString().split('T')[0];
+    const f=new Date(today); f.setDate(f.getDate()-29);
+    document.getElementById('dateFrom').value=DATE_FROM||fmt(f);
+    document.getElementById('dateTo').value=DATE_TO||fmt(today);
+  }
+}
+
+function applyCustom(){
+  const from=document.getElementById('dateFrom').value;
+  const to=document.getElementById('dateTo').value;
+  if(!from||!to){toast('Sanalarni tanlang!');return;}
+  if(from>to){toast('Boshlanish sanasi kattaroq!');return;}
+  DATE_FROM=from; DATE_TO=to;
+  CUSTOM_MODE=true;
+  const diff=Math.ceil((new Date(to)-new Date(from))/(1000*60*60*24))+1;
+  PER=diff;
+  document.querySelectorAll('.pb').forEach(b=>b.classList.remove('on'));
+  document.getElementById('customBtn').classList.add('on');
+  document.getElementById('customPicker').style.display='none';
+  updateDateLabel();
+  genData();
+  goNav(ACTV);
+}
+
+function updateDateLabel(){
+  const el=document.getElementById('dateLabel');
+  if(!el)return;
+  if(DATE_FROM&&DATE_TO&&DATE_FROM===DATE_TO){
+    el.textContent='Bugun: '+DATE_FROM.slice(5);
+  } else if(DATE_FROM&&DATE_TO){
+    el.textContent=DATE_FROM.slice(5)+' → '+DATE_TO.slice(5);
+  } else {
+    el.textContent='Barcha davr';
+  }
+}
+
+function setPer(n,btn){
+  PER=n;genData();
+  document.querySelectorAll('.pb').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  goNav(ACTV);
+}
+
+function toast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');
+  setTimeout(()=>t.classList.remove('on'),2500);
+}
+
+// ════════════════════════════════════════════
+// L1 — HOLDING
+// ════════════════════════════════════════════
+function renderL1(){
+  const el=document.getElementById('pg-l1');el.classList.add('on');
+  setBc([{lbl:'Holding',fn:'goNav("l1")'}]);
+  const stats=DIRS.map(d=>{
+    const rows=fil(d.id);
+    let rv=0,pr=0;
+    if(d.id==='cargo'||d.id==='logistics'){rv=sk(rows,'revenue');pr=sk(rows,'margin');}
+    else if(d.id==='exchange'){rv=sk(rows,'spread');pr=sk(rows,'net');}
+    else if(d.id==='procurement'){rv=sk(rows,'commission');pr=sk(rows,'net');}
+    else{rv=sk(rows,'div_in')+sk(rows,'loan_in');pr=rv-sk(rows,'exp_out')-sk(rows,'tr_out');}
+    return{...d,rv,pr};
+  });
+  const tRev=stats.reduce((s,d)=>s+d.rv,0);
+  const tPr=stats.reduce((s,d)=>s+d.pr,0);
+  const ad=dys(PER);
+
+  el.innerHTML=`
+  <div class="kgrid">
+    <div class="kpi" onclick="showKD({id:'rev',title:'Jami Daromad',color:'#17B374',metric:'revenue',type:'holding'})">
+      <div class="kpi-l">Jami daromad</div><div class="kpi-v" style="color:#17B374">${$$(tRev)}</div>
+      <div class="kpi-s">▲ ${rnd(3,12)}% o'sish</div></div>
+    <div class="kpi" onclick="showKD({id:'pr',title:'Sof Foyda',color:'#4A7FF5',metric:'profit',type:'holding'})">
+      <div class="kpi-l">Sof foyda</div><div class="kpi-v" style="color:#4A7FF5">${$$(tPr)}</div>
+      <div class="kpi-s">Marjin: ${tRev>0?Math.round(tPr/tRev*100):0}%</div></div>
+    <div class="kpi" onclick="showKD({id:'mg',title:'Marjinallik',color:'#D48C0A',metric:'margin_pct',type:'holding'})">
+      <div class="kpi-l">Marjinallik %</div><div class="kpi-v" style="color:#D48C0A">${tRev>0?Math.round(tPr/tRev*100):0}%</div>
+      <div class="kpi-s">Umumiy</div></div>
+    <div class="kpi" onclick="showKD({id:'div',title:'Dividend',color:'#0DB5A0',metric:'div_in',type:'holding_kassa'})">
+      <div class="kpi-l">Dividend kirdi</div><div class="kpi-v" style="color:#0DB5A0">${$$(sk(fil('holding'),'div_in'))}</div>
+      <div class="kpi-s">Yo'nalishlardan</div></div>
+    <div class="kpi" onclick="showKD({id:'tr',title:'Perebroska',color:'#7B55F5',metric:'tr_out',type:'holding_kassa'})">
+      <div class="kpi-l">Perebroska</div><div class="kpi-v" style="color:#7B55F5">${$$(sk(fil('holding'),'tr_out'))}</div>
+      <div class="kpi-s">Yo'nalishlarga</div></div>
+  </div>
+
+  <div class="cgrid">
+    <div class="cc" onclick="showKD({id:'trend',title:'Kunlik Foyda Trendi',color:'#4A7FF5',type:'trend'})">
+      <div class="cc-lbl">Kunlik foyda trendi — yo'nalishlar kesimida</div>
+      <div style="height:210px"><canvas id="l1t"></canvas></div>
+    </div>
+    <div class="cc" onclick="showKD({id:'pie',title:'Foyda Ulushi',color:'#7B55F5',type:'pie'})">
+      <div class="cc-lbl">Yo'nalishlar ulushi</div>
+      <div style="height:210px"><canvas id="l1p"></canvas></div>
+    </div>
+  </div>
+
+  <div class="slbl" style="margin-bottom:10px">Yo'nalishlar — bosib kirish</div>
+  <div class="dgrid">
+    ${stats.map(d=>{
+      const sp=dys(PER).slice(-10).map(date=>{
+        const rw=(DATA[d.id]||[]).filter(r=>r.date===date);
+        return d.id==='cargo'||d.id==='logistics'?sk(rw,'margin'):d.id==='exchange'?sk(rw,'net'):d.id==='procurement'?sk(rw,'net'):sk(rw,'div_in')-sk(rw,'exp_out');
+      });
+      const mx=Math.max(...sp,1);
+      const bars=sp.map(v=>`<div style="height:${Math.max(3,Math.round(v/mx*32))}px;background:${d.c}88;width:5px;border-radius:2px 2px 0 0;flex-shrink:0"></div>`).join('');
+      return`<div class="dc" style="border-top:3px solid ${d.c}" onclick="goDirNav('${d.id}')">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:9px">
+            <span style="font-size:20px">${d.e}</span>
+            <div><div style="font-size:14px;font-weight:600">${d.name}</div><div style="font-size:11px;color:var(--t3)">${d.d}</div></div>
+          </div>
+          <span class="bdg" style="background:${d.c}18;color:${d.c};border:1px solid ${d.c}33">${d.s}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div style="background:var(--bg);border-radius:6px;padding:9px">
+            <div style="font-size:10px;color:var(--t3)">Daromad</div>
+            <div style="font-size:14px;font-weight:600;font-family:var(--mono);color:#17B374">${$$(d.rv)}</div>
+          </div>
+          <div style="background:var(--bg);border-radius:6px;padding:9px">
+            <div style="font-size:10px;color:var(--t3)">Foyda</div>
+            <div style="font-size:14px;font-weight:600;font-family:var(--mono);color:${d.pr>=0?d.c:'#E83535'}">${$$(d.pr)}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:flex-end;gap:2px;margin-top:10px;height:32px">${bars}</div>
+      </div>`;
+    }).join('')}
+  </div>
+
+  <div class="twrap">
+    <div class="thdr"><div class="tlbl">So'nggi harakatlar</div>
+    <button class="pb" onclick="showKD({id:'transfers',title:'Barcha Transferlar',color:'#7B55F5',type:'transfers'})">Hammasi →</button></div>
+    <table><thead><tr><th>Sana</th><th>Tur</th><th>Yo'nalish</th><th style="text-align:right">Miqdor</th><th>Holat</th></tr></thead><tbody>
+    ${fil('holding').filter(r=>r.tr_out>0||r.div_in>0).slice(0,6).map(r=>`
+    <tr class="cr" onclick="showRow(${JSON.stringify({...r,_dir:'holding'}).replace(/"/g,'&quot;')})">
+      <td style="color:var(--t3);font-family:var(--mono)">${r.date?.slice(5)}</td>
+      <td><span class="bdg" style="background:${r.div_in>0?'rgba(23,179,116,.12)':'rgba(232,101,42,.12)'};color:${r.div_in>0?'#17B374':'#E8652A'}">${r.div_in>0?'Dividend':'Transfer'}</span></td>
+      <td>${r.tr_to||r.div_from||'—'}</td>
+      <td style="text-align:right;font-family:var(--mono);font-weight:500">${$$(r.div_in||r.tr_out)}</td>
+      <td><span style="width:5px;height:5px;border-radius:50%;background:#17B374;display:inline-block;margin-right:4px"></span>OK</td>
+    </tr>`).join('')}
+    </tbody></table>
+  </div>`;
+
+  setTimeout(()=>{
+    const ad2=dys(PER);
+    mkC('l1t',{type:'line',data:{labels:ad2.map(d=>d.slice(5)),datasets:DIRS.map(d=>({
+      label:d.name,
+      data:ad2.map(date=>{const rw=(DATA[d.id]||[]).filter(r=>r.date===date);
+        return d.id==='cargo'||d.id==='logistics'?sk(rw,'margin'):d.id==='exchange'?sk(rw,'net'):d.id==='procurement'?sk(rw,'net'):sk(rw,'div_in')-sk(rw,'exp_out');
+      }),borderColor:d.c,backgroundColor:d.c+'15',fill:true,tension:.4,pointRadius:0,borderWidth:1.5
+    }))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:LG,tooltip:TIP},scales:{x:{ticks:TX,grid:GR},y:{ticks:{...TX,callback:v=>`$${fS(v)}`},grid:GR}}}});
+    const pv=stats.map(d=>Math.max(0,d.pr));
+    mkC('l1p',{type:'doughnut',data:{labels:DIRS.map(d=>d.name),datasets:[{data:pv,backgroundColor:DIRS.map(d=>d.c+'99'),borderColor:DIRS.map(d=>d.c),borderWidth:1,hoverOffset:5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:LG,tooltip:{...TIP,callbacks:{label:c=>`${c.label}: ${$$(c.raw)}`}}},cutout:'60%'}});
+  },40);
+}
+
+function goDirNav(id){
+  ACTV=id;
+  DRILL.dir=id;
+  buildNav();
+  ['l2','l3','l4'].forEach(l=>{document.getElementById('pg-'+l).classList.remove('on');document.getElementById('pg-'+l).innerHTML='';});
+  renderL2(id);
+}
+
+// ════════════════════════════════════════════
+// L2 — DIRECTION
+// ════════════════════════════════════════════
+function renderL2(dirId){
+  const dir=DIRS.find(d=>d.id===dirId);
+  DRILL.dir=dirId;
+  const el=document.getElementById('pg-l2');
+  el.classList.add('on');
+  el.style.display='block';
+  document.getElementById('pg-l1').classList.remove('on');
+  setBc([{lbl:'Holding',fn:'goNav("l1")'},{lbl:dir.name,fn:''}]);
+
+  const rows=fil(dirId);
+  let kpis=[],tableHTML='';
+
+  if(dirId==='cargo'||dirId==='logistics'){
+    const rv=sk(rows,'revenue'),cg=sk(rows,'cogs'),ex=sk(rows,'expense'),mg=sk(rows,'margin');
+    const mp=rv>0?Math.round(mg/rv*100):0;
+    kpis=[
+      {id:'rev',t:'Jami daromad',v:$$(rv),c:'#17B374',m:'revenue',s:`${rows.length} tranzaksiya`},
+      {id:'cogs',t:'COGS',v:$$(cg),c:'#E83535',m:'cogs',s:`${pct(cg,rv)}% daromaddan`},
+      {id:'exp',t:'Xarajat',v:$$(ex),c:'#D48C0A',m:'expense',s:`${pct(ex,rv)}%`},
+      {id:'mg',t:'Marjinal foyda',v:$$(mg),c:dir.c,m:'margin',s:`Marjin: ${mp}%`},
+      {id:'mp',t:'Marjinallik %',v:`${mp}%`,c:'#0DB5A0',m:'margin_pct',s:''},
+    ];
+    const byC={};rows.forEach(r=>{if(!byC[r.client])byC[r.client]={rv:0,mg:0,cnt:0};byC[r.client].rv+=r.revenue;byC[r.client].mg+=r.margin;byC[r.client].cnt++;});
+    tableHTML=`<div class="twrap"><div class="thdr"><div class="tlbl">Klient variance</div></div>
+    <table><thead><tr><th>Klient</th><th style="text-align:right">Daromad</th><th style="text-align:right">Marjin</th><th style="text-align:right">%</th><th>Ulush</th></tr></thead><tbody>
+    ${Object.entries(byC).sort((a,b)=>b[1].rv-a[1].rv).map(([cl,v])=>{const sh=pct(v.rv,rv);return`
+    <tr class="cr" onclick="showClientD('${cl}','${dirId}')">
+      <td style="font-weight:500">${cl}</td>
+      <td style="text-align:right;font-family:var(--mono);color:#17B374">${$$(v.rv)}</td>
+      <td style="text-align:right;font-family:var(--mono);color:${v.mg>=0?dir.c:'#E83535'}">${$$(v.mg)}</td>
+      <td style="text-align:right;font-family:var(--mono)">${v.rv>0?Math.round(v.mg/v.rv*100):0}%</td>
+      <td><div style="height:3px;width:${sh}px;max-width:80px;background:${dir.c};border-radius:2px;display:inline-block"></div> ${sh}%</td>
+    </tr>`;}).join('')}
+    </tbody></table></div>
+    <div class="twrap" style="margin-top:8px"><div class="thdr"><div class="tlbl">SKU variance</div></div>
+    <table><thead><tr><th>SKU</th><th style="text-align:right">Daromad</th><th style="text-align:right">Marjin</th></tr></thead><tbody>
+    ${(()=>{const bs={};rows.forEach(r=>{if(!bs[r.sku])bs[r.sku]={rv:0,mg:0};bs[r.sku].rv+=r.revenue;bs[r.sku].mg+=r.margin;});
+    return Object.entries(bs).sort((a,b)=>b[1].rv-a[1].rv).map(([s,v])=>`
+    <tr class="cr" onclick="showSkuD('${s}','${dirId}')"><td>${s}</td>
+    <td style="text-align:right;font-family:var(--mono);color:#17B374">${$$(v.rv)}</td>
+    <td style="text-align:right;font-family:var(--mono);color:${v.mg>=0?dir.c:'#E83535'}">${$$(v.mg)}</td></tr>`).join('');})()}
+    </tbody></table></div>`;
+  } else if(dirId==='exchange'){
+    const rv=sk(rows,'rmb_to_usd'),uv=sk(rows,'usd_to_rmb'),sp=sk(rows,'spread'),ex=sk(rows,'expense'),nt=sk(rows,'net');
+    const last=rows[rows.length-1]||{};
+    kpis=[
+      {id:'rmb',t:'RMB→USD hajmi',v:`¥${fS(rv)}`,c:'#D48C0A',m:'rmb_to_usd',s:`${rows.length} kun`},
+      {id:'usd',t:'USD→RMB hajmi',v:$$(uv),c:'#4A7FF5',m:'usd_to_rmb',s:''},
+      {id:'sp',t:'Jami spread',v:$$(sp),c:'#17B374',m:'spread',s:'Brutto foyda'},
+      {id:'ex',t:'Xarajat',v:$$(ex),c:'#E83535',m:'expense',s:''},
+      {id:'nt',t:'Sof foyda',v:$$(nt),c:dir.c,m:'net',s:''},
+      {id:'cusd',t:'Kassa USD',v:$$(last.cash_usd||0),c:'#0DB5A0',m:'cash_usd',s:'Oxirgi kun'},
+      {id:'ccny',t:'Kassa CNY',v:`¥${fS(last.cash_cny||0)}`,c:'#D48C0A',m:'cash_cny',s:'Oxirgi kun'},
+    ];
+    tableHTML=`<div class="twrap"><div class="thdr"><div class="tlbl">Kunlik konversiya tarixi</div></div>
+    <table><thead><tr><th>Sana</th><th style="text-align:right">RMB→USD</th><th>Kurs</th><th style="text-align:right">USD→RMB</th><th style="text-align:right">Spread</th><th style="text-align:right">Net</th></tr></thead><tbody>
+    ${rows.slice().reverse().map(r=>`<tr class="cr" onclick="showRow(${JSON.stringify({...r,_dir:'exchange'}).replace(/"/g,'&quot;')})">
+      <td style="font-family:var(--mono);color:var(--t3)">${r.date?.slice(5)}</td>
+      <td style="text-align:right;font-family:var(--mono)">¥${fS(r.rmb_to_usd)}</td>
+      <td style="font-family:var(--mono);color:var(--t3)">${r.rmb_rate}</td>
+      <td style="text-align:right;font-family:var(--mono)">${$$(r.usd_to_rmb)}</td>
+      <td style="text-align:right;font-family:var(--mono);color:#17B374">${$$(r.spread)}</td>
+      <td style="text-align:right;font-family:var(--mono);font-weight:600;color:${r.net>=0?dir.c:'#E83535'}">${$$(r.net)}</td>
+    </tr>`).join('')}
+    </tbody></table></div>`;
+  } else if(dirId==='procurement'){
+    const ov=sk(rows,'order_value'),cm=sk(rows,'commission'),ex=sk(rows,'expense'),nt=sk(rows,'net');
+    const ac=rows.length?sk(rows,'commission_rate')/rows.length*100:0;
+    kpis=[
+      {id:'ov',t:'Buyurtma qiymati',v:$$(ov),c:dir.c,m:'order_value',s:`${rows.length} ta`},
+      {id:'cm',t:'Komissiya',v:$$(cm),c:'#17B374',m:'commission',s:`O'rt: ${ac.toFixed(1)}%`},
+      {id:'ex',t:'Xarajat',v:$$(ex),c:'#E83535',m:'expense',s:''},
+      {id:'nt',t:'Sof foyda',v:$$(nt),c:'#4A7FF5',m:'net',s:''},
+      {id:'ac',t:'O\'rt. komissiya',v:`${ac.toFixed(1)}%`,c:'#0DB5A0',m:'avg_cr',s:''},
+    ];
+    tableHTML=`<div class="twrap"><div class="thdr"><div class="tlbl">Tranzaksiyalar</div></div>
+    <table><thead><tr><th>Klient</th><th>Kategoriya</th><th style="text-align:right">Buyurtma</th><th style="text-align:right">Komissiya</th><th style="text-align:right">Net</th><th>Sana</th></tr></thead><tbody>
+    ${rows.slice().reverse().slice(0,12).map(r=>`<tr class="cr" onclick="showRow(${JSON.stringify({...r,_dir:'procurement'}).replace(/"/g,'&quot;')})">
+      <td style="font-weight:500">${r.client}</td>
+      <td><span class="bdg" style="background:${dir.c}18;color:${dir.c}">${r.sku}</span></td>
+      <td style="text-align:right;font-family:var(--mono)">${$$(r.order_value)}</td>
+      <td style="text-align:right;font-family:var(--mono);color:#17B374">${$$(r.commission)}</td>
+      <td style="text-align:right;font-family:var(--mono);font-weight:600;color:${r.net>=0?dir.c:'#E83535'}">${$$(r.net)}</td>
+      <td style="color:var(--t3);font-family:var(--mono)">${r.date?.slice(5)}</td>
+    </tr>`).join('')}
+    </tbody></table></div>`;
+  } else {
+    const dv=sk(rows,'div_in'),ln=sk(rows,'loan_in'),eo=sk(rows,'exp_out'),to=sk(rows,'tr_out');
+    const nt=dv+ln-eo-to;
+    kpis=[
+      {id:'dv',t:'Dividend kirdi',v:$$(dv),c:'#17B374',m:'div_in',s:''},
+      {id:'ln',t:'Qarz kirdi',v:$$(ln),c:'#4A7FF5',m:'loan_in',s:''},
+      {id:'eo',t:'Xarajat chiqdi',v:$$(eo),c:'#E83535',m:'exp_out',s:''},
+      {id:'to',t:'Perebroska',v:$$(to),c:'#D48C0A',m:'tr_out',s:''},
+      {id:'nt',t:'Saldo',v:$$(nt),c:nt>=0?dir.c:'#E83535',m:'net',s:''},
+    ];
+    tableHTML=`<div class="twrap"><div class="thdr"><div class="tlbl">Kassa harakatlari</div></div>
+    <table><thead><tr><th>Sana</th><th style="text-align:right">Div. kirdi</th><th style="text-align:right">Qarz</th><th style="text-align:right">Xarajat</th><th style="text-align:right">Perebroska</th><th>Kimga</th></tr></thead><tbody>
+    ${rows.slice().reverse().map(r=>`<tr class="cr" onclick="showRow(${JSON.stringify({...r,_dir:'holding'}).replace(/"/g,'&quot;')})">
+      <td style="font-family:var(--mono);color:var(--t3)">${r.date?.slice(5)}</td>
+      <td style="text-align:right;font-family:var(--mono);color:#17B374">${r.div_in>0?$$(r.div_in):'—'}</td>
+      <td style="text-align:right;font-family:var(--mono);color:#4A7FF5">${r.loan_in>0?$$(r.loan_in):'—'}</td>
+      <td style="text-align:right;font-family:var(--mono);color:#E83535">${$$(r.exp_out)}</td>
+      <td style="text-align:right;font-family:var(--mono);color:#D48C0A">${r.tr_out>0?$$(r.tr_out):'—'}</td>
+      <td style="color:var(--t2)">${r.tr_to||r.div_from||'—'}</td>
+    </tr>`).join('')}
+    </tbody></table></div>`;
+  }
+
+  const ad=dys(PER);
+  el.innerHTML=`
+  <div class="dhdr">
+    <button class="dbtn" onclick="goNav('l1')">← Orqaga</button>
+    <span style="font-size:24px">${dir.e}</span>
+    <div><div style="font-size:16px;font-weight:600">${dir.name}</div>
+    <div style="font-size:11px;color:var(--t3)">${dir.d} · ${PER} kun</div></div>
+    <span class="bdg" style="margin-left:auto;background:${dir.c}18;color:${dir.c};border:1px solid ${dir.c}33;font-size:12px;padding:4px 10px">${dir.s}</span>
+  </div>
+  <div class="kgrid">${kpis.map(k=>`
+    <div class="kpi" onclick="showKD({id:'${k.id}',title:'${k.t}',color:'${k.c}',metric:'${k.m}',type:'kpi',dirId:'${dirId}'})">
+      <div class="kpi-l">${k.t}</div><div class="kpi-v" style="color:${k.c}">${k.v}</div>
+      <div class="kpi-s">${k.s}</div></div>`).join('')}</div>
+  <div class="cgrid">
+    <div class="cc" onclick="showKD({id:'d_main',title:'${dir.name} Kunlik Tahlil',color:'${dir.c}',type:'dir_chart',dirId:'${dirId}'})">
+      <div class="cc-lbl">Kunlik dinamika</div><div style="height:200px"><canvas id="l2m"></canvas></div>
+    </div>
+    <div class="cc" onclick="showKD({id:'d_dist',title:'Taqsimot',color:'${dir.c}',type:'dir_dist',dirId:'${dirId}'})">
+      <div class="cc-lbl">${dirId==='cargo'||dirId==='logistics'?'Klient ulushi':dirId==='procurement'?'SKU ulushi':'Taqsimot'}</div>
+      <div style="height:200px"><canvas id="l2d"></canvas></div>
+    </div>
+  </div>
+  ${tableHTML}`;
+
+  setTimeout(()=>{
+    if(dirId==='cargo'||dirId==='logistics'){
+      const rows2=fil(dirId);
+      const ag={};rows2.forEach(r=>{if(!ag[r.date])ag[r.date]={rv:0,cg:0,mg:0};ag[r.date].rv+=r.revenue;ag[r.date].cg+=r.cogs;ag[r.date].mg+=r.margin;});
+      const aa=ad.map(d=>ag[d]||{rv:0,cg:0,mg:0});
+      mkC('l2m',{type:'bar',data:{labels:ad.map(d=>d.slice(5)),datasets:[
+        {label:'Daromad',data:aa.map(a=>a.rv),backgroundColor:'#17B37488',borderRadius:3},
+        {label:'COGS',data:aa.map(a=>a.cg),backgroundColor:'#E8353588',borderRadius:3},
+        {label:'Marjin',data:aa.map(a=>a.mg),backgroundColor:dir.c+'88',borderRadius:3},
+      ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:LG,tooltip:TIP},scales:{x:{ticks:TX,grid:GR},y:{ticks:{...TX,callback:v=>`$${fS(v)}`},grid:GR}}}});
+      const bc={};rows2.forEach(r=>{if(!bc[r.client])bc[r.client]=0;bc[r.client]+=r.revenue;});
+      const ce=Object.entries(bc).sort((a,b)=>b[1]-a[1]).slice(0,6);
+      mkC('l2d',{type:'doughnut',data:{labels:ce.map(e=>e[0]),datasets:[{data:ce.map(e=>e[1]),backgroundColor:['#4A7FF5','#17B374','#D48C0A','#7B55F5','#E8652A','#0DB5A0'].map(c=>c+'99'),borderWidth:1,hoverOffset:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:LG,tooltip:{...TIP,callbacks:{label:c=>`${c.label}: ${$$(c.raw)}`}}},cutout:'55%'}});
+    } else if(dirId==='exchange'){
+      const rows2=fil(dirId);
+      mkC('l2m',{type:'line',data:{labels:rows2.map(r=>r.date.slice(5)),datasets:[
+        {label:'Spread',data:rows2.map(r=>r.spread),borderColor:'#17B374',tension:.4,pointRadius:0,borderWidth:2},
+        {label:'Net',data:rows2.map(r=>r.net),borderColor:dir.c,tension:.4,pointRadius:0,borderWidth:2},
+        {label:'Xarajat',data:rows2.map(r=>r.expense),borderColor:'#E83535',borderDash:[4,2],tension:.4,pointRadius:0,borderWidth:1.5},
+      ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:LG,tooltip:TIP},scales:{x:{ticks:TX,grid:GR},y:{ticks:{...TX,callback:v=>`$${fS(v)}`},grid:GR}}}});
+      mkC('l2d',{type:'bar',data:{labels:rows2.map(r=>r.date.slice(5)),datasets:[
+        {label:'RMB→USD',data:rows2.map(r=>r.rmb_to_usd),backgroundColor:'#D48C0A88',borderRadius:3},
+        {label:'USD→RMB',data:rows2.map(r=>r.usd_to_rmb),backgroundColor:'#4A7FF588',borderRadius:3},
+      ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:LG,tooltip:{...TIP,callbacks:{label:c=>`${c.dataset.label}: ${fS(c.raw)}`}}},scales:{x:{ticks:TX,grid:GR},y:{ticks:{...TX,callback:v=>fS(v)},grid:GR}}}});
+    } else if(dirId==='procurement'){
+      const rows2=fil(dirId);
+      const ag={};rows2.forEach(r=>{if(!ag[r.date])ag[r.date]={ov:0,cm:0};ag[r.date].ov+=r.order_value;ag[r.date].cm+=r.commission;});
+      const aa=ad.map(d=>ag[d]||{ov:0,cm:0});
+      mkC('l2m',{type:'bar',data:{labels:ad.map(d=>d.slice(5)),datasets:[
+        {label:'Buyurtma',data:aa.map(a=>a.ov),backgroundColor:dir.c+'55',borderRadius:3},
+        {label:'Komissiya',data:aa.map(a=>a.cm),backgroundColor:'#17B37488',borderRadius:3},
+      ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:LG,tooltip:TIP},scales:{x:{ticks:TX,grid:GR},y:{ticks:{...TX,callback:v=>`$${fS(v)}`},grid:GR}}}});
+      const bs={};rows2.forEach(r=>{if(!bs[r.sku])bs[r.sku]=0;bs[r.sku]+=r.order_value;});
+      const se=Object.entries(bs).sort((a,b)=>b[1]-a[1]);
+      mkC('l2d',{type:'doughnut',data:{labels:se.map(e=>e[0]),datasets:[{data:se.map(e=>e[1]),backgroundColor:['#7B55F5','#4A7FF5','#17B374','#D48C0A','#E8652A'].map(c=>c+'99'),borderWidth:1,hoverOffset:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:LG,tooltip:{...TIP,callbacks:{label:c=>`${c.label}: ${$$(c.raw)}`}}},cutout:'55%'}});
+    } else {
+      const rows2=fil(dirId);
+      const ag={};rows2.forEach(r=>{if(!ag[r.date])ag[r.date]={dv:0,ln:0,eo:0,to:0};ag[r.date].dv+=r.div_in;ag[r.date].ln+=r.loan_in;ag[r.date].eo+=r.exp_out;ag[r.date].to+=r.tr_out;});
+      const aa=ad.map(d=>ag[d]||{dv:0,ln:0,eo:0,to:0});
+      mkC('l2m',{type:'bar',data:{labels:ad.map(d=>d.slice(5)),datasets:[
+        {label:'Div. kirdi',data:aa.map(a=>a.dv),backgroundColor:'#17B37488',borderRadius:3},
+        {label:'Qarz',data:aa.map(a=>a.ln),backgroundColor:'#4A7FF588',borderRadius:3},
+        {label:'Xarajat',data:aa.map(a=>-a.eo),backgroundColor:'#E8353588',borderRadius:3},
+        {label:'Perebroska',data:aa.map(a=>-a.to),backgroundColor:'#D48C0A88',borderRadius:3},
+      ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:LG,tooltip:TIP},scales:{x:{ticks:TX,grid:GR},y:{ticks:{...TX,callback:v=>`$${fS(v)}`},grid:GR}}}});
+      const rows3=fil(dirId);
+      mkC('l2d',{type:'doughnut',data:{labels:['Div. kirdi','Qarz','Xarajat','Perebroska'],datasets:[{data:[sk(rows3,'div_in'),sk(rows3,'loan_in'),sk(rows3,'exp_out'),sk(rows3,'tr_out')],backgroundColor:['#17B37488','#4A7FF588','#E8353588','#D48C0A88'],borderColor:['#17B374','#4A7FF5','#E83535','#D48C0A'],borderWidth:1,hoverOffset:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:LG,tooltip:{...TIP,callbacks:{label:c=>`${c.label}: ${$$(c.raw)}`}}},cutout:'55%'}});
+    }
+  },40);
+}
+
+// ════════════════════════════════════════════
+// L3 — KPI DETAIL
+// ════════════════════════════════════════════
+function showKD(kpi){
+  DRILL.kpi=kpi;
+  const dirId=kpi.dirId||DRILL.dir;
+  const dir=DIRS.find(d=>d.id===dirId)||{name:'Holding',c:'#4A7FF5',e:'🏦'};
+  const rows=dirId?fil(dirId):[];
+  const ad=dys(PER);
+  let dv=[];
+
+  if(kpi.metric&&dirId){
+    const ag={};rows.forEach(r=>{if(!ag[r.date])ag[r.date]=0;ag[r.date]+=(+r[kpi.metric]||0);});
+    dv=ad.map(d=>ag[d]||0);
+  } else if(kpi.type==='holding'){
+    dv=ad.map(date=>{let v=0;DIRS.forEach(d=>{const rw=(DATA[d.id]||[]).filter(r=>r.date===date);
+      if(kpi.metric==='revenue'){if(d.id==='cargo'||d.id==='logistics')v+=sk(rw,'revenue');else if(d.id==='exchange')v+=sk(rw,'spread');else if(d.id==='procurement')v+=sk(rw,'commission');else v+=sk(rw,'div_in');}
+      else if(kpi.metric==='profit'){if(d.id==='cargo'||d.id==='logistics')v+=sk(rw,'margin');else if(d.id==='exchange')v+=sk(rw,'net');else if(d.id==='procurement')v+=sk(rw,'net');else v+=sk(rw,'div_in')-sk(rw,'exp_out');}
+    });return v;});
+  } else {dv=ad.map(()=>rnd(1000,10000));}
+
+  const avg=dv.length?Math.round(dv.reduce((a,b)=>a+b,0)/dv.length):0;
+  const total=dv.reduce((a,b)=>a+b,0);
+  const maxV=Math.max(...dv,1),minV=Math.min(...dv);
+  const prevRows=(DATA[dirId]||[]).filter(r=>dys(PER*2).slice(0,PER).includes(r.date));
+  const prevAg={};prevRows.forEach(r=>{if(!prevAg[r.date])prevAg[r.date]=0;prevAg[r.date]+=(+r[kpi.metric||'revenue']||0);});
+  const pv=dys(PER*2).slice(0,PER).map(d=>prevAg[d]||0);
+  const pTotal=pv.reduce((a,b)=>a+b,0);
+  const chg=pTotal>0?Math.round((total-pTotal)/pTotal*100):0;
+
+  const el=document.getElementById('pg-l3');
+  document.getElementById('pg-l1').classList.remove('on');
+  document.getElementById('pg-l2').classList.remove('on');
+  el.classList.add('on');
+  setBc([{lbl:'Holding',fn:'goNav("l1")'},{lbl:dir.name,fn:`renderL2('${dirId}')`},{lbl:kpi.title,fn:''}]);
+
+  el.innerHTML=`
+  <div class="dhdr">
+    <button class="dbtn" onclick="renderL2('${dirId}')">← Orqaga</button>
+    <div style="width:38px;height:38px;border-radius:8px;background:${kpi.color}18;border:1px solid ${kpi.color}33;display:flex;align-items:center;justify-content:center;font-size:18px">${dir.e}</div>
+    <div><div style="font-size:15px;font-weight:600">${kpi.title}</div>
+    <div style="font-size:11px;color:var(--t3)">${dir.name} · ${PER} kunlik chuqur tahlil</div></div>
+  </div>
+  <div class="srow">
+    <div class="st"><div class="stl">Jami (${PER} kun)</div><div class="stv" style="color:${kpi.color}">${$$(total)}</div></div>
+    <div class="st"><div class="stl">Kunlik o'rtacha</div><div class="stv">${$$(avg)}</div></div>
+    <div class="st"><div class="stl">Maksimum</div><div class="stv" style="color:#17B374">${$$(maxV)}</div></div>
+    <div class="st"><div class="stl">Minimum</div><div class="stv" style="color:${minV<0?'#E83535':'var(--t2)'}">${$$(minV)}</div></div>
+    <div class="st"><div class="stl">Oldingi davr</div><div class="stv" style="color:${chg>=0?'#17B374':'#E83535'}">${chg>=0?'▲':'▼'} ${Math.abs(chg)}%</div></div>
+  </div>
+  <div class="cgrid" style="margin-bottom:10px">
+    <div class="cc"><div class="cc-lbl">Kunlik dinamika + o'rtacha</div><div style="height:210px"><canvas id="l3m"></canvas></div></div>
+    <div class="cc"><div class="cc-lbl">Bu davr vs oldingi davr</div><div style="height:210px"><canvas id="l3c"></canvas></div></div>
+  </div>
+  <div class="card" style="margin-bottom:10px"><div class="cc-lbl" style="margin-bottom:9px">Haftalik yig'indi</div><div style="height:140px"><canvas id="l3w"></canvas></div></div>
+  <div class="twrap"><div class="thdr"><div class="tlbl">Kunlik tafsilot</div></div>
+  <table><thead><tr><th>Sana</th><th style="text-align:right">Qiymat</th><th style="text-align:right">O'rtachaga nisbat</th><th>Bar</th></tr></thead><tbody>
+  ${ad.slice().reverse().map((date,i)=>{const val=dv[ad.length-1-i]||0;const df=val-avg;const bw=maxV>0?Math.round(Math.abs(val)/maxV*80):0;
+  return`<tr class="cr" onclick="showDayD('${date}','${dirId||"holding"}')">
+    <td style="font-family:var(--mono);color:var(--t3)">${date}</td>
+    <td style="text-align:right;font-family:var(--mono);font-weight:500;color:${kpi.color}">${$$(val)}</td>
+    <td style="text-align:right;font-family:var(--mono);color:${df>=0?'#17B374':'#E83535'}">${df>=0?'+':''}${$$(df)}</td>
+    <td><div style="height:3px;width:${bw}px;background:${kpi.color}88;border-radius:2px;display:inline-block"></div></td>
+  </tr>`;}).join('')}
+  </tbody></table></div>`;
+
+  setTimeout(()=>{
+    mkC('l3m',{type:'line',data:{labels:ad.map(d=>d.slice(5)),datasets:[
+      {label:kpi.title,data:dv,borderColor:kpi.color,backgroundColor:kpi.color+'18',fill:true,tension:.4,pointRadius:0,borderWidth:2},
+      {label:'O\'rtacha',data:ad.map(()=>avg),borderColor:'#4A5570',borderDash:[4,2],pointRadius:0,borderWidth:1},
+    ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:LG,tooltip:TIP},scales:{x:{ticks:TX,grid:GR},y:{ticks:{...TX,callback:v=>`$${fS(v)}`},grid:GR}}}});
+    mkC('l3c',{type:'bar',data:{labels:ad.map((_,i)=>`${i+1}k`),datasets:[
+      {label:'Bu davr',data:dv,backgroundColor:kpi.color+'88',borderRadius:3},
+      {label:'Oldingi',data:pv,backgroundColor:'#4A557044',borderRadius:3},
+    ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:LG,tooltip:TIP},scales:{x:{ticks:TX,grid:GR},y:{ticks:{...TX,callback:v=>`$${fS(v)}`},grid:GR}}}});
+    const wk=[];for(let i=0;i<dv.length;i+=7)wk.push(dv.slice(i,i+7).reduce((a,b)=>a+b,0));
+    mkC('l3w',{type:'bar',data:{labels:wk.map((_,i)=>`${i+1}-hafta`),datasets:[{label:'Haftalik',data:wk,backgroundColor:wk.map(v=>v>=avg*7?kpi.color+'99':'#4A557066'),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:TIP},scales:{x:{ticks:TX,grid:GR},y:{ticks:{...TX,callback:v=>`$${fS(v)}`},grid:GR}}}});
+  },40);
+}
+
+// ════════════════════════════════════════════
+// L4 — ROW DETAIL
+// ════════════════════════════════════════════
+function showRow(row){
+  if(typeof row==='string')row=JSON.parse(row);
+  DRILL.row=row;
+  const dirId=row._dir||DRILL.dir;
+  const dir=DIRS.find(d=>d.id===dirId)||{name:'',c:'#4A7FF5',e:'📋'};
+  const el=document.getElementById('pg-l4');
+  ['l1','l2','l3'].forEach(l=>document.getElementById('pg-'+l).classList.remove('on'));
+  el.classList.add('on');
+  const labels={date:'Sana',client:'Klient',sku:'Xizmat/SKU',revenue:'Daromad',cogs:'COGS',expense:'Xarajat',margin:'Marjin',
+    rmb_to_usd:'RMB→USD',rmb_rate:'Kurs(RMB)',usd_to_rmb:'USD→RMB',usd_rate:'Kurs(USD)',spread:'Spread',net:'Sof foyda',
+    cash_usd:'Kassa USD',cash_cny:'Kassa CNY',order_value:'Buyurtma',commission_rate:'Komissiya%',commission:'Komissiya',
+    div_in:'Div. kirdi',div_from:'Kimdan',loan_in:'Qarz kirdi',exp_out:'Xarajat',tr_out:'Perebroska',tr_to:'Kimga',bank_usd:'Bank USD'};
+  const amtK=['revenue','cogs','expense','margin','spread','net','cash_usd','cash_cny','order_value','commission','div_in','loan_in','exp_out','tr_out','bank_usd'];
+  const sdRows=(DATA[dirId]||[]).filter(r=>r.date===row.date&&r!==row).slice(0,4);
+
+  el.innerHTML=`
+  <div class="dhdr">
+    <button class="dbtn" onclick="goBack()">← Orqaga</button>
+    <span style="font-size:24px">${dir.e}</span>
+    <div><div style="font-size:15px;font-weight:600">Tranzaksiya detali</div>
+    <div style="font-size:11px;color:var(--t3)">${dir.name} · ${row.date||''} ${row.client?'· '+row.client:''}</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div class="card">
+      <div class="slbl" style="margin-bottom:10px">Barcha ma'lumotlar</div>
+      ${Object.entries(row).filter(([k])=>!k.startsWith('_')&&row[k]!==undefined&&row[k]!==null&&row[k]!=='').map(([k,v])=>{
+        const lbl=labels[k]||k;
+        const isA=amtK.includes(k);const isR=k.includes('rate');
+        const col=isA?(+v>=0?'#17B374':'#E83535'):'var(--t1)';
+        const disp=isA?$$( +v):isR?((+v)*100).toFixed(2)+'%':v;
+        return`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--b1)">
+          <div style="color:var(--t3);font-size:12px">${lbl}</div>
+          <div style="font-family:var(--mono);font-weight:500;color:${col}">${disp}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:10px">
+        <div class="slbl" style="margin-bottom:8px">Shu kungi boshqa yozuvlar</div>
+        ${sdRows.length?sdRows.map(r=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--b1);cursor:pointer" onclick="showRow(${JSON.stringify({...r,_dir:dirId}).replace(/"/g,'&quot;')})">
+          <div><div style="font-size:12px;font-weight:500">${r.client||r.sku||'—'}</div>
+          <div style="font-size:10px;color:var(--t3)">${r.sku||r.note||''}</div></div>
+          <div style="font-family:var(--mono);font-size:12px;color:${dir.c}">${$$(r.margin||r.net||r.commission||0)}</div>
+        </div>`).join(''):'<div style="color:var(--t3);font-size:12px">Boshqa yozuv yo\'q</div>'}
+      </div>
+      <div class="card">
+        <div class="slbl" style="margin-bottom:8px">Tezkor navigatsiya</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <button class="dbtn" style="text-align:left;justify-content:flex-start" onclick="renderL2('${dirId}')">← ${dir.name} dashboardiga</button>
+          <button class="dbtn" style="text-align:left;justify-content:flex-start" onclick="goNav('l1')">← Holding overviewga</button>
+          <button class="dbtn" style="text-align:left;justify-content:flex-start;color:var(--acc)" onclick="toast('Excel eksport tez orada!')">↓ Excel eksport</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function goBack(){
+  if(DRILL.kpi) goToL3();
+  else if(DRILL.dir) renderL2(DRILL.dir);
+  else goNav('l1');
+}
+function goToL3(){
+  document.getElementById('pg-l4').classList.remove('on');
+  document.getElementById('pg-l3').classList.add('on');
+}
+function showDayD(date,dirId){
+  const rows=(DATA[dirId]||[]).filter(r=>r.date===date);
+  if(rows.length)showRow({...rows[0],_dir:dirId});
+}
+
+function showClientD(client,dirId){
+  const rows=fil(dirId).filter(r=>r.client===client);
+  const dir=DIRS.find(d=>d.id===dirId);
+  showKD({id:'cl_'+client,title:'Klient: '+client,color:dir.c,metric:'revenue',type:'kpi',dirId});
+}
+function showSkuD(sku,dirId){
+  const dir=DIRS.find(d=>d.id===dirId);
+  showKD({id:'sku_'+sku,title:'SKU: '+sku,color:dir.c,metric:'revenue',type:'kpi',dirId});
+}
+
+
+// ════════════════════════════════════════════
+// P&L + 3-STATEMENT MODEL
+// ════════════════════════════════════════════
+function renderPL(){
+  const el=document.getElementById('pg-l1');el.classList.add('on');
+  setBc([{lbl:'Holding',fn:'goNav("l1")'},{lbl:'P&L Hisobot',fn:''}]);
+
+  // Get direction filter
+  const dir = CUR_USER && CUR_USER.role !== 'owner' ? CUR_USER.direction : null;
+
+  // Generate P&L data from existing DATA
+  const dirs = dir ? [DIRS.find(d=>d.id===dir)] : DIRS;
+
+  const plData = dirs.map(d=>{
+    const rows = fil(d.id);
+    let rev=0, cogs=0, opex=0, da=0, interest=0, tax=0;
+
+    if(d.id==='cargo'||d.id==='logistics'){
+      rev = sk(rows,'revenue');
+      cogs = sk(rows,'cogs');
+      opex = sk(rows,'expense');
+      da = rev * 0.02; // 2% depreciation estimate
+      interest = 0;
+      tax = Math.max(0, (rev-cogs-opex-da)*0.12); // 12% tax
+    } else if(d.id==='exchange'){
+      rev = sk(rows,'spread');
+      cogs = 0;
+      opex = sk(rows,'expense');
+      da = 0;
+      tax = Math.max(0, (rev-opex)*0.12);
+    } else if(d.id==='procurement'){
+      rev = sk(rows,'commission');
+      cogs = 0;
+      opex = sk(rows,'expense');
+      da = 0;
+      tax = Math.max(0, (rev-opex)*0.12);
+    } else {
+      rev = sk(rows,'div_in') + sk(rows,'loan_in');
+      cogs = 0;
+      opex = sk(rows,'exp_out');
+      da = 0;
+      tax = 0;
+    }
+
+    const gp = rev - cogs;
+    const gpPct = rev > 0 ? (gp/rev*100).toFixed(1) : 0;
+    const ebitda = gp - opex;
+    const ebitdaPct = rev > 0 ? (ebitda/rev*100).toFixed(1) : 0;
+    const ebit = ebitda - da;
+    const ebt = ebit - interest;
+    const netIncome = ebt - tax;
+    const netPct = rev > 0 ? (netIncome/rev*100).toFixed(1) : 0;
+
+    return {dir:d, rev, cogs, gp, gpPct, opex, ebitda, ebitdaPct, da, ebit, interest, tax, ebt, netIncome, netPct};
+  });
+
+  const totalRev = plData.reduce((s,d)=>s+d.rev,0);
+  const totalNet = plData.reduce((s,d)=>s+d.netIncome,0);
+  const totalGP = plData.reduce((s,d)=>s+d.gp,0);
+  const totalEBITDA = plData.reduce((s,d)=>s+d.ebitda,0);
+
+  // Waterfall chart data
+  const wfData = [
+    {lbl:'Daromad', val:totalRev, c:'#00E5A0'},
+    {lbl:'COGS', val:-plData.reduce((s,d)=>s+d.cogs,0), c:'#FF4D6A'},
+    {lbl:'Gross Profit', val:totalGP, c:'#6C8EFF', isTotal:true},
+    {lbl:'OpEx', val:-plData.reduce((s,d)=>s+d.opex,0), c:'#FF4D6A'},
+    {lbl:'EBITDA', val:totalEBITDA, c:'#FFB830', isTotal:true},
+    {lbl:'D&A', val:-plData.reduce((s,d)=>s+d.da,0), c:'#FF7A50'},
+    {lbl:'EBIT', val:plData.reduce((s,d)=>s+d.ebit,0), c:'#A78BFF', isTotal:true},
+    {lbl:'Soliq', val:-plData.reduce((s,d)=>s+d.tax,0), c:'#FF4D6A'},
+    {lbl:'Net Income', val:totalNet, c: totalNet>=0?'#00E5A0':'#FF4D6A', isTotal:true},
+  ];
+
+  el.innerHTML = `
+  <!-- SUMMARY KPIs -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:16px">
+    ${[
+      {l:'Revenue',v:$$(totalRev),c:'#00E5A0'},
+      {l:'Gross Profit',v:$$(totalGP),c:'#6C8EFF',s:`${totalRev>0?(totalGP/totalRev*100).toFixed(1):0}% marjin`},
+      {l:'EBITDA',v:$$(totalEBITDA),c:'#FFB830',s:`${totalRev>0?(totalEBITDA/totalRev*100).toFixed(1):0}% marjin`},
+      {l:'Net Income',v:$$(totalNet),c:totalNet>=0?'#00E5A0':'#FF4D6A',s:`${totalRev>0?(totalNet/totalRev*100).toFixed(1):0}% marjin`},
+    ].map(k=>`
+    <div class="kpi">
+      <div class="kpi-l">${k.l}</div>
+      <div class="kpi-v" style="color:${k.c}">${k.v}</div>
+      ${k.s?`<div class="kpi-s">${k.s}</div>`:''}
+    </div>`).join('')}
+  </div>
+
+  <!-- P&L WATERFALL + PIE -->
+  <div class="cgrid" style="margin-bottom:14px">
+    <div class="cc">
+      <div class="cc-lbl">P&L Waterfall — daromaddan sof foydagacha</div>
+      <div style="height:240px"><canvas id="pl_wf"></canvas></div>
+    </div>
+    <div class="cc">
+      <div class="cc-lbl">Xarajat tarkibi</div>
+      <div style="height:240px"><canvas id="pl_pie"></canvas></div>
+    </div>
+  </div>
+
+  <!-- DETAILED P&L TABLE -->
+  <div class="twrap" style="margin-bottom:14px">
+    <div class="thdr"><div class="tlbl">To'liq P&L Hisobot — yo'nalishlar kesimida</div></div>
+    <div style="overflow-x:auto">
+    <table>
+      <thead>
+        <tr>
+          <th style="min-width:160px">Ko'rsatkich</th>
+          ${plData.map(d=>`<th style="text-align:right;color:${d.dir.c}">${d.dir.e} ${d.dir.name}</th>`).join('')}
+          ${plData.length>1?'<th style="text-align:right;color:var(--t2)">JAMI</th>':''}
+        </tr>
+      </thead>
+      <tbody>
+        ${[
+          {lbl:'💰 Revenue (Daromad)', key:'rev', c:'#00E5A0', bold:true},
+          {lbl:'  Minus: COGS', key:'cogs', c:'#FF4D6A', neg:true},
+          {lbl:'📊 Gross Profit (GP)', key:'gp', c:'#6C8EFF', bold:true, pct:'gpPct'},
+          {lbl:'  Minus: OpEx', key:'opex', c:'#FF4D6A', neg:true},
+          {lbl:'📈 EBITDA', key:'ebitda', c:'#FFB830', bold:true, pct:'ebitdaPct'},
+          {lbl:'  Minus: D&A', key:'da', c:'#FF7A50', neg:true},
+          {lbl:'⚡ EBIT', key:'ebit', c:'#A78BFF', bold:true},
+          {lbl:'  Minus: Foiz', key:'interest', c:'#FF4D6A', neg:true},
+          {lbl:'📋 EBT', key:'ebt', c:'#94A3C4', bold:true},
+          {lbl:'  Minus: Soliq (12%)', key:'tax', c:'#FF4D6A', neg:true},
+          {lbl:'✅ Net Income', key:'netIncome', c:'var(--grn)', bold:true, pct:'netPct'},
+        ].map(row=>{
+          const total = plData.reduce((s,d)=>s+d[row.key],0);
+          return `<tr style="${row.bold?'border-top:1px solid var(--b2);background:rgba(255,255,255,0.02)':''}">
+            <td style="font-size:12px;${row.bold?'font-weight:600':'color:var(--t3)'}">${row.lbl}</td>
+            ${plData.map(d=>{
+              const v = d[row.key];
+              const pctVal = row.pct ? d[row.pct] : null;
+              return `<td style="text-align:right;font-family:var(--mono);font-size:12px;color:${v<0?'#FF4D6A':row.c}${row.bold?';font-weight:600':''}">
+                ${row.neg && v>0 ? '-' : ''}${$$(Math.abs(v))}
+                ${pctVal?`<span style="font-size:10px;color:var(--t3);margin-left:4px">${pctVal}%</span>`:''}
+              </td>`;
+            }).join('')}
+            ${plData.length>1?`<td style="text-align:right;font-family:var(--mono);font-size:12px;color:${total<0?'#FF4D6A':row.c}${row.bold?';font-weight:700':''}">
+              ${row.neg && total>0 ? '-' : ''}${$$(Math.abs(total))}
+            </td>`:''}
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  <!-- MARGIN TRENDS -->
+  <div class="cgrid">
+    <div class="cc">
+      <div class="cc-lbl">Kunlik daromad va sof foyda trendi</div>
+      <div style="height:200px"><canvas id="pl_trend"></canvas></div>
+    </div>
+    <div class="cc">
+      <div class="cc-lbl">Marjinallik ko'rsatkichlari</div>
+      <div style="height:200px"><canvas id="pl_margin"></canvas></div>
+    </div>
+  </div>`;
+
+  setTimeout(()=>{
+    const ad = dys(PER);
+    // Waterfall chart
+    mkC('pl_wf',{
+      type:'bar',
+      data:{
+        labels: wfData.map(d=>d.lbl),
+        datasets:[{
+          label:'P&L',
+          data: wfData.map(d=>d.val),
+          backgroundColor: wfData.map(d=>d.c+'cc'),
+          borderColor: wfData.map(d=>d.c),
+          borderWidth:1,
+          borderRadius:4,
+        }]
+      },
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{...TIP,callbacks:{label:c=>`${c.label}: ${$$(c.raw)}`}}},scales:{x:{ticks:TX,grid:GR},y:{ticks:{...TX,callback:v=>`$${fS(v)}`},grid:GR}}}
+    });
+
+    // Expense pie
+    const expData = [
+      {l:'COGS', v:plData.reduce((s,d)=>s+d.cogs,0), c:'#FF4D6A'},
+      {l:'OpEx', v:plData.reduce((s,d)=>s+d.opex,0), c:'#FFB830'},
+      {l:'D&A', v:plData.reduce((s,d)=>s+d.da,0), c:'#FF7A50'},
+      {l:'Soliq', v:plData.reduce((s,d)=>s+d.tax,0), c:'#A78BFF'},
+    ].filter(d=>d.v>0);
+    mkC('pl_pie',{type:'doughnut',data:{labels:expData.map(d=>d.l),datasets:[{data:expData.map(d=>d.v),backgroundColor:expData.map(d=>d.c+'99'),borderColor:expData.map(d=>d.c),borderWidth:1,hoverOffset:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:LG,tooltip:{...TIP,callbacks:{label:c=>`${c.label}: ${$$(c.raw)}`}}},cutout:'60%'}});
+
+    // Trend chart
+    const trendRev = ad.map(date=>{
+      let v=0;
+      (dir?[dir]:DIRS.map(d=>d.id)).forEach(id=>{
+        const rw=(DATA[id]||[]).filter(r=>r.date===date);
+        if(id==='cargo'||id==='logistics') v+=sk(rw,'revenue');
+        else if(id==='exchange') v+=sk(rw,'spread');
+        else if(id==='procurement') v+=sk(rw,'commission');
+        else if(id==='holding') v+=sk(rw,'div_in')+sk(rw,'loan_in');
+      });
+      return v;
+    });
+    const trendNet = trendRev.map(r=>r*0.15); // simplified net
+    mkC('pl_trend',{type:'line',data:{labels:ad.map(d=>d.slice(5)),datasets:[
+      {label:'Revenue',data:trendRev,borderColor:'#00E5A0',backgroundColor:'#00E5A015',fill:true,tension:.4,pointRadius:0,borderWidth:2},
+      {label:'Net Income',data:trendNet,borderColor:'#6C8EFF',tension:.4,pointRadius:0,borderWidth:2},
+    ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:LG,tooltip:TIP},scales:{x:{ticks:TX,grid:GR},y:{ticks:{...TX,callback:v=>`$${fS(v)}`},grid:GR}}}});
+
+    // Margin chart
+    const gpPcts = ad.map(date=>{
+      let r=0,c=0;
+      (dir?[dir]:DIRS.map(d=>d.id)).forEach(id=>{
+        const rw=(DATA[id]||[]).filter(r=>r.date===date);
+        if(id==='cargo'||id==='logistics'){r+=sk(rw,'revenue');c+=sk(rw,'cogs');}
+        else if(id==='exchange') r+=sk(rw,'spread');
+        else if(id==='procurement') r+=sk(rw,'commission');
+        else if(id==='holding') r+=sk(rw,'div_in')+sk(rw,'loan_in');
+      });
+      return r>0?Math.round((r-c)/r*100):0;
+    });
+    mkC('pl_margin',{type:'line',data:{labels:ad.map(d=>d.slice(5)),datasets:[
+      {label:'GP Margin %',data:gpPcts,borderColor:'#6C8EFF',tension:.4,pointRadius:0,borderWidth:2},
+      {label:'Net Margin %',data:gpPcts.map(v=>Math.round(v*0.35)),borderColor:'#00E5A0',tension:.4,pointRadius:0,borderWidth:1.5,borderDash:[4,2]},
+    ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:LG,tooltip:TIP},scales:{x:{ticks:TX,grid:GR},y:{ticks:{...TX,callback:v=>v+'%'},grid:GR}}}});
+  },50);
+}
+
+
+// ════════════════════════════════════════════
+// KASSALAR
+// ════════════════════════════════════════════
+function renderKassa(){
+  const el=document.getElementById('pg-l1');el.classList.add('on');
+  setBc([{lbl:'Holding',fn:'goNav("l1")'},{lbl:'Kassalar',fn:''}]);
+
+  const totalByDir=DIRS.map(d=>{
+    const kas=DATA.kassas[d.id]||{};
+    const usd=KTYPES.reduce((s,t)=>s+(kas[`USD_${t}`]?.balance||0),0);
+    const rmb=KTYPES.reduce((s,t)=>s+(kas[`RMB_${t}`]?.balance||0),0);
+    const uzs=KTYPES.reduce((s,t)=>s+(kas[`UZS_${t}`]?.balance||0),0);
+    return{...d,usd,rmb,uzs,ekv:usd+rmb/7.1+uzs/12700};
+  });
+
+  const grandUSD=totalByDir.reduce((s,d)=>s+d.usd,0);
+  const grandRMB=totalByDir.reduce((s,d)=>s+d.rmb,0);
+  const grandUZS=totalByDir.reduce((s,d)=>s+d.uzs,0);
+
+  el.innerHTML=`
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+    <div style="font-size:15px;font-weight:600">Multi-Kassa Tizimi</div>
+    <div style="font-size:11px;color:var(--t3);font-family:var(--mono)">5 yo'nalish × 9 kassa = 45 ta kassa</div>
+  </div>
+
+  <div class="cpanel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="font-size:11px;font-family:var(--mono);letter-spacing:.7px;text-transform:uppercase">Umumiy balans holati</div>
+      <div class="cstat ok">✓ BARCHA KASSALAR FAOL</div>
+    </div>
+    <div class="crows">
+      <div class="crow"><div style="font-size:12px;color:var(--t3)">Jami USD</div><div style="font-family:var(--mono);font-weight:600;color:#17B374">$${fmt(grandUSD)}</div></div>
+      <div class="crow"><div style="font-size:12px;color:var(--t3)">Jami RMB</div><div style="font-family:var(--mono);font-weight:600;color:#D48C0A">¥${fmt(grandRMB)}</div></div>
+      <div class="crow"><div style="font-size:12px;color:var(--t3)">Jami UZS</div><div style="font-family:var(--mono);font-weight:600;color:#1D9E75">${fmt(Math.round(grandUZS/1e6))}M</div></div>
+      <div class="crow"><div style="font-size:12px;color:var(--t3)">USD ekvivalent</div><div style="font-family:var(--mono);font-weight:600;color:#0DB5A0">$${fmt(Math.round(totalByDir.reduce((s,d)=>s+d.ekv,0)))}</div></div>
+    </div>
+  </div>
+
+  ${DIRS.map(d=>{
+    const kas=DATA.kassas[d.id]||{};
+    const checks=CURS.map(cur=>{
+      const inT=KTYPES.reduce((s,t)=>s+(kas[`${cur}_${t}`]?.in||0),0);
+      const outT=KTYPES.reduce((s,t)=>s+(kas[`${cur}_${t}`]?.out||0),0);
+      const chk=inT-outT;
+      return{cur,inT,outT,chk};
+    });
+    const allOk=checks.every(c=>Math.abs(c.chk)<1);
+
+    return`<div style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600">
+          <span>${d.e}</span><span style="color:${d.c}">${d.name}</span>
+        </div>
+        <div class="cstat ${allOk?'ok':'err'}">${allOk?'✓ CHECK=0':'⚠ FARQ'}</div>
+      </div>
+      <div class="kassgrid">
+        ${CURS.flatMap(cur=>KTYPES.map(tp=>{
+          const b=kas[`${cur}_${tp}`]||{balance:0,prev:0};
+          const ch=b.balance-b.prev;
+          const tc={Naqd:'#17B374',Karta:'#4A7FF5',Bank:'#7B55F5'}[tp];
+          return`<div class="kcard${b.balance<0?' neg':''}">
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+              <div style="font-family:var(--mono);font-size:10px;color:var(--t3)">${cur} ${tp.toUpperCase()}</div>
+              <span style="background:${tc}18;color:${tc};border:1px solid ${tc}33;font-size:10px;padding:1px 5px;border-radius:3px">${tp}</span>
+            </div>
+            <div style="font-family:var(--mono);font-size:18px;font-weight:600;color:${b.balance<0?'#E83535':'var(--t1)'}">${sym(cur)}${fmt(b.balance)}</div>
+            <div style="font-size:10px;color:${ch>=0?'#17B374':'#E83535'};margin-top:3px">${ch>=0?'▲':'▼'} ${sym(cur)}${fmt(Math.abs(ch))}</div>
+          </div>`;
+        })).join('')}
+      </div>
+    </div>`;
+  }).join('')}`;
+}
+
+// ════════════════════════════════════════════
+// CASH FLOW
+// ════════════════════════════════════════════
+function renderCashflow(){
+  const el=document.getElementById('pg-l1');el.classList.add('on');
+  setBc([{lbl:'Holding',fn:'goNav("l1")'},{lbl:'Cash Flow',fn:''}]);
+  const c=fil('cargo'),l=fil('logistics'),e=fil('exchange'),p=fil('procurement'),h=fil('holding');
+  const inflow=sk(c,'revenue')+sk(l,'revenue')+sk(e,'spread')+sk(p,'commission')+sk(h,'div_in')+sk(h,'loan_in');
+  const outflow=sk(c,'cogs')+sk(c,'expense')+sk(l,'cogs')+sk(l,'expense')+sk(e,'expense')+sk(p,'expense')+sk(h,'exp_out')+sk(h,'tr_out');
+  const net=inflow-outflow;
+  const ad=dys(PER);
+  const iArr=ad.map(d=>{const fd=r=>r.date===d;return sk(c.filter(fd),'revenue')+sk(l.filter(fd),'revenue')+sk(e.filter(fd),'spread')+sk(p.filter(fd),'commission')+sk(h.filter(fd),'div_in');});
+  const oArr=ad.map(d=>{const fd=r=>r.date===d;return-(sk(c.filter(fd),'cogs')+sk(c.filter(fd),'expense')+sk(l.filter(fd),'cogs')+sk(l.filter(fd),'expense')+sk(e.filter(fd),'expense')+sk(p.filter(fd),'expense')+sk(h.filter(fd),'exp_out'));});
+  let cum=0;const cumArr=iArr.map((v,i)=>{cum+=v+oArr[i];return cum;});
+
+  el.innerHTML=`
+  <div class="kgrid">
+    <div class="kpi" onclick="showKD({id:'cf_in',title:'Jami Inflow',color:'#17B374',type:'cf'})"><div class="kpi-l">Jami kirish (inflow)</div><div class="kpi-v" style="color:#17B374">${$$(inflow)}</div></div>
+    <div class="kpi" onclick="showKD({id:'cf_out',title:'Jami Outflow',color:'#E83535',type:'cf'})"><div class="kpi-l">Jami chiqish (outflow)</div><div class="kpi-v" style="color:#E83535">${$$(outflow)}</div></div>
+    <div class="kpi" onclick="showKD({id:'cf_net',title:'Sof Pul Oqimi',color:net>0?'#17B374':'#E83535',type:'cf'})"><div class="kpi-l">Sof pul oqimi</div><div class="kpi-v" style="color:${net>0?'#17B374':'#E83535'}">${$$(net)}</div></div>
+  </div>
+  <div class="card" style="margin-bottom:10px"><div class="cc-lbl">Kunlik kirish / chiqish</div><div style="height:220px"><canvas id="cf_bar"></canvas></div></div>
+  <div class="card" style="margin-bottom:10px"><div class="cc-lbl">Kümülatif naqd pozitsiya</div><div style="height:180px"><canvas id="cf_area"></canvas></div></div>
+  <div class="twrap"><div class="thdr"><div class="tlbl">Perebroska jadvali</div></div>
+  <table><thead><tr><th>Sana</th><th>Kimdan</th><th>Kimga</th><th style="text-align:right">Miqdor</th></tr></thead><tbody>
+  ${h.filter(r=>r.tr_out>0).map(r=>`<tr class="cr" onclick="showRow(${JSON.stringify({...r,_dir:'holding'}).replace(/"/g,'&quot;')})">
+    <td style="font-family:var(--mono);color:var(--t3)">${r.date?.slice(5)}</td>
+    <td><span class="bdg" style="background:rgba(232,101,42,.12);color:#E8652A">Holding</span></td>
+    <td><span class="bdg" style="background:rgba(74,127,245,.12);color:#4A7FF5">${r.tr_to||'—'}</span></td>
+    <td style="text-align:right;font-family:var(--mono);font-weight:500;color:#D48C0A">${$$(r.tr_out)}</td>
+  </tr>`).join('')}
+  </tbody></table></div>`;
+
+  setTimeout(()=>{
+    mkC('cf_bar',{type:'bar',data:{labels:ad.map(d=>d.slice(5)),datasets:[{label:'Kirish',data:iArr,backgroundColor:'#17B37488',borderRadius:3},{label:'Chiqish',data:oArr,backgroundColor:'#E8353588',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:LG,tooltip:TIP},scales:{x:{ticks:TX,grid:GR},y:{ticks:{...TX,callback:v=>`$${fS(Math.abs(v))}`},grid:GR}}}});
+    mkC('cf_area',{type:'line',data:{labels:ad.map(d=>d.slice(5)),datasets:[{label:'Saldo',data:cumArr,borderColor:'#0DB5A0',backgroundColor:'rgba(13,181,160,.1)',fill:true,tension:.4,pointRadius:0,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:TIP},scales:{x:{ticks:TX,grid:GR},y:{ticks:{...TX,callback:v=>`$${fS(v)}`},grid:GR}}}});
+  },40);
+}
+
+// ════════════════════════════════════════════
+// BALANCE
+// ════════════════════════════════════════════
+function renderBalance(){
+  const el=document.getElementById('pg-l1');el.classList.add('on');
+  setBc([{lbl:'Holding',fn:'goNav("l1")'},{lbl:'Balans',fn:''}]);
+  const c=fil('cargo'),l=fil('logistics'),e=fil('exchange'),p=fil('procurement'),h=fil('holding');
+  const lc=DATA.cargo[DATA.cargo.length-1]||{},ll=DATA.logistics[DATA.logistics.length-1]||{};
+  const le=DATA.exchange[DATA.exchange.length-1]||{},lp=DATA.procurement[DATA.procurement.length-1]||{};
+  const lh=DATA.holding[DATA.holding.length-1]||{};
+  const assets=[
+    {n:'Cargo — Bank USD',v:lc.bank_usd||0},{n:'Cargo — CNY (ekv.)',v:Math.round((lc.bank_cny||0)/7.1)},
+    {n:'Logistics — Bank USD',v:ll.bank_usd||0},{n:'Logistics — CNY (ekv.)',v:Math.round((ll.bank_cny||0)/7.1)},
+    {n:'Exchange — Kassa USD',v:le.cash_usd||0},{n:'Exchange — CNY (ekv.)',v:Math.round((le.cash_cny||0)/7.1)},
+    {n:'Procurement — Bank',v:lp.bank_usd||0},{n:'Holding Kassa',v:lh.cash_usd||0},
+  ];
+  const tA=assets.reduce((s,a)=>s+a.v,0);
+  const cp=sk(c,'margin'),lp2=sk(l,'margin'),ep=sk(e,'net'),pp=sk(p,'net');
+  const cogs=sk(c,'cogs')+sk(l,'cogs'),expOut=sk(h,'exp_out'),trOut=sk(h,'tr_out');
+
+  el.innerHTML=`
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div class="card">
+      <div class="slbl" style="color:#17B374;margin-bottom:10px">Aktivlar (assets)</div>
+      <table class="tbl-inner"><tbody>
+      ${assets.map(a=>`<tr style="border-bottom:1px solid var(--b1)"><td style="padding:7px 0;color:var(--t3);font-size:12px">${a.n}</td><td style="text-align:right;font-family:var(--mono);color:#17B374;font-weight:500;font-size:12px">$${fmt(a.v)}</td></tr>`).join('')}
+      <tr><td style="padding:9px 0;font-weight:600">Jami aktivlar</td><td style="text-align:right;font-family:var(--mono);font-weight:700;color:#17B374;font-size:15px">$${fmt(tA)}</td></tr>
+      </tbody></table>
+      <div style="height:150px;margin-top:12px"><canvas id="bal_b"></canvas></div>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:10px">
+        <div class="slbl" style="color:#4A7FF5;margin-bottom:10px">Kapital va daromad</div>
+        <table><tbody>
+        ${[['Cargo marjin',cp],['Logistics marjin',lp2],['Exchange net',ep],['Procurement net',pp]].map(([n,v])=>`
+        <tr style="border-bottom:1px solid var(--b1)"><td style="padding:7px 0;color:var(--t3);font-size:12px">${n}</td><td style="text-align:right;font-family:var(--mono);color:#17B374;font-weight:500">$${fS(v)}</td></tr>`).join('')}
+        <tr><td style="padding:8px 0;font-weight:600">Jami kapital</td><td style="text-align:right;font-family:var(--mono);font-weight:700;color:#17B374">$${fS(cp+lp2+ep+pp)}</td></tr>
+        </tbody></table>
+      </div>
+      <div class="card">
+        <div class="slbl" style="color:#E83535;margin-bottom:10px">Majburiyatlar</div>
+        <table><tbody>
+        ${[['COGS (Cargo+Log)',cogs],['Operatsion xarajat',expOut],['Berilgan qarzlar',trOut]].map(([n,v])=>`
+        <tr style="border-bottom:1px solid var(--b1)"><td style="padding:7px 0;color:var(--t3);font-size:12px">${n}</td><td style="text-align:right;font-family:var(--mono);color:#E83535;font-weight:500">$${fS(v)}</td></tr>`).join('')}
+        <tr><td style="padding:8px 0;font-weight:600">Jami majburiyat</td><td style="text-align:right;font-family:var(--mono);font-weight:700;color:#E83535">$${fS(cogs+expOut+trOut)}</td></tr>
+        </tbody></table>
+      </div>
+    </div>
+  </div>`;
+
+  setTimeout(()=>{
+    mkC('bal_b',{type:'bar',data:{labels:assets.map(a=>a.n.split(' — ')[0]),datasets:[{data:assets.map(a=>a.v),backgroundColor:'#4A7FF788',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:TIP},scales:{x:{ticks:TX,grid:GR},y:{ticks:{...TX,callback:v=>`$${fS(v)}`},grid:GR}}}});
+  },40);
+}
+
+// ════════════════════════════════════════════
+// ENTRY
+// ════════════════════════════════════════════
+function renderEntry(){
+  const el=document.getElementById('pg-l1');el.classList.add('on');
+  setBc([{lbl:'Holding',fn:'goNav("l1")'},{lbl:'Kiritish',fn:''}]);
+  let entBiz='cargo';
+
+  function entryHTML(biz){
+    const bList=[['cargo','📦 Cargo','#4A7FF5'],['logistics','🚛 Logistics','#17B374'],['exchange','💱 Exchange','#D48C0A'],['procurement','🏭 Procurement','#7B55F5'],['holding','🏦 Holding','#E8652A']];
+    const pills=bList.map(([id,nm,col])=>`<button onclick="setEB('${id}')" style="padding:6px 14px;border-radius:999px;border:1px solid ${biz===id?col:'var(--b1)'};background:${biz===id?col+'18':'transparent'};color:${biz===id?col:'var(--t3)'};cursor:pointer;font-size:12px;font-family:var(--sans)">${nm}</button>`).join('');
+    let fields='';
+    if(biz==='cargo'||biz==='logistics'){
+      fields=`<div style="font-size:10px;color:var(--t3)">Sana</div><input type="date" id="ef_d" value="${new Date().toISOString().split('T')[0]}">
+      <div style="font-size:10px;color:var(--t3)">Klient</div><input type="text" id="ef_cl" placeholder="Alibaba Co.">
+      <div style="font-size:10px;color:var(--t3)">SKU</div><input type="text" id="ef_sk" placeholder="Air Freight">
+      <div style="font-size:10px;color:var(--t3)">Daromad ($)</div><input type="number" id="ef_rv" placeholder="0">
+      <div style="font-size:10px;color:var(--t3)">COGS ($)</div><input type="number" id="ef_cg" placeholder="0">
+      <div style="font-size:10px;color:var(--t3)">Xarajat ($)</div><input type="number" id="ef_ex" placeholder="0">
+      <div style="font-size:10px;color:var(--t3)">Bank USD</div><input type="number" id="ef_bu" placeholder="0">
+      <div style="font-size:10px;color:var(--t3)">Bank CNY</div><input type="number" id="ef_bc" placeholder="0">`;
+    } else if(biz==='exchange'){
+      fields=`<div style="font-size:10px;color:var(--t3)">Sana</div><input type="date" id="ef_d" value="${new Date().toISOString().split('T')[0]}">
+      <div style="font-size:10px;color:var(--t3)">RMB→USD (¥)</div><input type="number" id="ef_ra" placeholder="0">
+      <div style="font-size:10px;color:var(--t3)">RMB kurs</div><input type="number" id="ef_rr" placeholder="7.10">
+      <div style="font-size:10px;color:var(--t3)">USD→RMB ($)</div><input type="number" id="ef_ua" placeholder="0">
+      <div style="font-size:10px;color:var(--t3)">USD kurs</div><input type="number" id="ef_ur" placeholder="7.12">
+      <div style="font-size:10px;color:var(--t3)">Spread ($)</div><input type="number" id="ef_sp" placeholder="0">
+      <div style="font-size:10px;color:var(--t3)">Xarajat ($)</div><input type="number" id="ef_ex" placeholder="0">
+      <div style="font-size:10px;color:var(--t3)">Kassa USD</div><input type="number" id="ef_cu" placeholder="0">
+      <div style="font-size:10px;color:var(--t3)">Kassa CNY</div><input type="number" id="ef_cc" placeholder="0">`;
+    } else if(biz==='procurement'){
+      fields=`<div style="font-size:10px;color:var(--t3)">Sana</div><input type="date" id="ef_d" value="${new Date().toISOString().split('T')[0]}">
+      <div style="font-size:10px;color:var(--t3)">Klient</div><input type="text" id="ef_cl" placeholder="BYD Group">
+      <div style="font-size:10px;color:var(--t3)">Kategoriya</div><input type="text" id="ef_cat" placeholder="Electronics">
+      <div style="font-size:10px;color:var(--t3)">Buyurtma ($)</div><input type="number" id="ef_ov" placeholder="0">
+      <div style="font-size:10px;color:var(--t3)">Komissiya stavka</div><input type="number" id="ef_cr" placeholder="0.05" step="0.001">
+      <div style="font-size:10px;color:var(--t3)">Komissiya ($)</div><input type="number" id="ef_cm" placeholder="0">
+      <div style="font-size:10px;color:var(--t3)">Xarajat ($)</div><input type="number" id="ef_ex" placeholder="0">
+      <div style="font-size:10px;color:var(--t3)">Bank USD</div><input type="number" id="ef_bu" placeholder="0">`;
+    } else {
+      fields=`<div style="font-size:10px;color:var(--t3)">Sana</div><input type="date" id="ef_d" value="${new Date().toISOString().split('T')[0]}">
+      <div style="font-size:10px;color:var(--t3)">Dividend kirdi ($)</div><input type="number" id="ef_dv" placeholder="0">
+      <div style="font-size:10px;color:var(--t3)">Qaysi yo'nalishdan</div><input type="text" id="ef_df" placeholder="Cargo">
+      <div style="font-size:10px;color:var(--t3)">Qarz kirdi ($)</div><input type="number" id="ef_ln" placeholder="0">
+      <div style="font-size:10px;color:var(--t3)">Xarajat chiqdi ($)</div><input type="number" id="ef_eo" placeholder="0">
+      <div style="font-size:10px;color:var(--t3)">Perebroska ($)</div><input type="number" id="ef_to" placeholder="0">
+      <div style="font-size:10px;color:var(--t3)">Kimga</div><input type="text" id="ef_tt" placeholder="Cargo">
+      <div style="font-size:10px;color:var(--t3)">Kassa USD</div><input type="number" id="ef_cu" placeholder="0">`;
+    }
+    return `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">${pills}</div>
+    <div class="card">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">${fields}
+        <div style="grid-column:span 2;font-size:10px;color:var(--t3)">Izoh</div>
+        <div style="grid-column:span 2"><input type="text" id="ef_nt" placeholder="Qo'shimcha..." style="width:100%"></div>
+      </div>
+      <button onclick="saveEnt('${biz}')" style="width:100%;padding:11px;border-radius:var(--r);border:none;background:var(--acc);color:#fff;cursor:pointer;font-size:13px;font-weight:600;font-family:var(--sans)">✓ Saqlash</button>
+      <div id="ent_msg" style="margin-top:8px;font-size:12px;color:#17B374;min-height:18px"></div>
+    </div>`;
+  }
+
+  window.setEB=function(id){
+    entBiz=id;
+    document.getElementById('entryArea').innerHTML=entryHTML(id);
+  };
+  window.saveEnt=async function(biz){
+    const gv=id=>{const e=document.getElementById(id);return e?e.value:'';};
+    const date=gv('ef_d')||new Date().toISOString().split('T')[0];
+    const note=gv('ef_nt')||'';
+    const m=document.getElementById('ent_msg');
+    let row={date};
+    let sbTable=null,sbRow=null;
+
+    if(biz==='cargo'||biz==='logistics'){
+      const rv=+gv('ef_rv')||0,cg=+gv('ef_cg')||0,ex=+gv('ef_ex')||0;
+      row={...row,client:gv('ef_cl')||'—',sku:gv('ef_sk')||'—',revenue:rv,cogs:cg,expense:ex,margin:rv-cg-ex,bank_usd:+gv('ef_bu')||0,bank_cny:+gv('ef_bc')||0};
+      DATA[biz].push(row);
+      sbTable=biz+'_entries';
+      sbRow={entry_date:date,client_name:row.client,sku:row.sku,revenue_usd:rv,cogs_usd:cg,expense_usd:ex,bank_balance_usd:+gv('ef_bu')||0,bank_balance_cny:+gv('ef_bc')||0,note};
+    } else if(biz==='exchange'){
+      const sp=+gv('ef_sp')||0,ex=+gv('ef_ex')||0;
+      row={...row,rmb_to_usd:+gv('ef_ra')||0,rmb_rate:+gv('ef_rr')||0,usd_to_rmb:+gv('ef_ua')||0,usd_rate:+gv('ef_ur')||0,spread:sp,expense:ex,net:sp-ex,cash_usd:+gv('ef_cu')||0,cash_cny:+gv('ef_cc')||0};
+      DATA.exchange.push(row);
+      sbTable='exchange_entries';
+      sbRow={entry_date:date,rmb_to_usd_amount:+gv('ef_ra')||0,rmb_to_usd_rate:+gv('ef_rr')||0,usd_to_rmb_amount:+gv('ef_ua')||0,usd_to_rmb_rate:+gv('ef_ur')||0,spread_usd:sp,expense_usd:ex,cash_balance_usd:+gv('ef_cu')||0,cash_balance_cny:+gv('ef_cc')||0,note};
+    } else if(biz==='procurement'){
+      const cm=+gv('ef_cm')||0,ex=+gv('ef_ex')||0;
+      row={...row,client:gv('ef_cl')||'—',sku:gv('ef_cat')||'—',order_value:+gv('ef_ov')||0,commission_rate:+gv('ef_cr')||0,commission:cm,expense:ex,net:cm-ex,bank_usd:+gv('ef_bu')||0};
+      DATA.procurement.push(row);
+      sbTable='procurement_entries';
+      sbRow={entry_date:date,client_name:row.client,product_category:row.sku,order_value_usd:+gv('ef_ov')||0,commission_rate:+gv('ef_cr')||0,commission_usd:cm,expense_usd:ex,bank_balance_usd:+gv('ef_bu')||0,note};
+    } else {
+      row={...row,div_in:+gv('ef_dv')||0,div_from:gv('ef_df'),loan_in:+gv('ef_ln')||0,exp_out:+gv('ef_eo')||0,tr_out:+gv('ef_to')||0,tr_to:gv('ef_tt'),cash_usd:+gv('ef_cu')||0};
+      DATA.holding.push(row);
+      sbTable='holding_entries';
+      sbRow={entry_date:date,dividend_in_usd:+gv('ef_dv')||0,dividend_from:gv('ef_df'),loan_in_usd:+gv('ef_ln')||0,expense_out_usd:+gv('ef_eo')||0,transfer_out_usd:+gv('ef_to')||0,transfer_out_to:gv('ef_tt'),cash_balance_usd:+gv('ef_cu')||0,note};
+    }
+
+    if(m) m.textContent='Saqlanmoqda...';
+    if(SB&&sbTable&&sbRow){
+      try{
+        const {error}=await SB.from(sbTable).insert(sbRow);
+        if(error)throw error;
+        if(m){m.textContent='✓ Supabase ga saqlandi!';setTimeout(()=>m.textContent='',3000);}
+      }catch(e){
+        console.error('Supabase save error:',e);
+        if(m){m.textContent='⚠ Lokal saqlandi (DB: '+e.message+')';setTimeout(()=>m.textContent='',4000);}
+      }
+    } else {
+      if(m){m.textContent='✓ Saqlandi!';setTimeout(()=>m.textContent='',2500);}
+    }
+  };
+
+  el.innerHTML=`<div style="font-size:15px;font-weight:600;margin-bottom:14px">Ma'lumot kiritish</div><div id="entryArea">${entryHTML('cargo')}</div>`;
+}
+
+// ════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════
+// Set default: last 14 days
+(function(){
+  const today=new Date();
+  const fmt=d=>d.toISOString().split('T')[0];
+  const f=new Date(today); f.setDate(f.getDate()-13);
+  DATE_FROM=fmt(f); DATE_TO=fmt(today); PER=14;
+})();
+buildNav();
+renderL1();
+</script>
+
+
+
+
+
+
+
+
+
+
+<script>
+var TCSS = {
+  slate:   ":root{--bg:#0A0E1A;--s1:#0F1424;--s2:#141929;--s3:#1A2035;--b1:#1E2840;--b2:#263352;--b3:#2E3D63;--t1:#F0EFFF;--t2:#94A3C4;--t3:#506080;--acc:#6C8EFF;--grn:#00E5A0;--red:#FF4D6A;--amb:#FFB830;--pur:#A78BFF;--tel:#00D4FF;--cargo:#6C8EFF;--log:#00E5A0;--exc:#FFB830;--proc:#A78BFF;--hold:#FF7A50}",
+  midnight:":root{--bg:#020817;--s1:#050D1F;--s2:#091428;--s3:#0F1D35;--b1:#162238;--b2:#1E3050;--b3:#274068;--t1:#E2E8F0;--t2:#8BA0C0;--t3:#4A6080;--acc:#38BDF8;--grn:#34D399;--red:#FB7185;--amb:#FBBF24;--pur:#C084FC;--tel:#22D3EE;--cargo:#38BDF8;--log:#34D399;--exc:#FBBF24;--proc:#C084FC;--hold:#FB923C}",
+  aurora:  ":root{--bg:#0D0B1E;--s1:#12102A;--s2:#171533;--s3:#1D1B3D;--b1:#252348;--b2:#2F2D5C;--b3:#3A3870;--t1:#EEF2FF;--t2:#A5A3C8;--t3:#5C5A80;--acc:#818CF8;--grn:#34D399;--red:#F87171;--amb:#FCD34D;--pur:#C084FC;--tel:#67E8F9;--cargo:#818CF8;--log:#34D399;--exc:#FCD34D;--proc:#C084FC;--hold:#FB923C}",
+  carbon:  ":root{--bg:#0C0C0C;--s1:#111111;--s2:#161616;--s3:#1C1C1C;--b1:#242424;--b2:#2E2E2E;--b3:#383838;--t1:#FAFAFA;--t2:#A0A0A0;--t3:#606060;--acc:#F59E0B;--grn:#10B981;--red:#EF4444;--amb:#F59E0B;--pur:#8B5CF6;--tel:#06B6D4;--cargo:#F59E0B;--log:#10B981;--exc:#06B6D4;--proc:#8B5CF6;--hold:#F97316}",
+  forest:  ":root{--bg:#080F0D;--s1:#0C1410;--s2:#111A14;--s3:#16221A;--b1:#1C2E22;--b2:#243A2A;--b3:#2C4832;--t1:#ECFDF5;--t2:#86B09A;--t3:#4A7060;--acc:#4ADE80;--grn:#4ADE80;--red:#F87171;--amb:#FACC15;--pur:#A78BFA;--tel:#60A5FA;--cargo:#60A5FA;--log:#4ADE80;--exc:#FACC15;--proc:#A78BFA;--hold:#FB923C}"
+};
+
+function setT(id) {
+  var el = document.getElementById("TS");
+  if (el) el.textContent = TCSS[id] || TCSS.slate;
+  localStorage.setItem("fht", id);
+  ["slate","midnight","aurora","carbon","forest"].forEach(function(t) {
+    var btn = document.getElementById("tb_" + t);
+    if (btn) btn.style.border = t === id ? "2px solid white" : "2px solid transparent";
+  });
+}
+
+window.addEventListener("load", function() {
+  var saved = localStorage.getItem("fht") || "slate";
+  setT(saved);
+});
+</script>
+</body>
+</html>
