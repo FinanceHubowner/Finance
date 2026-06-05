@@ -1042,115 +1042,126 @@ function showRow(row){
   if(typeof row==='string')row=JSON.parse(row);
   DRILL.row=row;
   const dirId=row._dir||DRILL.dir;
-  const dir=DIRS.find(d=>d.id===dirId)||{name:'',c:'#4A7FF5',e:'📋'};
-  ['l1','l2','l3','l4'].forEach(l=>{const p=document.getElementById('pg-'+l);p.classList.remove('on');p.style.display='';});
+  const dir=DIRS.find(d=>d.id===dirId)||{name:'Holding',c:'#4A7FF5',e:'📋'};
+  ['l1','l2','l3','l4'].forEach(function(l){var p=document.getElementById('pg-'+l);p.classList.remove('on');p.style.display='';});
   const el=document.getElementById('pg-l4');
   el.classList.add('on');
   const labels={date:'Sana',client:'Klient',sku:'Xizmat/SKU',revenue:'Daromad',cogs:'COGS',expense:'Xarajat',margin:'Marjin',
     rmb_to_usd:'RMB→USD',rmb_rate:'Kurs(RMB)',usd_to_rmb:'USD→RMB',usd_rate:'Kurs(USD)',spread:'Spread',net:'Sof foyda',
     cash_usd:'Kassa USD',cash_cny:'Kassa CNY',order_value:'Buyurtma',commission_rate:'Komissiya%',commission:'Komissiya',
-    div_in:'Div. kirdi',div_from:'Kimdan',loan_in:'Qarz kirdi',exp_out:'Xarajat',tr_out:'Perebroska',tr_to:'Kimga',bank_usd:'Bank USD'};
+    div_in:'Div. kirdi',div_from:'Kimdan',loan_in:'Qarz kirdi',exp_out:'Xarajat',tr_out:'Perebroska',tr_to:'Kimga',bank_usd:'Bank USD',
+    note:'Izoh/Sabab'};
   const amtK=['revenue','cogs','expense','margin','spread','net','cash_usd','cash_cny','order_value','commission','div_in','loan_in','exp_out','tr_out','bank_usd'];
-  const sdRows=(DATA[dirId]||[]).filter(r=>r.date===row.date&&r!==row).slice(0,4);
+  const sdRows=(DATA[dirId]||[]).filter(function(r){return r.date===row.date&&r!==row;}).slice(0,4);
 
-  el.innerHTML=`
-  <div class="dhdr">
-    <button class="dbtn" onclick="goBack()">← Orqaga</button>
-    <span style="font-size:24px">${dir.e}</span>
-    <div><div style="font-size:15px;font-weight:600">Tranzaksiya detali</div>
-    <div style="font-size:11px;color:var(--t3)">${dir.name} · ${row.date||''} ${row.client?'· '+row.client:''}</div></div>
-  </div>
-  ${(()=>{
-    // Rahbariyat uchun xulosa hisoblash
-    let kimga='—', nima='—', xarajat=0, daromad=0, natija=0, natijaTxt='', natijaColor='#00E5A0';
-    if(dirId==='cargo'||dirId==='logistics'){
-      kimga=row.client||'—'; nima=row.note||row.sku+' xizmati';
-      xarajat=(row.cogs||0)+(row.expense||0); daromad=row.revenue||0; natija=row.margin||0;
-    } else if(dirId==='exchange'){
-      kimga='Valyuta bozori'; nima=row.note||'Valyuta almashtirish operatsiyasi';
-      xarajat=row.expense||0; daromad=row.spread||0; natija=row.net||0;
-    } else if(dirId==='procurement'){
-      kimga=row.client||'—'; nima=row.note||row.sku+' xaridi';
-      xarajat=row.expense||0; daromad=row.commission||0; natija=row.net||0;
-    } else {
-      kimga=row.tr_to||row.div_from||'Holding kassa';
-      nima=row.note||(row.div_in>0?'Dividend olindi':row.tr_out>0?'Perebroska':'Xarajat');
-      xarajat=(row.exp_out||0)+(row.tr_out||0); daromad=(row.div_in||0)+(row.loan_in||0);
-      natija=daromad-xarajat;
-    }
-    natijaTxt = natija>=0?'Foydali / Musbat':'Zarar / Manfiy';
-    natijaColor = natija>=0?'#00E5A0':'#FF4D6A';
+  // Rahbariyat xulosasi uchun hisoblar
+  var kimga='—', nima='—', xarajat=0, daromad=0, natija=0;
+  if(dirId==='cargo'||dirId==='logistics'){
+    kimga=row.client||'—';
+    nima=row.note||((row.sku||'')+' xizmati');
+    xarajat=(row.cogs||0)+(row.expense||0);
+    daromad=row.revenue||0;
+    natija=row.margin||0;
+  } else if(dirId==='exchange'){
+    kimga='Valyuta bozori';
+    nima=row.note||'Valyuta almashtirish operatsiyasi';
+    xarajat=row.expense||0;
+    daromad=row.spread||0;
+    natija=row.net||0;
+  } else if(dirId==='procurement'){
+    kimga=row.client||'—';
+    nima=row.note||((row.sku||'')+' xaridi');
+    xarajat=row.expense||0;
+    daromad=row.commission||0;
+    natija=row.net||0;
+  } else {
+    kimga=row.tr_to||row.div_from||'Holding kassa';
+    nima=row.note||(row.div_in>0?'Dividend olindi':row.tr_out>0?'Perebroska':'Xarajat');
+    xarajat=(row.exp_out||0)+(row.tr_out||0);
+    daromad=(row.div_in||0)+(row.loan_in||0);
+    natija=daromad-xarajat;
+  }
+  var natijaTxt = natija>=0?'Foydali / Musbat':'Zarar / Manfiy';
+  var natijaColor = natija>=0?'#00E5A0':'#FF4D6A';
+  var nisbat = (daromad>0&&xarajat>0) ? 'Nisbat: '+(daromad/xarajat).toFixed(2)+'x' : '';
 
-    return`
-  <!-- RAHBARIYAT XULOSASI -->
-  <div class="card" style="margin-bottom:14px;border-left:3px solid ${dir.c}">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-      <span style="font-size:18px">📋</span>
-      <div style="font-size:13px;font-weight:600">Rahbariyat Xulosasi</div>
-      <span style="margin-left:auto;padding:3px 10px;border-radius:999px;font-size:11px;font-family:var(--mono);background:${natijaColor}18;color:${natijaColor};border:1px solid ${natijaColor}44">${natija>=0?'▲':'▼'} ${natijaTxt}</span>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px">
-      <div style="background:var(--bg);border-radius:8px;padding:12px;border:1px solid var(--b1)">
-        <div style="font-size:10px;color:var(--t3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px">🔍 Nima uchun?</div>
-        <div style="font-size:13px;font-weight:500;line-height:1.4">${nima}</div>
-      </div>
-      <div style="background:var(--bg);border-radius:8px;padding:12px;border:1px solid var(--b1)">
-        <div style="font-size:10px;color:var(--t3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px">👤 Kimga / Kimdan?</div>
-        <div style="font-size:13px;font-weight:500">${kimga}</div>
-        <div style="font-size:10px;color:var(--t3);margin-top:2px">${dir.name} · ${row.date||''}</div>
-      </div>
-      <div style="background:var(--bg);border-radius:8px;padding:12px;border:1px solid var(--b1)">
-        <div style="font-size:10px;color:var(--t3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px">💸 Xarajat qilindi</div>
-        <div style="font-size:18px;font-weight:700;font-family:var(--mono);color:#FF4D6A">${$$(xarajat)}</div>
-        ${daromad>0?`<div style="font-size:10px;color:#00E5A0;margin-top:2px">Daromad: ${$$(daromad)}</div>`:''}
-      </div>
-      <div style="background:var(--bg);border-radius:8px;padding:12px;border:1px solid var(--b1)">
-        <div style="font-size:10px;color:var(--t3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px">📊 Natija</div>
-        <div style="font-size:18px;font-weight:700;font-family:var(--mono);color:${natijaColor}">${natija>=0?'+':''}${$$(natija)}</div>
-        <div style="font-size:10px;color:var(--t3);margin-top:2px">${daromad>0&&xarajat>0?'Daromad/Xarajat nisbati: '+(daromad/xarajat).toFixed(2)+'x':''}</div>
-      </div>
-    </div>
-  </div>`;
-  })()}
+  // Rahbariyat xulosasi HTML (string concat — nested template yoqil)
+  var summaryHTML = '<div class="card" style="margin-bottom:14px;border-left:3px solid '+dir.c+'">'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">'
+    +'<span style="font-size:18px">📋</span>'
+    +'<div style="font-size:13px;font-weight:600">Rahbariyat Xulosasi</div>'
+    +'<span style="margin-left:auto;padding:3px 10px;border-radius:999px;font-size:11px;font-family:var(--mono);background:'+natijaColor+'18;color:'+natijaColor+';border:1px solid '+natijaColor+'44">'+(natija>=0?'▲':'▼')+' '+natijaTxt+'</span>'
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px">'
+    +'<div style="background:var(--bg);border-radius:8px;padding:12px;border:1px solid var(--b1)">'
+    +'<div style="font-size:10px;color:var(--t3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">🔍 Nima uchun?</div>'
+    +'<div style="font-size:13px;font-weight:500;line-height:1.4">'+nima+'</div></div>'
+    +'<div style="background:var(--bg);border-radius:8px;padding:12px;border:1px solid var(--b1)">'
+    +'<div style="font-size:10px;color:var(--t3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">👤 Kimga / Kimdan?</div>'
+    +'<div style="font-size:13px;font-weight:500">'+kimga+'</div>'
+    +'<div style="font-size:10px;color:var(--t3);margin-top:2px">'+dir.name+' · '+(row.date||'')+'</div></div>'
+    +'<div style="background:var(--bg);border-radius:8px;padding:12px;border:1px solid var(--b1)">'
+    +'<div style="font-size:10px;color:var(--t3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">💸 Xarajat qilindi</div>'
+    +'<div style="font-size:18px;font-weight:700;font-family:var(--mono);color:#FF4D6A">'+$$(xarajat)+'</div>'
+    +(daromad>0?'<div style="font-size:10px;color:#00E5A0;margin-top:2px">Daromad: '+$$(daromad)+'</div>':'')
+    +'</div>'
+    +'<div style="background:var(--bg);border-radius:8px;padding:12px;border:1px solid var(--b1)">'
+    +'<div style="font-size:10px;color:var(--t3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">📊 Natija</div>'
+    +'<div style="font-size:18px;font-weight:700;font-family:var(--mono);color:'+natijaColor+'">'+(natija>=0?'+':'')+$$(natija)+'</div>'
+    +'<div style="font-size:10px;color:var(--t3);margin-top:2px">'+nisbat+'</div></div>'
+    +'</div></div>';
 
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-    <div class="card">
-      <div class="slbl" style="margin-bottom:10px">Barcha ma'lumotlar</div>
-      ${Object.entries(row).filter(([k])=>!k.startsWith('_')&&k!=='note'&&row[k]!==undefined&&row[k]!==null&&row[k]!=='').map(([k,v])=>{
-        const lbl=labels[k]||k;
-        const isA=amtK.includes(k);const isR=k.includes('rate');
-        const col=isA?(+v>=0?'#17B374':'#E83535'):'var(--t1)';
-        const disp=isA?$$( +v):isR?((+v)*100).toFixed(2)+'%':v;
-        return`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--b1)">
-          <div style="color:var(--t3);font-size:12px">${lbl}</div>
-          <div style="font-family:var(--mono);font-weight:500;color:${col}">${disp}</div>
-        </div>`;
-      }).join('')}
-      ${row.note?`<div style="margin-top:10px;padding:10px;background:var(--bg);border-radius:6px;border-left:3px solid ${dir.c}">
-        <div style="font-size:10px;color:var(--t3);margin-bottom:4px">📝 IZOH / SABAB</div>
-        <div style="font-size:12px;line-height:1.5">${row.note}</div>
-      </div>`:''}
-    </div>
-    <div>
-      <div class="card" style="margin-bottom:10px">
-        <div class="slbl" style="margin-bottom:8px">Shu kungi boshqa yozuvlar</div>
-        ${sdRows.length?sdRows.map(r=>`
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--b1);cursor:pointer" onclick="showRow(${JSON.stringify({...r,_dir:dirId}).replace(/"/g,'&quot;')})">
-          <div><div style="font-size:12px;font-weight:500">${r.client||r.sku||'—'}</div>
-          <div style="font-size:10px;color:var(--t3)">${r.note||r.sku||''}</div></div>
-          <div style="font-family:var(--mono);font-size:12px;color:${dir.c}">${$$(r.margin||r.net||r.commission||0)}</div>
-        </div>`).join(''):'<div style="color:var(--t3);font-size:12px">Boshqa yozuv yo\'q</div>'}
-      </div>
-      <div class="card">
-        <div class="slbl" style="margin-bottom:8px">Tezkor navigatsiya</div>
-        <div style="display:flex;flex-direction:column;gap:6px">
-          <button class="dbtn" style="text-align:left" onclick="${dirId?`renderL2('${dirId}')`:``}goNav('l1')">← ${dir.name} dashboardiga</button>
-          <button class="dbtn" style="text-align:left" onclick="goNav('l1')">← Holding overviewga</button>
-          <button class="dbtn" style="text-align:left;color:var(--acc)" onclick="toast('Excel eksport tez orada!')">↓ Excel eksport</button>
-        </div>
-      </div>
-    </div>
-  </div>`;
+  // Barcha maydonlar HTML
+  var fieldsHTML = Object.entries(row).filter(function(e){
+    var k=e[0]; return !k.startsWith('_')&&row[k]!==undefined&&row[k]!==null&&row[k]!=='';
+  }).map(function(e){
+    var k=e[0],v=e[1];
+    var lbl=labels[k]||k;
+    var isA=amtK.includes(k), isR=k.includes('rate');
+    var col=isA?(+v>=0?'#17B374':'#E83535'):'var(--t1)';
+    var disp=isA?$$(+v):isR?((+v)*100).toFixed(2)+'%':v;
+    return '<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--b1)">'
+      +'<div style="color:var(--t3);font-size:12px">'+lbl+'</div>'
+      +'<div style="font-family:var(--mono);font-weight:500;color:'+col+'">'+disp+'</div></div>';
+  }).join('');
+
+  // Boshqa yozuvlar HTML
+  var sdHTML = sdRows.length ? sdRows.map(function(r){
+    var safeR=JSON.stringify(Object.assign({},r,{_dir:dirId})).replace(/"/g,'&quot;');
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--b1);cursor:pointer" onclick="showRow('+safeR+')">'
+      +'<div><div style="font-size:12px;font-weight:500">'+(r.client||r.sku||'—')+'</div>'
+      +'<div style="font-size:10px;color:var(--t3)">'+(r.note||r.sku||'')+'</div></div>'
+      +'<div style="font-family:var(--mono);font-size:12px;color:'+dir.c+'">'+$$(r.margin||r.net||r.commission||0)+'</div></div>';
+  }).join('') : '<div style="color:var(--t3);font-size:12px">Boshqa yozuv yo\'q</div>';
+
+  var backFn2 = dirId ? "renderL2('"+dirId+"')" : "goNav('l1')";
+
+  el.innerHTML = summaryHTML
+    + '<div class="dhdr">'
+    + '<button class="dbtn" onclick="goBack()">← Orqaga</button>'
+    + '<span style="font-size:24px">'+dir.e+'</span>'
+    + '<div><div style="font-size:15px;font-weight:600">Tranzaksiya detali</div>'
+    + '<div style="font-size:11px;color:var(--t3)">'+dir.name+' · '+(row.date||'')+(row.client?' · '+row.client:'')+'</div></div></div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
+    + '<div class="card">'
+    + '<div class="slbl" style="margin-bottom:10px">Barcha ma\'lumotlar</div>'
+    + fieldsHTML
+    + (row.note ? '<div style="margin-top:10px;padding:10px;background:var(--bg);border-radius:6px;border-left:3px solid '+dir.c+'">'
+        +'<div style="font-size:10px;color:var(--t3);margin-bottom:4px">📝 IZOH / SABAB</div>'
+        +'<div style="font-size:12px;line-height:1.5">'+row.note+'</div></div>' : '')
+    + '</div>'
+    + '<div>'
+    + '<div class="card" style="margin-bottom:10px">'
+    + '<div class="slbl" style="margin-bottom:8px">Shu kungi boshqa yozuvlar</div>'
+    + sdHTML
+    + '</div>'
+    + '<div class="card">'
+    + '<div class="slbl" style="margin-bottom:8px">Tezkor navigatsiya</div>'
+    + '<div style="display:flex;flex-direction:column;gap:6px">'
+    + '<button class="dbtn" style="text-align:left" onclick="'+backFn2+'">← '+dir.name+' dashboardiga</button>'
+    + '<button class="dbtn" style="text-align:left" onclick="goNav(\'l1\')">← Holding overviewga</button>'
+    + '<button class="dbtn" style="text-align:left;color:var(--acc)" onclick="toast(\'Excel eksport tez orada!\')">↓ Excel eksport</button>'
+    + '</div></div></div></div>';
 }
 
 function goBack(){
