@@ -900,16 +900,97 @@ function showKD(kpi){
     <div class="cc"><div class="cc-lbl">Bu davr vs oldingi davr</div><div style="height:210px"><canvas id="l3c"></canvas></div></div>
   </div>
   <div class="card" style="margin-bottom:10px"><div class="cc-lbl" style="margin-bottom:9px">Haftalik yig'indi</div><div style="height:140px"><canvas id="l3w"></canvas></div></div>
-  <div class="twrap"><div class="thdr"><div class="tlbl">Kunlik tafsilot</div></div>
-  <table><thead><tr><th>Sana</th><th style="text-align:right">Qiymat</th><th style="text-align:right">O'rtachaga nisbat</th><th>Bar</th></tr></thead><tbody>
-  ${ad.slice().reverse().map((date,i)=>{const val=dv[ad.length-1-i]||0;const df=val-avg;const bw=maxV>0?Math.round(Math.abs(val)/maxV*80):0;
-  return`<tr class="cr" onclick="showDayD('${date}','${dirId||"holding"}')">
-    <td style="font-family:var(--mono);color:var(--t3)">${date}</td>
-    <td style="text-align:right;font-family:var(--mono);font-weight:500;color:${kpi.color}">${$$(val)}</td>
-    <td style="text-align:right;font-family:var(--mono);color:${df>=0?'#17B374':'#E83535'}">${df>=0?'+':''}${$$(df)}</td>
-    <td><div style="height:3px;width:${bw}px;background:${kpi.color}88;border-radius:2px;display:inline-block"></div></td>
-  </tr>`;}).join('')}
-  </tbody></table></div>`;
+  <div class="twrap" style="margin-bottom:10px">
+    <div class="thdr">
+      <div class="tlbl">Kunlik yig'indi</div>
+    </div>
+    <table><thead><tr>
+      <th>Sana</th>
+      <th style="text-align:right">Qiymat</th>
+      <th style="text-align:right">O'rtachaga nisbat</th>
+      <th>Trend</th>
+    </tr></thead><tbody>
+    ${ad.slice().reverse().map((date,i)=>{const val=dv[ad.length-1-i]||0;const df=val-avg;const bw=maxV>0?Math.round(Math.abs(val)/maxV*80):0;
+    return`<tr class="cr" onclick="showDayD('${date}','${dirId||'holding'}')">
+      <td style="font-family:var(--mono);color:var(--t3)">${date}</td>
+      <td style="text-align:right;font-family:var(--mono);font-weight:500;color:${kpi.color}">${$$(val)}</td>
+      <td style="text-align:right;font-family:var(--mono);color:${df>=0?'#17B374':'#E83535'}">${df>=0?'+':''}${$$(df)}</td>
+      <td><div style="height:3px;width:${bw}px;background:${kpi.color}88;border-radius:2px;display:inline-block"></div></td>
+    </tr>`;}).join('')}
+    </tbody></table>
+  </div>
+
+  <div class="twrap">
+    <div class="thdr">
+      <div class="tlbl">Tranzaksiyalar detali — kategoriya, status, izoh</div>
+      <div style="font-size:11px;color:var(--t3);font-family:var(--mono)">${(dirId?fil(dirId):[]).length} ta yozuv</div>
+    </div>
+    <div style="overflow-x:auto">
+    <table><thead><tr>
+      <th>Sana</th>
+      ${(dirId==='cargo'||dirId==='logistics')?'<th>Klient</th>':''}
+      ${(dirId==='procurement')?'<th>Klient</th>':''}
+      <th>Kategoriya</th>
+      <th style="text-align:right">Asosiy qiymat</th>
+      <th style="text-align:right">${kpi.metric==='margin'||kpi.metric==='net'?'Foyda/Zarar':'Qiymat'}</th>
+      <th>Status</th>
+      <th>Izoh</th>
+    </tr></thead><tbody>
+    ${(dirId?fil(dirId):[]).slice().reverse().map(r=>{
+      let cat='—', mainVal=0, metricVal=+r[kpi.metric]||0;
+      let statusOk = metricVal >= 0;
+      let statusLabel = '', statusColor = '';
+
+      if(dirId==='cargo'||dirId==='logistics'){
+        cat=r.sku||'—';
+        mainVal=r.revenue||0;
+        statusOk = r.margin >= 0;
+        statusLabel = r.margin>=0 ? 'Foydali' : 'Zarar';
+        statusColor = r.margin>=0 ? '#00E5A0' : '#FF4D6A';
+      } else if(dirId==='exchange'){
+        cat='RMB↔USD';
+        mainVal=r.spread||0;
+        statusOk = r.net >= 0;
+        statusLabel = r.net>=0 ? 'Foydali' : 'Zarar';
+        statusColor = r.net>=0 ? '#00E5A0' : '#FF4D6A';
+      } else if(dirId==='procurement'){
+        cat=r.sku||'—';
+        mainVal=r.order_value||0;
+        statusOk = r.net >= 0;
+        statusLabel = r.net>=0 ? 'Foydali' : 'Zarar';
+        statusColor = r.net>=0 ? '#00E5A0' : '#FF4D6A';
+      } else if(dirId==='holding'){
+        cat = r.div_in>0?'Dividend':r.loan_in>0?'Qarz':r.tr_out>0?'Perebroska':'Xarajat';
+        mainVal = r.div_in||r.loan_in||r.tr_out||r.exp_out||0;
+        statusOk = r.div_in>0||r.loan_in>0;
+        statusLabel = statusOk?'Kirim':'Chiqim';
+        statusColor = statusOk?'#00E5A0':'#FFB830';
+      } else {
+        cat = r.sku||r.div_from||'—';
+        mainVal = metricVal;
+        statusLabel = metricVal>=0?'OK':'Salbiy';
+        statusColor = metricVal>=0?'#00E5A0':'#FF4D6A';
+      }
+
+      const note = r.note||'—';
+      const clientCol = (dirId==='cargo'||dirId==='logistics'||dirId==='procurement') ?
+        `<td style="font-weight:500;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.client||'—'}</td>` : '';
+
+      return`<tr class="cr" onclick="showRow(${JSON.stringify({...r,_dir:dirId||'holding'}).replace(/"/g,'&quot;')})">
+        <td style="font-family:var(--mono);color:var(--t3);white-space:nowrap">${r.date?.slice(5)||'—'}</td>
+        ${clientCol}
+        <td><span class="bdg" style="background:${dir.c}18;color:${dir.c};border:1px solid ${dir.c}33">${cat}</span></td>
+        <td style="text-align:right;font-family:var(--mono);color:var(--t2)">${$$(mainVal)}</td>
+        <td style="text-align:right;font-family:var(--mono);font-weight:600;color:${metricVal>=0?kpi.color:'#FF4D6A'}">${$$(metricVal)}</td>
+        <td><span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;font-size:10px;font-family:var(--mono);background:${statusColor}18;color:${statusColor};border:1px solid ${statusColor}44">
+          ${statusOk?'▲':'▼'} ${statusLabel}
+        </span></td>
+        <td style="color:var(--t3);font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${note}">${note}</td>
+      </tr>`;
+    }).join('')}
+    </tbody></table>
+    </div>
+  </div>`;
 
   setTimeout(()=>{
     mkC('l3m',{type:'line',data:{labels:ad.map(d=>d.slice(5)),datasets:[
