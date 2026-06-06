@@ -480,14 +480,25 @@ var CRM_CLIENTS = [
 
 var CRM_FILTER = {status:'', direction:'', city:'', search:''};
 var CRM_ACTIVE_CLIENT = null;
-var LOGIST_API = 'http://192.168.68.58:8000';
+// Logist server — avval localhost tekshiradi, bo'lmasa tarmoqdagi IP
+var LOGIST_API = 'http://localhost:8000';
+var LOGIST_API_FALLBACK = 'http://192.168.68.58:8000';
 var LOGIST_AVAILABLE = false;
 
-// Logist API mavjudligini tekshirish
+// Logist API — avval localhost, keyin tarmoq IP
 function checkLogistAPI() {
-  fetch(LOGIST_API + '/columns', {signal: AbortSignal.timeout(2000)})
-    .then(function(r){ if(r.ok){ LOGIST_AVAILABLE=true; toast('✅ Logist baza ulandi! 167K+ kompaniya mavjud'); }})
-    .catch(function(){ LOGIST_AVAILABLE=false; });
+  fetch('http://localhost:8000/columns', {signal: AbortSignal.timeout(2000)})
+    .then(function(r){
+      if(r.ok){ LOGIST_API='http://localhost:8000'; LOGIST_AVAILABLE=true; toast('✅ Logist baza ulandi (lokal)! 167K+ kompaniya'); }
+    })
+    .catch(function(){
+      // Localhost ishlamasa tarmoqdagi IP ni tekshir
+      fetch('http://192.168.68.58:8000/columns', {signal: AbortSignal.timeout(3000)})
+        .then(function(r2){
+          if(r2.ok){ LOGIST_API='http://192.168.68.58:8000'; LOGIST_AVAILABLE=true; toast('✅ Logist baza ulandi (tarmoq)! 167K+ kompaniya'); }
+        })
+        .catch(function(){ LOGIST_AVAILABLE=false; });
+    });
 }
 setTimeout(checkLogistAPI, 1000);
 
