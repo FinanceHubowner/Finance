@@ -518,6 +518,50 @@ function searchLogist(query, callback) {
     .catch(function(){ callback([]); });
 }
 
+function buildCRMCards() {
+  var statusColors = {VIP:'#FFB830',Faol:'#00E5A0',Potentsial:'#6C8EFF',Sovuq:'#506080'};
+  var dirColors = {logistics:'#00E5A0',cargo:'#6C8EFF',exchange:'#FFB830',procurement:'#A78BFF'};
+  var filtered = CRM_CLIENTS.filter(function(c){
+    var s = (CRM_FILTER.search||'').toLowerCase();
+    if(s && c.company.toLowerCase().indexOf(s)===-1 && c.contact.toLowerCase().indexOf(s)===-1 && c.product.toLowerCase().indexOf(s)===-1) return false;
+    if(CRM_FILTER.status && c.status!==CRM_FILTER.status) return false;
+    if(CRM_FILTER.direction && c.direction!==CRM_FILTER.direction) return false;
+    return true;
+  });
+
+  var h = '<div style="font-size:11px;color:var(--t3);margin-bottom:10px;font-family:var(--mono)">'+filtered.length+' ta mijoz topildi</div>';
+  h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:10px;margin-bottom:16px">';
+  filtered.forEach(function(c){
+    var sc = statusColors[c.status]||'#506080';
+    var dc = dirColors[c.direction]||'#6C8EFF';
+    var initials = c.company.split(' ').slice(0,2).map(function(w){return w[0];}).join('');
+    h += '<div class="card" style="cursor:pointer;border:1px solid var(--b1);transition:.2s" onclick="showClientDetail('+c.id+')" onmouseover="this.style.borderColor=\''+sc+'\'" onmouseout="this.style.borderColor=\'var(--b1)\'">';
+    h += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">';
+    h += '<div style="width:40px;height:40px;border-radius:10px;background:'+sc+'22;border:1px solid '+sc+'44;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:'+sc+';font-family:var(--mono);flex-shrink:0">'+initials+'</div>';
+    h += '<div style="min-width:0"><div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+c.company+'</div>';
+    h += '<div style="font-size:11px;color:var(--t3)">'+c.contact+' · '+c.city+'</div></div>';
+    h += '<span style="margin-left:auto;padding:2px 9px;border-radius:999px;font-size:10px;font-family:var(--mono);background:'+sc+'18;color:'+sc+';border:1px solid '+sc+'33;flex-shrink:0">'+c.status+'</span>';
+    h += '</div>';
+    h += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">';
+    h += '<span style="font-size:10px;background:'+dc+'15;color:'+dc+';padding:2px 8px;border-radius:4px;font-family:var(--mono)">'+c.direction+'</span>';
+    h += '<span style="font-size:10px;color:var(--t3);padding:2px 8px;border-radius:4px;background:var(--s3)">'+c.product.split(',')[0].trim()+'</span>';
+    h += '</div>';
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding-top:10px;border-top:1px solid var(--b1)">';
+    h += '<div style="text-align:center"><div style="font-size:16px;font-weight:700;font-family:var(--mono);color:'+dc+'">$'+fS(c.ltv)+'</div><div style="font-size:9px;color:var(--t3)">LTV</div></div>';
+    h += '<div style="text-align:center"><div style="font-size:16px;font-weight:700;font-family:var(--mono);color:var(--t1)">'+c.deals+'</div><div style="font-size:9px;color:var(--t3)">Deallar</div></div>';
+    h += '<div style="text-align:center"><div style="font-size:12px;font-weight:600;font-family:var(--mono);color:var(--t2)">'+(c.last_deal?c.last_deal.slice(5):'—')+'</div><div style="font-size:9px;color:var(--t3)">Oxirgi deal</div></div>';
+    h += '</div></div>';
+  });
+  h += '</div>';
+  return h;
+}
+
+function updateCRMCards() {
+  // Faqat kartochkalar zonasini yangilaydi — input focus yo'qolmaydi!
+  var zone = document.getElementById('crm_dynamic_zone');
+  if(zone) zone.innerHTML = buildCRMCards();
+}
+
 function renderCRM() {
   var el = document.getElementById('pg-l1');
   el.classList.add('on');
@@ -527,19 +571,8 @@ function renderCRM() {
   var active = CRM_CLIENTS.filter(function(c){return c.status==='Faol'||c.status==='VIP';}).length;
   var vip = CRM_CLIENTS.filter(function(c){return c.status==='VIP';}).length;
   var totalLTV = CRM_CLIENTS.reduce(function(s,c){return s+c.ltv;},0);
-
   var statusColors = {VIP:'#FFB830',Faol:'#00E5A0',Potentsial:'#6C8EFF',Sovuq:'#506080'};
   var dirColors = {logistics:'#00E5A0',cargo:'#6C8EFF',exchange:'#FFB830',procurement:'#A78BFF'};
-
-  // Build filtered list
-  var filtered = CRM_CLIENTS.filter(function(c){
-    var s = (CRM_FILTER.search||'').toLowerCase();
-    if(s && c.company.toLowerCase().indexOf(s)===-1 && c.contact.toLowerCase().indexOf(s)===-1 && c.product.toLowerCase().indexOf(s)===-1) return false;
-    if(CRM_FILTER.status && c.status!==CRM_FILTER.status) return false;
-    if(CRM_FILTER.direction && c.direction!==CRM_FILTER.direction) return false;
-    if(CRM_FILTER.city && c.city!==CRM_FILTER.city) return false;
-    return true;
-  });
 
   // Summary cards
   var html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:16px">';
@@ -559,11 +592,11 @@ function renderCRM() {
   // Search & filter bar
   html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center">';
   html += '<input id="crm_search" type="text" placeholder="🔍  Kompaniya, kontakt, mahsulot..." value="'+(CRM_FILTER.search||'')+'" '
-        + 'onkeyup="CRM_FILTER.search=this.value;renderCRM()" '
+        + 'oninput="CRM_FILTER.search=this.value;updateCRMCards()" '
         + 'style="flex:1;min-width:220px;background:var(--s2);border:1px solid var(--b2);border-radius:7px;padding:8px 13px;color:var(--t1);font-family:var(--sans);font-size:12px;outline:none">';
 
   // Status filter
-  html += '<select onchange="CRM_FILTER.status=this.value;renderCRM()" style="background:var(--s2);border:1px solid var(--b2);border-radius:7px;padding:8px 10px;color:var(--t2);font-size:12px;outline:none;cursor:pointer">';
+  html += '<select onchange="CRM_FILTER.status=this.value;updateCRMCards()" style="background:var(--s2);border:1px solid var(--b2);border-radius:7px;padding:8px 10px;color:var(--t2);font-size:12px;outline:none;cursor:pointer">';
   html += '<option value="">Barcha status</option>';
   ['VIP','Faol','Potentsial','Sovuq'].forEach(function(s){
     html += '<option value="'+s+'"'+(CRM_FILTER.status===s?' selected':'')+'>'+s+'</option>';
@@ -571,7 +604,7 @@ function renderCRM() {
   html += '</select>';
 
   // Direction filter
-  html += '<select onchange="CRM_FILTER.direction=this.value;renderCRM()" style="background:var(--s2);border:1px solid var(--b2);border-radius:7px;padding:8px 10px;color:var(--t2);font-size:12px;outline:none;cursor:pointer">';
+  html += '<select onchange="CRM_FILTER.direction=this.value;updateCRMCards()" style="background:var(--s2);border:1px solid var(--b2);border-radius:7px;padding:8px 10px;color:var(--t2);font-size:12px;outline:none;cursor:pointer">';
   html += '<option value="">Barcha yo\'nalish</option>';
   ['logistics','cargo','exchange','procurement'].forEach(function(d){
     var lbl = {logistics:'🚛 Logistics',cargo:'📦 Cargo',exchange:'💱 Exchange',procurement:'🏭 Procurement'}[d];
@@ -605,39 +638,8 @@ function renderCRM() {
     html += '</div>';
   }
 
-  // Stats row: found count
-  html += '<div style="font-size:11px;color:var(--t3);margin-bottom:10px;font-family:var(--mono)">'+filtered.length+' ta mijoz topildi</div>';
-
-  // Client cards grid
-  html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:10px;margin-bottom:16px">';
-  filtered.forEach(function(c){
-    var sc = statusColors[c.status]||'#506080';
-    var dc = dirColors[c.direction]||'#6C8EFF';
-    var initials = c.company.split(' ').slice(0,2).map(function(w){return w[0];}).join('');
-    html += '<div class="card" style="cursor:pointer;border:1px solid var(--b1);transition:.2s" onclick="showClientDetail('+c.id+')" onmouseover="this.style.borderColor=\''+sc+'\'" onmouseout="this.style.borderColor=\'var(--b1)\'">';
-    // Header
-    html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">';
-    html += '<div style="width:40px;height:40px;border-radius:10px;background:'+sc+'22;border:1px solid '+sc+'44;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:'+sc+';font-family:var(--mono);flex-shrink:0">'+initials+'</div>';
-    html += '<div style="min-width:0">';
-    html += '<div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+c.company+'</div>';
-    html += '<div style="font-size:11px;color:var(--t3)">'+c.contact+' · '+c.city+'</div>';
-    html += '</div>';
-    html += '<span style="margin-left:auto;padding:2px 9px;border-radius:999px;font-size:10px;font-family:var(--mono);background:'+sc+'18;color:'+sc+';border:1px solid '+sc+'33;flex-shrink:0">'+c.status+'</span>';
-    html += '</div>';
-    // Product & direction
-    html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">';
-    html += '<span style="font-size:10px;background:'+dc+'15;color:'+dc+';padding:2px 8px;border-radius:4px;font-family:var(--mono)">'+c.direction+'</span>';
-    html += '<span style="font-size:10px;color:var(--t3);padding:2px 8px;border-radius:4px;background:var(--s3)">'+c.product.split(',')[0].trim()+'</span>';
-    html += '</div>';
-    // Stats
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding-top:10px;border-top:1px solid var(--b1)">';
-    html += '<div style="text-align:center"><div style="font-size:16px;font-weight:700;font-family:var(--mono);color:'+dc+'">$'+fS(c.ltv)+'</div><div style="font-size:9px;color:var(--t3)">LTV</div></div>';
-    html += '<div style="text-align:center"><div style="font-size:16px;font-weight:700;font-family:var(--mono);color:var(--t1)">'+c.deals+'</div><div style="font-size:9px;color:var(--t3)">Deallar</div></div>';
-    html += '<div style="text-align:center"><div style="font-size:12px;font-weight:600;font-family:var(--mono);color:var(--t2)">'+(c.last_deal?c.last_deal.slice(5):'—')+'</div><div style="font-size:9px;color:var(--t3)">Oxirgi deal</div></div>';
-    html += '</div>';
-    html += '</div>';
-  });
-  html += '</div>';
+  // Dynamic cards zone — faqat shu ID yangilanadi, qidiruv inputi tegilmaydi
+  html += '<div id="crm_dynamic_zone">' + buildCRMCards() + '</div>';
 
   // Top performers table
   var sorted = CRM_CLIENTS.slice().sort(function(a,b){return b.ltv-a.ltv;}).slice(0,5);
