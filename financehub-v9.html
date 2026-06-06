@@ -106,13 +106,13 @@ body[style*="--is-light: 1"] .topbar,
 #toast.on{transform:none;opacity:1}
 .slbl{font-size:10px;color:var(--t3);letter-spacing:.7px;text-transform:uppercase;font-family:var(--mono);margin-bottom:8px}
 .sep{color:var(--b3)}
-/* ── INPUT SYSTEM ── */
-input[type=text],input[type=number],input[type=date],select{
+/* ── INPUT SYSTEM (faqat entry area ichida) ── */
+#entryArea input[type=text],#entryArea input[type=number],#entryArea input[type=date],#entryArea select{
   background:var(--s3);color:var(--t1);border:1px solid var(--b2);border-radius:6px;
   padding:7px 10px;font-size:12px;font-family:var(--sans);outline:none;transition:.15s;width:100%;box-sizing:border-box}
-input[type=text]:focus,input[type=number]:focus,input[type=date]:focus,select:focus{
+#entryArea input[type=text]:focus,#entryArea input[type=number]:focus,#entryArea input[type=date]:focus,#entryArea select:focus{
   border-color:var(--acc);box-shadow:0 0 0 2px rgba(108,142,255,0.12)}
-input::placeholder{color:var(--t3)}
+#entryArea input::placeholder{color:var(--t3)}
 </style>
 </head>
 <body>
@@ -535,20 +535,52 @@ var LOGIST_AVAILABLE = false;
 
 // Logist API — avval localhost, keyin tarmoq IP
 function checkLogistAPI() {
-  fetch('http://localhost:8000/columns', {signal: AbortSignal.timeout(2000)})
+  var wasAvailable = LOGIST_AVAILABLE;
+  var ctrl1 = new AbortController();
+  setTimeout(function(){ctrl1.abort();},2500);
+  fetch('http://localhost:8000/columns', {signal:ctrl1.signal})
     .then(function(r){
-      if(r.ok){ LOGIST_API='http://localhost:8000'; LOGIST_AVAILABLE=true; toast('✅ Logist baza ulandi (lokal)! 167K+ kompaniya'); }
+      if(r.ok){
+        LOGIST_API='http://localhost:8000';
+        if(!LOGIST_AVAILABLE){ LOGIST_AVAILABLE=true; toast('🟢 Logist baza ulandi (lokal)! 167K+ kompaniya'); refreshLogistStatus(); }
+        LOGIST_AVAILABLE=true;
+      }
     })
     .catch(function(){
-      // Localhost ishlamasa tarmoqdagi IP ni tekshir
-      fetch('http://192.168.68.58:8000/columns', {signal: AbortSignal.timeout(3000)})
+      var ctrl2 = new AbortController();
+      setTimeout(function(){ctrl2.abort();},3000);
+      fetch('http://192.168.68.58:8000/columns', {signal:ctrl2.signal})
         .then(function(r2){
-          if(r2.ok){ LOGIST_API='http://192.168.68.58:8000'; LOGIST_AVAILABLE=true; toast('✅ Logist baza ulandi (tarmoq)! 167K+ kompaniya'); }
+          if(r2.ok){
+            LOGIST_API='http://192.168.68.58:8000';
+            if(!LOGIST_AVAILABLE){ LOGIST_AVAILABLE=true; toast('🟢 Logist baza ulandi (tarmoq)! 167K+ kompaniya'); refreshLogistStatus(); }
+            LOGIST_AVAILABLE=true;
+          }
         })
-        .catch(function(){ LOGIST_AVAILABLE=false; });
+        .catch(function(){
+          var was=LOGIST_AVAILABLE;
+          LOGIST_AVAILABLE=false;
+          if(was) refreshLogistStatus(); // server o'chib qolgan bo'lsa status yangilansin
+        });
     });
 }
-setTimeout(checkLogistAPI, 1000);
+
+// CRM sahifasida Logist status indikatorini yangilash
+function refreshLogistStatus(){
+  var ind = document.getElementById('logist_status_ind');
+  if(!ind) return;
+  if(LOGIST_AVAILABLE){
+    ind.innerHTML='<span style="color:var(--grn)">🟢 Logist baza ulangan — 167K+ kompaniya qidiruvi faol</span>';
+  } else {
+    ind.innerHTML='<span style="color:var(--amb)">⚠️ Logist server oflayn — </span>'
+      +'<code style="font-size:10px;color:var(--t3)">Logist_Start.bat</code>'
+      +' <span style="color:var(--t3)">ni ishga tushiring. Har 10 sek avtomatik tekshiriladi.</span>';
+  }
+}
+
+// Sahifa yuklanganda va har 10 sekundda tekshir
+setTimeout(checkLogistAPI, 800);
+setInterval(checkLogistAPI, 10000);
 
 // Logist bazasidan qidirish
 function searchLogist(query, callback) {
@@ -618,9 +650,8 @@ function buildCRMCards() {
 function updateCRMCards() {
   var zone = document.getElementById('crm_dynamic_zone');
   if(!zone) return;
-  // CRM ichki kartochkalar
   zone.innerHTML = buildCRMCards();
-  // Logist baza — real vaqt qidiruv
+  // Logist baza — result cards
   var q = (CRM_FILTER.search||'').trim();
   if(LOGIST_AVAILABLE && q.length >= 2) {
     var logZone = document.getElementById('crm_logist_live');
@@ -628,7 +659,7 @@ function updateCRMCards() {
       logZone.innerHTML = '<div style="font-size:11px;color:var(--t3);padding:6px 0">🔍 Logist bazasida qidirilmoqda...</div>';
       searchLogist(q, function(results){
         if(!results.length){ logZone.innerHTML=''; return; }
-        var h = '<div style="margin-top:8px;padding:10px 14px;background:var(--s2);border:1px solid var(--grn)33;border-radius:10px">';
+        var h = '<div style="margin-top:8px;padding:10px 14px;background:var(--s2);border:1px solid rgba(0,229,160,0.2);border-radius:10px">';
         h += '<div style="font-size:11px;color:var(--grn);font-weight:600;margin-bottom:8px">🔗 Logist bazasidan '+results.length+' ta natija:</div>';
         h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:7px">';
         results.forEach(function(r){
@@ -637,7 +668,7 @@ function updateCRMCards() {
           h += '<div style="font-size:12px;font-weight:600;color:var(--t1)">'+r.company+'</div>';
           h += '<div style="font-size:10px;color:var(--t3)">🇨🇳 '+r.chin_supplier+'</div>';
           h += '<div style="font-size:10px;color:var(--t3)">📦 '+(r.product||'').substring(0,55)+'</div>';
-          h += '<button onclick="prefillAndAdd(\''+r.company.replace(/'/g,"\\'")+'\')" '
+          h += '<button onclick="prefillAndAdd(\''+r.company.replace(/'/g,"\\'")+'\',\''+r.inn+'\')" '
             + 'style="margin-top:4px;padding:4px 10px;border-radius:5px;border:none;'
             + 'background:'+(already?'var(--s3)':'var(--acc)')+';color:'+(already?'var(--t3)':'#fff')+';font-size:10px;cursor:pointer">'
             + (already ? '✓ CRM da bor' : '+ CRM ga qo\'shish')+'</button>';
@@ -648,10 +679,72 @@ function updateCRMCards() {
       });
     }
   } else {
-    var logZone2 = document.getElementById('crm_logist_live');
-    if(logZone2) logZone2.innerHTML = '';
+    var lz = document.getElementById('crm_logist_live');
+    if(lz) lz.innerHTML = '';
   }
 }
+
+// ── CRM SEARCH INLINE AUTOCOMPLETE ────────────────────────────
+var _crmAcTimer = null;
+function crmLiveAC(q) {
+  var dd = document.getElementById('crm_search_dd');
+  if(!dd) return;
+  clearTimeout(_crmAcTimer);
+  if(!q || q.length < 2) { dd.style.display='none'; return; }
+
+  // Agar Logist server oflayn bo'lsa
+  if(!LOGIST_AVAILABLE) {
+    dd.innerHTML = '<div style="padding:10px 12px;font-size:11px">'
+      +'<span style="color:var(--amb)">⚠️ Logist server ishlamayapti</span><br>'
+      +'<span style="color:var(--t3)">Ishga tushirish uchun: </span>'
+      +'<code style="color:var(--acc);font-size:10px">Logist_Start.bat</code>'
+      +'<span style="color:var(--t3)"> ni ikki marta bosing</span>'
+      +'</div>';
+    dd.style.display='block';
+    return;
+  }
+
+  dd.innerHTML = '<div style="padding:8px 12px;font-size:11px;color:var(--t3)">🔍 Qidirilmoqda...</div>';
+  dd.style.display='block';
+
+  _crmAcTimer = setTimeout(function(){
+    searchLogist(q, function(results){
+      if(!results || !results.length){ dd.style.display='none'; return; }
+      var h='';
+      results.slice(0,8).forEach(function(r){
+        var nm=(r.company||'').replace(/</g,'&lt;');
+        var inn=r.inn?(' <span style="color:var(--t3);font-size:10px">INN:'+r.inn+'</span>'):'';
+        var prod=(r.product||'').substring(0,50);
+        var already=CRM_CLIENTS.some(function(c){return c.company.toLowerCase()===nm.toLowerCase();});
+        h+='<div onclick="crmPickAC(\''+nm.replace(/'/g,"\\'")+'\',\''+r.inn+'\')" '
+          +'style="padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--b1);display:flex;justify-content:space-between;align-items:center" '
+          +'onmouseover="this.style.background=\'var(--s3)\'" onmouseout="this.style.background=\'\'">'
+          +'<div><div style="font-size:12px;font-weight:500;color:var(--t1)">'+nm+inn+'</div>'
+          +'<div style="font-size:10px;color:var(--t3)">📦 '+prod+'</div></div>'
+          +(already?'<span style="font-size:9px;color:var(--grn);white-space:nowrap">✓ CRM da</span>'
+                   :'<span style="font-size:9px;color:var(--acc);white-space:nowrap">+ Qo\'shish</span>')
+          +'</div>';
+      });
+      if(!h){ dd.style.display='none'; return; }
+      dd.innerHTML='<div style="padding:6px 12px;font-size:10px;color:var(--grn);border-bottom:1px solid var(--b1)">🔗 Logist baza — '+results.length+' ta topildi</div>'+h;
+      dd.style.display='block';
+    });
+  }, 350);
+}
+
+function crmPickAC(company, inn){
+  var inp = document.getElementById('crm_search');
+  var dd  = document.getElementById('crm_search_dd');
+  if(inp){ inp.value=company; CRM_FILTER.search=company; updateCRMCards(); }
+  if(dd)  dd.style.display='none';
+}
+
+// Click outside — dropdown yopilsin
+document.addEventListener('click', function(e){
+  if(e.target && e.target.id==='crm_search') return;
+  var dd=document.getElementById('crm_search_dd');
+  if(dd && !dd.contains(e.target)) dd.style.display='none';
+});
 
 function renderCRM() {
   var el = document.getElementById('pg-l1');
@@ -680,11 +773,24 @@ function renderCRM() {
   });
   html += '</div>';
 
+  // Logist status indicator
+  html += '<div id="logist_status_ind" style="padding:7px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;font-size:11px;margin-bottom:10px">';
+  html += LOGIST_AVAILABLE
+    ? '<span style="color:var(--grn)">🟢 Logist baza ulangan — 167K+ kompaniya qidiruvi faol</span>'
+    : '<span style="color:var(--amb)">⚠️ Logist server oflayn — </span><code style="font-size:10px;color:var(--t3)">Logist_Start.bat</code><span style="color:var(--t3)"> ni ishga tushiring. Har 10 sek avtomatik tekshiriladi.</span>';
+  html += '</div>';
+
   // Search & filter bar
   html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center">';
+  // Search input with dropdown wrapper
+  html += '<div style="flex:1;min-width:220px;position:relative">';
   html += '<input id="crm_search" type="text" placeholder="🔍  Kompaniya, kontakt, mahsulot..." value="'+(CRM_FILTER.search||'')+'" '
-        + 'oninput="CRM_FILTER.search=this.value;updateCRMCards()" '
-        + 'style="flex:1;min-width:220px;background:var(--s2);border:1px solid var(--b2);border-radius:7px;padding:8px 13px;color:var(--t1);font-family:var(--sans);font-size:12px;outline:none">';
+        + 'oninput="CRM_FILTER.search=this.value;updateCRMCards();crmLiveAC(this.value)" '
+        + 'autocomplete="off" '
+        + 'style="width:100%;background:var(--s2);border:1px solid var(--b2);border-radius:7px;padding:8px 13px;color:var(--t1);font-family:var(--sans);font-size:12px;outline:none;box-sizing:border-box">';
+  // Dropdown
+  html += '<div id="crm_search_dd" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--s2);border:1px solid var(--b2);border-radius:8px;z-index:99;max-height:280px;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.4);margin-top:3px"></div>';
+  html += '</div>';
 
   // Status filter
   html += '<select onchange="CRM_FILTER.status=this.value;updateCRMCards()" style="background:var(--s2);border:1px solid var(--b2);border-radius:7px;padding:8px 10px;color:var(--t2);font-size:12px;outline:none;cursor:pointer">';
@@ -723,11 +829,7 @@ function renderCRM() {
     html += '</div>';
     html += '<div id="logist_results"></div>';
     html += '</div>';
-  } else {
-    html += '<div style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:var(--t3)">';
-    html += '💡 <b style="color:var(--t2)">Logist baza oflayn</b> — Chinwakil serverini ishga tushiring: <code style="color:var(--acc)">C:\\...\\Logist\\run.bat</code> → 167K+ real kompaniya qidiruvi yoqiladi';
-    html += '</div>';
-  }
+  } // (offline info already shown in logist_status_ind above)
 
   // Logist live natijalar (Logist ulangan bo'lsa)
   html += '<div id="crm_logist_live"></div>';
