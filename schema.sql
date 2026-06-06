@@ -271,3 +271,44 @@ create index idx_holding_date on holding_entries(entry_date desc);
 create index idx_cargo_client on cargo_entries(client_name);
 create index idx_logistics_client on logistics_entries(client_name);
 create index idx_procurement_client on procurement_entries(client_name);
+
+-- ── CRM — MIJOZLAR BAZASI ────────────────────────────────────
+create table public.clients (
+  id bigserial primary key,
+  company_name text not null,
+  contact_person text,
+  phone text,
+  email text,
+  city text,
+  product_category text,
+  direction text check (direction in ('cargo','logistics','exchange','procurement')),
+  status text default 'Faol' check (status in ('VIP','Faol','Potentsial','Sovuq')),
+  source text,
+  ltv_usd numeric(14,2) default 0,
+  deals_count integer default 0,
+  last_deal_date date,
+  notes text,
+  created_by uuid references profiles(id),
+  created_at timestamptz default now()
+);
+
+alter table public.clients enable row level security;
+
+create policy "Clients ko'rish"
+  on clients for select using (
+    exists (select 1 from profiles where id = auth.uid() and role in ('owner','manager'))
+    or auth.uid() = created_by
+  );
+
+create policy "Clients kiritish"
+  on clients for insert with check (auth.uid() is not null);
+
+create policy "Clients tahrirlash"
+  on clients for update using (
+    auth.uid() = created_by
+    or exists (select 1 from profiles where id = auth.uid() and role = 'owner')
+  );
+
+create index idx_clients_company on clients(company_name);
+create index idx_clients_direction on clients(direction);
+create index idx_clients_status on clients(status);
