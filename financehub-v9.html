@@ -480,6 +480,43 @@ var CRM_CLIENTS = [
 
 var CRM_FILTER = {status:'', direction:'', city:'', search:''};
 var CRM_ACTIVE_CLIENT = null;
+var LOGIST_API = 'http://localhost:8000';
+var LOGIST_AVAILABLE = false;
+
+// Logist API mavjudligini tekshirish
+function checkLogistAPI() {
+  fetch(LOGIST_API + '/columns', {signal: AbortSignal.timeout(2000)})
+    .then(function(r){ if(r.ok){ LOGIST_AVAILABLE=true; toast('✅ Logist baza ulandi! 167K+ kompaniya mavjud'); }})
+    .catch(function(){ LOGIST_AVAILABLE=false; });
+}
+setTimeout(checkLogistAPI, 1000);
+
+// Logist bazasidan qidirish
+function searchLogist(query, callback) {
+  if(!query || query.length < 2) { callback([]); return; }
+  fetch(LOGIST_API + '/search?q=' + encodeURIComponent(query) + '&limit=8')
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      // Unique companies by inn
+      var seen = {}, results = [];
+      (data.results||[]).forEach(function(r){
+        var key = r.inn || r.kompaniya;
+        if(!seen[key]) {
+          seen[key] = true;
+          results.push({
+            inn: r.inn,
+            company: r.kompaniya,
+            chin_supplier: r.chin_komp,
+            product: (r.tovar||'').substring(0,80).replace(/\n/g,' '),
+            address: r.uz_komp_adr||'',
+            kg: r.kg, value: r.g46
+          });
+        }
+      });
+      callback(results);
+    })
+    .catch(function(){ callback([]); });
+}
 
 function renderCRM() {
   var el = document.getElementById('pg-l1');
@@ -545,6 +582,28 @@ function renderCRM() {
   // Add client button
   html += '<button onclick="showAddClient()" style="padding:8px 16px;border-radius:7px;border:none;background:var(--acc);color:#fff;cursor:pointer;font-size:12px;font-family:var(--sans);font-weight:600">+ Yangi mijoz</button>';
   html += '</div>';
+
+  // Logist baza qidiruv bloki
+  if(LOGIST_AVAILABLE) {
+    html += '<div class="card" style="margin-bottom:14px;border:1px solid var(--grn)33">';
+    html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">';
+    html += '<span style="font-size:16px">🔗</span>';
+    html += '<div style="font-size:13px;font-weight:600;color:var(--grn)">Logist Baza — 167,036 ta Haqiqiy Kompaniya</div>';
+    html += '<span style="font-size:10px;background:var(--grn)18;color:var(--grn);padding:2px 8px;border-radius:999px;margin-left:auto">ULANGAN ✓</span>';
+    html += '</div>';
+    html += '<div style="display:flex;gap:8px">';
+    html += '<input id="logist_global_search" type="text" placeholder="Bojxona bazasidan kompaniya qidirish..." '
+          + 'onkeydown="if(event.key===\'Enter\')searchInLogistDB()" '
+          + 'style="flex:1;background:var(--bg);border:1px solid var(--b2);border-radius:7px;padding:8px 12px;color:var(--t1);font-size:12px;outline:none">';
+    html += '<button onclick="searchInLogistDB()" style="padding:8px 16px;border-radius:7px;border:none;background:var(--grn);color:#000;font-size:12px;font-weight:600;cursor:pointer">Qidirish</button>';
+    html += '</div>';
+    html += '<div id="logist_results"></div>';
+    html += '</div>';
+  } else {
+    html += '<div style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:var(--t3)">';
+    html += '💡 <b style="color:var(--t2)">Logist baza oflayn</b> — Chinwakil serverini ishga tushiring: <code style="color:var(--acc)">C:\\...\\Logist\\run.bat</code> → 167K+ real kompaniya qidiruvi yoqiladi';
+    html += '</div>';
+  }
 
   // Stats row: found count
   html += '<div style="font-size:11px;color:var(--t3);margin-bottom:10px;font-family:var(--mono)">'+filtered.length+' ta mijoz topildi</div>';
@@ -732,13 +791,26 @@ function showAddClient() {
   html += '<div class="card" style="max-width:680px">';
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">';
 
+  // Kompaniya nomi — Logist autocomplete bilan
+  html += '<div style="grid-column:span 2;position:relative">';
+  html += '<label style="'+labelS+'">Kompaniya nomi * ';
+  html += LOGIST_AVAILABLE
+    ? '<span style="color:var(--grn);font-size:10px">🟢 Logist baza ulangan — yozganda avtomatik to\'ldiriladi</span>'
+    : '<span style="color:var(--t3);font-size:10px">⚪ Logist server ishga tushirilsa avtomatik qidiruv ishlaydi</span>';
+  html += '</label>';
+  html += '<input id="ef_cn" type="text" placeholder="Kompaniya nomini yozing..." autocomplete="off" '
+        + 'oninput="logistAutocomplete(this.value)" '
+        + 'style="'+inputS+'">';
+  html += '<div id="logist_dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--s2);border:1px solid var(--b2);border-radius:0 0 8px 8px;z-index:100;max-height:280px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.3)"></div>';
+  html += '</div>';
+
   var fields = [
-    ['ef_cn','text','Kompaniya nomi *','Toshkent Trade LLC'],
     ['ef_cp','text','Mas\'ul shaxs *','Jasur Mirzayev'],
     ['ef_ph','text','Telefon *','+998901234567'],
     ['ef_em','email','Email','info@company.uz'],
-    ['ef_cy','text','Shahar','Toshkent'],
+    ['ef_cy','text','Shahar/Manzil','Toshkent'],
     ['ef_pr','text','Mahsulot/Kategoriya','Elektronika, Tekstil'],
+    ['ef_sup','text','Xitoy yetkazuvchi (avtomatik)',''],
   ];
   fields.forEach(function(f){
     html += '<div><label style="'+labelS+'">'+f[2]+'</label>';
@@ -775,6 +847,81 @@ function showAddClient() {
   html += '</div>';
 
   el.innerHTML = html;
+}
+
+function logistAutocomplete(val) {
+  var dd = document.getElementById('logist_dropdown');
+  if(!dd) return;
+  if(!val || val.length < 2) { dd.style.display='none'; return; }
+
+  if(LOGIST_AVAILABLE) {
+    dd.style.display='block';
+    dd.innerHTML = '<div style="padding:10px;font-size:11px;color:var(--t3)">Qidirilmoqda...</div>';
+    searchLogist(val, function(results){
+      if(!results.length){
+        dd.innerHTML='<div style="padding:10px;font-size:11px;color:var(--t3)">Topilmadi</div>';
+        return;
+      }
+      var ddHtml = '';
+      results.forEach(function(r){
+        ddHtml += '<div onclick="fillFromLogist('+JSON.stringify(r).replace(/"/g,"'")+',this.closest(\'#logist_dropdown\'))" '
+          + 'style="padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--b1);transition:.1s" '
+          + 'onmouseover="this.style.background=\'var(--s3)\'" onmouseout="this.style.background=\'\'">';
+        ddHtml += '<div style="font-size:12px;font-weight:600;color:var(--t1)">'+r.company+'</div>';
+        ddHtml += '<div style="font-size:10px;color:var(--t3);margin-top:2px">🇨🇳 '+r.chin_supplier+'</div>';
+        ddHtml += '<div style="font-size:10px;color:var(--t3)">📦 '+(r.product||'').substring(0,60)+'</div>';
+        ddHtml += '</div>';
+      });
+      dd.innerHTML = ddHtml;
+    });
+  }
+}
+
+function fillFromLogist(r, dd) {
+  // Kompaniya ma'lumotlarini avtomatik to'ldirish
+  var set = function(id, val){ var e=document.getElementById(id); if(e&&val) e.value=val; };
+  set('ef_cn', r.company);
+  set('ef_cy', (r.address||'').split(',').slice(0,2).join(',').trim());
+  set('ef_pr', (r.product||'').substring(0,80).replace(/\n/g,', '));
+  set('ef_sup', r.chin_supplier||'');
+  set('ef_src', 'Logist baza (bojxona)');
+  if(dd) dd.style.display='none';
+  toast('✓ '+r.company+' ma\'lumotlari to\'ldirildi!');
+}
+
+// CRM bosh sahifasida Logist qidiruv
+function searchInLogistDB() {
+  var q = document.getElementById('logist_global_search');
+  if(!q||!q.value.trim()) return;
+  var res_el = document.getElementById('logist_results');
+  if(!res_el) return;
+  res_el.innerHTML = '<div style="color:var(--t3);font-size:12px">Qidirilmoqda...</div>';
+
+  searchLogist(q.value.trim(), function(results){
+    if(!results.length){
+      res_el.innerHTML='<div style="color:var(--t3);font-size:12px;padding:10px">Topilmadi</div>';
+      return;
+    }
+    var h = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px;margin-top:10px">';
+    results.forEach(function(r){
+      h += '<div class="card" style="cursor:pointer" onclick="prefillAndAdd(\''+r.company.replace(/'/g,"\\'")+'\')">';
+      h += '<div style="font-size:12px;font-weight:600;margin-bottom:4px">'+r.company+'</div>';
+      h += '<div style="font-size:10px;color:var(--t3)">🇨🇳 '+r.chin_supplier+'</div>';
+      h += '<div style="font-size:10px;color:var(--t3);margin-top:2px">📦 '+(r.product||'').substring(0,60)+'</div>';
+      h += '<button style="margin-top:8px;padding:4px 10px;border-radius:5px;border:none;background:var(--acc);color:#fff;font-size:10px;cursor:pointer">+ CRM ga qo\'shish</button>';
+      h += '</div>';
+    });
+    h += '</div>';
+    res_el.innerHTML = h;
+  });
+}
+
+function prefillAndAdd(companyName) {
+  showAddClient();
+  setTimeout(function(){
+    var inp = document.getElementById('ef_cn');
+    if(inp){ inp.value=companyName; logistAutocomplete(companyName); }
+  }, 100);
 }
 
 function saveNewClient() {
