@@ -557,9 +557,41 @@ function buildCRMCards() {
 }
 
 function updateCRMCards() {
-  // Faqat kartochkalar zonasini yangilaydi — input focus yo'qolmaydi!
   var zone = document.getElementById('crm_dynamic_zone');
-  if(zone) zone.innerHTML = buildCRMCards();
+  if(!zone) return;
+  // CRM ichki kartochkalar
+  zone.innerHTML = buildCRMCards();
+  // Logist baza — real vaqt qidiruv
+  var q = (CRM_FILTER.search||'').trim();
+  if(LOGIST_AVAILABLE && q.length >= 2) {
+    var logZone = document.getElementById('crm_logist_live');
+    if(logZone) {
+      logZone.innerHTML = '<div style="font-size:11px;color:var(--t3);padding:6px 0">🔍 Logist bazasida qidirilmoqda...</div>';
+      searchLogist(q, function(results){
+        if(!results.length){ logZone.innerHTML=''; return; }
+        var h = '<div style="margin-top:8px;padding:10px 14px;background:var(--s2);border:1px solid var(--grn)33;border-radius:10px">';
+        h += '<div style="font-size:11px;color:var(--grn);font-weight:600;margin-bottom:8px">🔗 Logist bazasidan '+results.length+' ta natija:</div>';
+        h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:7px">';
+        results.forEach(function(r){
+          var already = CRM_CLIENTS.some(function(c){ return c.company.toLowerCase()===r.company.toLowerCase(); });
+          h += '<div style="background:var(--bg);border:1px solid var(--b2);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:4px">';
+          h += '<div style="font-size:12px;font-weight:600;color:var(--t1)">'+r.company+'</div>';
+          h += '<div style="font-size:10px;color:var(--t3)">🇨🇳 '+r.chin_supplier+'</div>';
+          h += '<div style="font-size:10px;color:var(--t3)">📦 '+(r.product||'').substring(0,55)+'</div>';
+          h += '<button onclick="prefillAndAdd(\''+r.company.replace(/'/g,"\\'")+'\')" '
+            + 'style="margin-top:4px;padding:4px 10px;border-radius:5px;border:none;'
+            + 'background:'+(already?'var(--s3)':'var(--acc)')+';color:'+(already?'var(--t3)':'#fff')+';font-size:10px;cursor:pointer">'
+            + (already ? '✓ CRM da bor' : '+ CRM ga qo\'shish')+'</button>';
+          h += '</div>';
+        });
+        h += '</div></div>';
+        logZone.innerHTML = h;
+      });
+    }
+  } else {
+    var logZone2 = document.getElementById('crm_logist_live');
+    if(logZone2) logZone2.innerHTML = '';
+  }
 }
 
 function renderCRM() {
@@ -638,6 +670,8 @@ function renderCRM() {
     html += '</div>';
   }
 
+  // Logist live natijalar (Logist ulangan bo'lsa)
+  html += '<div id="crm_logist_live"></div>';
   // Dynamic cards zone — faqat shu ID yangilanadi, qidiruv inputi tegilmaydi
   html += '<div id="crm_dynamic_zone">' + buildCRMCards() + '</div>';
 
