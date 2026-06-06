@@ -312,3 +312,109 @@ create policy "Clients tahrirlash"
 create index idx_clients_company on clients(company_name);
 create index idx_clients_direction on clients(direction);
 create index idx_clients_status on clients(status);
+
+-- ── YAGONA TRANZAKSIYALAR JADVALI (COA tizimi) ──────────────
+-- Barcha 5 yo'nalish + bo'limlar uchun universal jadval
+-- P&L, Balance Sheet, Cash Flow uchun yagona manba
+create table public.transactions (
+  id bigserial primary key,
+  user_id uuid references profiles(id),
+  entry_date date not null default current_date,
+
+  -- Yo'nalish va bo'lim
+  direction text not null check (direction in ('cargo','logistics','exchange','procurement','holding')),
+  department text not null,          -- Sotuv, Marketing, Finance, Operatsion...
+
+  -- COA mapping
+  txn_type text not null check (txn_type in ('income','cogs','opex','finance','transfer')),
+  subcategory text not null,         -- COA sub-kategoriya (Maosh, Ijara, Yuk tashish...)
+
+  -- Miqdor
+  amount_usd numeric(14,2) not null default 0,
+
+  -- Kontragent va maqsad
+  counterparty text,                 -- Mijoz/Yetkazib beruvchi nomi
+  purpose text,                      -- Sabab / Maqsad
+  status text default 'Paid' check (status in ('To''langan','Kutilmoqda','Qisman','Bekor qilindi')),
+
+  -- O'tkazma uchun
+  to_direction text check (to_direction in ('cargo','logistics','exchange','procurement','holding',null)),
+
+  -- P&L mapping (avtomatik hisob uchun)
+  -- income → Revenue; cogs → COGS; opex → Operating Expense; finance → Finance Cost; transfer → BS only
+  pl_impact text generated always as (
+    case txn_type
+      when 'income'   then 'revenue'
+      when 'cogs'     then 'cost_of_goods'
+      when 'opex'     then 'operating_expense'
+      when 'finance'  then 'finance_cost'
+      when 'transfer' then 'none'
+    end
+  ) stored,
+
+  note text,
+  source text default 'manual',
+  created_at timestamptz default now()
+);
+
+alter table public.transactions enable row level security;
+
+-- RLS Policies
+create policy "Transactions ko'rish"
+  on transactions for select using (
+    auth.uid() = user_id
+    or exists (select 1 from profiles where id = auth.uid() and role = 'owner')
+    or exists (select 1 from profiles where id = auth.uid() and role = 'manager' and direction = transactions.direction)
+  );
+
+create policy "Transactions kiritish"
+  on transactions for insert with check (
+    auth.uid() is not null and (
+      exists (select 1 from profiles where id = auth.uid() and role = 'owner')
+      or exists (select 1 from profiles where id = auth.uid() and direction = transactions.direction)
+    )
+  );
+
+create policy "Transactions tahrirlash"
+  on transactions for update using (
+    auth.uid() = user_id
+    or exists (select 1 from profiles where id = auth.uid() and role = 'owner')
+  );
+
+-- Indekslar
+create index idx_txn_date       on transactions(entry_date desc);
+create index idx_txn_direction  on transactions(direction);
+create index idx_txn_type       on transactions(txn_type);
+create index idx_txn_dept       on transactions(department);
+create index idx_txn_status     on transactions(status);
+create index idx_txn_dir_date   on transactions(direction, entry_date desc);
+
+-- ── P&L VIEW (YAGONA BAZADAN) ────────────────────────────────
+-- Holding uchun konsolidatsiya: har bir yo'nalish P&L ni tortib oladi
+create view public.pl_by_direction as
+select
+  direction,
+  department,
+  entry_date,
+  sum(case when txn_type='income'   then amount_usd else 0 end) as revenue,
+  sum(case when txn_type='cogs'     then amount_usd else 0 end) as cogs,
+  sum(case when txn_type='opex'     then amount_usd else 0 end) as opex,
+  sum(case when txn_type='finance'  then amount_usd else 0 end) as finance_cost,
+  sum(case when txn_type='income'   then amount_usd else 0 end)
+  - sum(case when txn_type in ('cogs','opex','finance') then amount_usd else 0 end) as net_profit
+from transactions
+group by direction, department, entry_date;
+
+-- Holding konsolidatsiya (barcha yo'nalishlar yig'indisi)
+create view public.pl_consolidated as
+select
+  entry_date,
+  sum(case when txn_type='income'   then amount_usd else 0 end) as total_revenue,
+  sum(case when txn_type='cogs'     then amount_usd else 0 end) as total_cogs,
+  sum(case when txn_type='opex'     then amount_usd else 0 end) as total_opex,
+  sum(case when txn_type='finance'  then amount_usd else 0 end) as total_finance_cost,
+  sum(case when txn_type='income'   then amount_usd else 0 end)
+  - sum(case when txn_type in ('cogs','opex','finance') then amount_usd else 0 end) as net_profit
+from transactions
+where txn_type != 'transfer'   -- inter-company o'tkazmalarni eliminatsiya qilish
+group by entry_date;

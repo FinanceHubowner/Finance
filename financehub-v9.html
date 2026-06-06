@@ -106,6 +106,13 @@ body[style*="--is-light: 1"] .topbar,
 #toast.on{transform:none;opacity:1}
 .slbl{font-size:10px;color:var(--t3);letter-spacing:.7px;text-transform:uppercase;font-family:var(--mono);margin-bottom:8px}
 .sep{color:var(--b3)}
+/* ── INPUT SYSTEM ── */
+input[type=text],input[type=number],input[type=date],select{
+  background:var(--s3);color:var(--t1);border:1px solid var(--b2);border-radius:6px;
+  padding:7px 10px;font-size:12px;font-family:var(--sans);outline:none;transition:.15s;width:100%;box-sizing:border-box}
+input[type=text]:focus,input[type=number]:focus,input[type=date]:focus,select:focus{
+  border-color:var(--acc);box-shadow:0 0 0 2px rgba(108,142,255,0.12)}
+input::placeholder{color:var(--t3)}
 </style>
 </head>
 <body>
@@ -344,6 +351,47 @@ const LG={labels:{color:'#4A5570',font:{size:10},boxWidth:10}};
 
 let PER=14, ACTV='l1', DRILL={dir:null,kpi:null,row:null};
 let DATA={}, CHARTS={};
+
+// ════════════════════════════════════════════
+// UNIFIED TRANSACTION STORE
+// ════════════════════════════════════════════
+var TXNS=[]; // {id,date,direction,dept,type,subcat,amount,counterparty,purpose,status,note,to_dir}
+
+const DEPTS={
+  cargo:      ['Sotuv','Marketing','Finance','Operatsion','IT','Kuryerlik'],
+  logistics:  ['Sotuv','Marketing','Finance','Operatsion'],
+  exchange:   ['Finance'],
+  procurement:['Sotuv','Finance'],
+  holding:    ['Moliya','HR','IT']
+};
+
+// Chart of Accounts — P&L + BS + CF mapping
+const COA={
+  income:  {lbl:'💰 Daromad',         col:'#17B374', pl:'revenue',
+    subs:['Xizmat haqqi (Service Fee)','Savdo daromadi','Komissiya','Valyuta farqi (FX Gain)',
+          'Dividend olindi','Qarz qaytarildi','Boshqa daromad']},
+  cogs:    {lbl:'📦 COGS (Tannarx)',   col:'#E8652A', pl:'cogs',
+    subs:['Yuk tashish (Freight)','Bojxona to\'lovi','Agentlik to\'lovi',
+          'Mahsulot tannarxi','Qadoqlash','Boshqa to\'g\'ridan xarajat']},
+  opex:    {lbl:'⚙️ OpEx',            col:'#FF4D6A', pl:'opex',
+    subs:['Maosh (Salary)','Bonus / KPI','Ijara (Rent)','Marketing / Reklama',
+          'IT xarajat','Bank xizmati','Transport','Ofis xarajati','Kommunal','Boshqa OpEx']},
+  finance: {lbl:'🏦 Moliyaviy Xarajat',col:'#A78BFF', pl:'finance',
+    subs:['Qarz foizi (Interest)','Bank komissiyasi','Valyuta zarari (FX Loss)']},
+  transfer:{lbl:'🔄 O\'tkazma',        col:'#00D4FF', pl:'transfer',
+    subs:['Holding → Yo\'nalishga qarz','Yo\'nalish → Holdingga dividend',
+          'Yo\'nalishdan yo\'nalishga','Tashqi o\'tkazma']}
+};
+
+// Holding-specific — income comes from consolidation, not manual entry
+const COA_HOLDING={
+  opex:    {lbl:'🏢 Tashqi Harajat',      col:'#FF4D6A', pl:'opex',
+    subs:['Maosh (Salary)','Ijara (Rent)','Marketing','IT xarajat',
+          'Bank xizmati','Yuridik xizmat','Soliq to\'lovi','Amortizatsiya','Boshqa harajat']},
+  transfer:{lbl:'🔄 Yo\'nalishga O\'tkazma',col:'#00D4FF', pl:'transfer',
+    subs:["Yo'nalishga qarz berish","Yo'nalishga kapital kiritish",
+          "Yo'nalishdan qarz qaytarib olish","Dividend olish"]}
+};
 
 // ════════════════════════════════════════════
 // DATA GEN
@@ -2260,125 +2308,314 @@ function renderBalance(){
 }
 
 // ════════════════════════════════════════════
-// ENTRY
+// ENTRY — YANGI COA TIZIMI
 // ════════════════════════════════════════════
 function renderEntry(){
-  const el=document.getElementById('pg-l1');el.classList.add('on');
+  var el=document.getElementById('pg-l1');el.classList.add('on');
   setBc([{lbl:'Holding',fn:'goNav("l1")'},{lbl:'Kiritish',fn:''}]);
-  let entBiz='cargo';
+  var entDir='cargo',entDept='Sotuv',entType='income';
 
   function entryHTML(biz){
-    const bList=[['cargo','📦 Cargo','#4A7FF5'],['logistics','🚛 Logistics','#17B374'],['exchange','💱 Exchange','#D48C0A'],['procurement','🏭 Procurement','#7B55F5'],['holding','🏦 Holding','#E8652A']];
-    const pills=bList.map(([id,nm,col])=>`<button onclick="setEB('${id}')" style="padding:6px 14px;border-radius:999px;border:1px solid ${biz===id?col:'var(--b1)'};background:${biz===id?col+'18':'transparent'};color:${biz===id?col:'var(--t3)'};cursor:pointer;font-size:12px;font-family:var(--sans)">${nm}</button>`).join('');
-    let fields='';
-    if(biz==='cargo'||biz==='logistics'){
-      fields=`<div style="font-size:10px;color:var(--t3)">Sana</div><input type="date" id="ef_d" value="${new Date().toISOString().split('T')[0]}">
-      <div style="font-size:10px;color:var(--t3)">Klient</div><input type="text" id="ef_cl" placeholder="Alibaba Co.">
-      <div style="font-size:10px;color:var(--t3)">SKU</div><input type="text" id="ef_sk" placeholder="Air Freight">
-      <div style="font-size:10px;color:var(--t3)">Daromad ($)</div><input type="number" id="ef_rv" placeholder="0">
-      <div style="font-size:10px;color:var(--t3)">COGS ($)</div><input type="number" id="ef_cg" placeholder="0">
-      <div style="font-size:10px;color:var(--t3)">Xarajat ($)</div><input type="number" id="ef_ex" placeholder="0">
-      <div style="font-size:10px;color:var(--t3)">Bank USD</div><input type="number" id="ef_bu" placeholder="0">
-      <div style="font-size:10px;color:var(--t3)">Bank CNY</div><input type="number" id="ef_bc" placeholder="0">`;
-    } else if(biz==='exchange'){
-      fields=`<div style="font-size:10px;color:var(--t3)">Sana</div><input type="date" id="ef_d" value="${new Date().toISOString().split('T')[0]}">
-      <div style="font-size:10px;color:var(--t3)">RMB→USD (¥)</div><input type="number" id="ef_ra" placeholder="0">
-      <div style="font-size:10px;color:var(--t3)">RMB kurs</div><input type="number" id="ef_rr" placeholder="7.10">
-      <div style="font-size:10px;color:var(--t3)">USD→RMB ($)</div><input type="number" id="ef_ua" placeholder="0">
-      <div style="font-size:10px;color:var(--t3)">USD kurs</div><input type="number" id="ef_ur" placeholder="7.12">
-      <div style="font-size:10px;color:var(--t3)">Spread ($)</div><input type="number" id="ef_sp" placeholder="0">
-      <div style="font-size:10px;color:var(--t3)">Xarajat ($)</div><input type="number" id="ef_ex" placeholder="0">
-      <div style="font-size:10px;color:var(--t3)">Kassa USD</div><input type="number" id="ef_cu" placeholder="0">
-      <div style="font-size:10px;color:var(--t3)">Kassa CNY</div><input type="number" id="ef_cc" placeholder="0">`;
-    } else if(biz==='procurement'){
-      fields=`<div style="font-size:10px;color:var(--t3)">Sana</div><input type="date" id="ef_d" value="${new Date().toISOString().split('T')[0]}">
-      <div style="font-size:10px;color:var(--t3)">Klient</div><input type="text" id="ef_cl" placeholder="BYD Group">
-      <div style="font-size:10px;color:var(--t3)">Kategoriya</div><input type="text" id="ef_cat" placeholder="Electronics">
-      <div style="font-size:10px;color:var(--t3)">Buyurtma ($)</div><input type="number" id="ef_ov" placeholder="0">
-      <div style="font-size:10px;color:var(--t3)">Komissiya stavka</div><input type="number" id="ef_cr" placeholder="0.05" step="0.001">
-      <div style="font-size:10px;color:var(--t3)">Komissiya ($)</div><input type="number" id="ef_cm" placeholder="0">
-      <div style="font-size:10px;color:var(--t3)">Xarajat ($)</div><input type="number" id="ef_ex" placeholder="0">
-      <div style="font-size:10px;color:var(--t3)">Bank USD</div><input type="number" id="ef_bu" placeholder="0">`;
-    } else {
-      fields=`<div style="font-size:10px;color:var(--t3)">Sana</div><input type="date" id="ef_d" value="${new Date().toISOString().split('T')[0]}">
-      <div style="font-size:10px;color:var(--t3)">Dividend kirdi ($)</div><input type="number" id="ef_dv" placeholder="0">
-      <div style="font-size:10px;color:var(--t3)">Qaysi yo'nalishdan</div><input type="text" id="ef_df" placeholder="Cargo">
-      <div style="font-size:10px;color:var(--t3)">Qarz kirdi ($)</div><input type="number" id="ef_ln" placeholder="0">
-      <div style="font-size:10px;color:var(--t3)">Xarajat chiqdi ($)</div><input type="number" id="ef_eo" placeholder="0">
-      <div style="font-size:10px;color:var(--t3)">Perebroska ($)</div><input type="number" id="ef_to" placeholder="0">
-      <div style="font-size:10px;color:var(--t3)">Kimga</div><input type="text" id="ef_tt" placeholder="Cargo">
-      <div style="font-size:10px;color:var(--t3)">Kassa USD</div><input type="number" id="ef_cu" placeholder="0">`;
-    }
-    return `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">${pills}</div>
-    <div class="card">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">${fields}
-        <div style="font-size:10px;color:var(--t3)">📝 Sabab / Maqsad <span style="color:#FF4D6A">*</span></div>
-        <div><input type="text" id="ef_rs" placeholder="Nima uchun? (masalan: Mijoz buyurtmasi, Ombor to'ldirish...)" style="width:100%;border-color:rgba(108,142,255,0.4)"></div>
-        <div style="font-size:10px;color:var(--t3)">👤 Kimga / Kimdan?</div>
-        <div><input type="text" id="ef_to2" placeholder="Qabul qiluvchi yoki manba..."></div>
-        <div style="grid-column:span 2;font-size:10px;color:var(--t3)">💬 Qo'shimcha izoh</div>
-        <div style="grid-column:span 2"><input type="text" id="ef_nt" placeholder="Batafsil izoh (ixtiyoriy)..." style="width:100%"></div>
-      </div>
-      <button onclick="saveEnt('${biz}')" style="width:100%;padding:11px;border-radius:var(--r);border:none;background:var(--acc);color:#fff;cursor:pointer;font-size:13px;font-weight:600;font-family:var(--sans)">✓ Saqlash</button>
-      <div id="ent_msg" style="margin-top:8px;font-size:12px;color:#17B374;min-height:18px"></div>
-    </div>`;
+  // ─── helpers ────────────────────────────────
+  function getCOA(dir){return dir==='holding'?COA_HOLDING:COA;}
+  function getDepts(dir){return DEPTS[dir]||['Finance'];}
+
+  // Build direction pill bar
+  function dirPillsHTML(){
+    var list=[['cargo','📦 Cargo','#4A7FF5'],['logistics','🚛 Logistics','#17B374'],
+              ['exchange','💱 Exchange','#D48C0A'],['procurement','🏭 Procurement','#7B55F5'],
+              ['holding','🏦 Holding','#E8652A']];
+    return list.map(function(x){
+      var sel=x[0]===entDir;
+      var st=sel?('background:'+x[2]+'22;border-color:'+x[2]+';color:'+x[2]+'')
+                 :'background:transparent;border-color:var(--b1);color:var(--t3)';
+      return '<button onclick="entSetDir(\''+x[0]+'\')" style="padding:6px 15px;border-radius:999px;border:1px solid;'+st+';cursor:pointer;font-size:12px;font-family:var(--sans);transition:.15s">'+x[1]+'</button>';
+    }).join('');
   }
 
-  window.setEB=function(id){
-    entBiz=id;
-    document.getElementById('entryArea').innerHTML=entryHTML(id);
-  };
-  window.saveEnt=async function(biz){
-    const gv=id=>{const e=document.getElementById(id);return e?e.value:'';};
-    const date=gv('ef_d')||new Date().toISOString().split('T')[0];
-    const reason=gv('ef_rs')||'';
-    const toFrom=gv('ef_to2')||'';
-    const note=(reason?(reason+(toFrom?' — Kimga: '+toFrom:'')):'')+(gv('ef_nt')?(' | '+gv('ef_nt')):'');
-    const m=document.getElementById('ent_msg');
-    let row={date};
-    let sbTable=null,sbRow=null;
+  // Build department pills
+  function deptPillsHTML(){
+    return getDepts(entDir).map(function(d){
+      var sel=d===entDept;
+      var st=sel?'background:var(--b2);color:var(--t1);border-color:var(--b3)'
+                 :'background:transparent;color:var(--t3);border-color:var(--b1)';
+      return '<button onclick="entSetDept(\''+d+'\')" style="padding:4px 10px;border-radius:6px;border:1px solid;'+st+';cursor:pointer;font-size:11px;font-family:var(--sans)">'+d+'</button>';
+    }).join('');
+  }
 
-    if(biz==='cargo'||biz==='logistics'){
-      const rv=+gv('ef_rv')||0,cg=+gv('ef_cg')||0,ex=+gv('ef_ex')||0;
-      row={...row,client:gv('ef_cl')||'—',sku:gv('ef_sk')||'—',revenue:rv,cogs:cg,expense:ex,margin:rv-cg-ex,bank_usd:+gv('ef_bu')||0,bank_cny:+gv('ef_bc')||0};
-      DATA[biz].push(row);
-      sbTable=biz+'_entries';
-      sbRow={entry_date:date,client_name:row.client,sku:row.sku,revenue_usd:rv,cogs_usd:cg,expense_usd:ex,bank_balance_usd:+gv('ef_bu')||0,bank_balance_cny:+gv('ef_bc')||0,note};
-    } else if(biz==='exchange'){
-      const sp=+gv('ef_sp')||0,ex=+gv('ef_ex')||0;
-      row={...row,rmb_to_usd:+gv('ef_ra')||0,rmb_rate:+gv('ef_rr')||0,usd_to_rmb:+gv('ef_ua')||0,usd_rate:+gv('ef_ur')||0,spread:sp,expense:ex,net:sp-ex,cash_usd:+gv('ef_cu')||0,cash_cny:+gv('ef_cc')||0};
-      DATA.exchange.push(row);
-      sbTable='exchange_entries';
-      sbRow={entry_date:date,rmb_to_usd_amount:+gv('ef_ra')||0,rmb_to_usd_rate:+gv('ef_rr')||0,usd_to_rmb_amount:+gv('ef_ua')||0,usd_to_rmb_rate:+gv('ef_ur')||0,spread_usd:sp,expense_usd:ex,cash_balance_usd:+gv('ef_cu')||0,cash_balance_cny:+gv('ef_cc')||0,note};
-    } else if(biz==='procurement'){
-      const cm=+gv('ef_cm')||0,ex=+gv('ef_ex')||0;
-      row={...row,client:gv('ef_cl')||'—',sku:gv('ef_cat')||'—',order_value:+gv('ef_ov')||0,commission_rate:+gv('ef_cr')||0,commission:cm,expense:ex,net:cm-ex,bank_usd:+gv('ef_bu')||0};
-      DATA.procurement.push(row);
-      sbTable='procurement_entries';
-      sbRow={entry_date:date,client_name:row.client,product_category:row.sku,order_value_usd:+gv('ef_ov')||0,commission_rate:+gv('ef_cr')||0,commission_usd:cm,expense_usd:ex,bank_balance_usd:+gv('ef_bu')||0,note};
+  // Build type tab buttons
+  function typeBtnsHTML(){
+    var coa=getCOA(entDir);
+    return Object.keys(coa).map(function(k){
+      var v=coa[k];
+      var sel=k===entType;
+      var st=sel?('background:'+v.col+'22;border-color:'+v.col+';color:'+v.col)
+                 :'background:transparent;border-color:var(--b1);color:var(--t3)';
+      return '<button onclick="entSetType(\''+k+'\')" style="padding:7px 14px;border-radius:8px;border:1px solid;'+st+';cursor:pointer;font-size:12px;font-family:var(--sans);transition:.15s">'+v.lbl+'</button>';
+    }).join('');
+  }
+
+  // Build sub-category dropdown options
+  function subcatOptsHTML(){
+    var coa=getCOA(entDir);
+    var subs=(coa[entType]?coa[entType].subs:['Boshqa']);
+    return subs.map(function(s){return '<option value="'+s+'">'+s+'</option>';}).join('');
+  }
+
+  // Transfer "to direction" field (only for transfer type)
+  function transferFieldHTML(){
+    if(entType!=='transfer') return '';
+    return '<div><div style="font-size:10px;color:var(--t3);margin-bottom:3px">📤 Qaysi yo\'nalishga?</div>'
+      +'<select id="ef_to_dir" style="width:100%;background:var(--s3);color:var(--t1);border:1px solid var(--b2);border-radius:6px;padding:7px">'
+      +'<option value="cargo">📦 Cargo</option><option value="logistics">🚛 Logistics</option>'
+      +'<option value="exchange">💱 Exchange</option><option value="procurement">🏭 Procurement</option>'
+      +'<option value="holding">🏦 Holding</option></select></div>';
+  }
+
+  // Recent transactions table
+  function recentTxnsHTML(){
+    if(!TXNS.length) return '<div style="text-align:center;color:var(--t3);padding:20px;font-size:12px">Hali transaksiya kiritilmagan</div>';
+    var rows=TXNS.slice(-15).reverse().map(function(t){
+      var isInc=t.type==='income';
+      var isTr=t.type==='transfer';
+      var aCol=isInc?'var(--grn)':isTr?'var(--tel)':'var(--red)';
+      var aSign=isInc?'+':isTr?'↔':'-';
+      var dColMap={cargo:'var(--cargo)',logistics:'var(--log)',exchange:'var(--exc)',procurement:'var(--proc)',holding:'var(--hold)'};
+      var dCol=dColMap[t.direction]||'var(--acc)';
+      var stCol=t.status==="To'langan"?'var(--grn)':t.status==='Kutilmoqda'?'var(--amb)':'var(--t3)';
+      return '<tr>'
+        +'<td style="font-family:var(--mono);font-size:10px;color:var(--t3)">'+t.date+'</td>'
+        +'<td><span style="color:'+dCol+';font-size:10px;font-family:var(--mono)">'+t.direction.toUpperCase()+'</span><br>'
+        +'<span style="color:var(--t3);font-size:10px">'+t.dept+'</span></td>'
+        +'<td style="font-size:11px">'+t.subcat+'</td>'
+        +'<td style="font-size:11px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+t.counterparty+'</td>'
+        +'<td style="font-family:var(--mono);color:'+aCol+';font-weight:600">'+aSign+'$'+fS(t.amount)+'</td>'
+        +'<td style="color:'+stCol+';font-size:10px">'+t.status+'</td>'
+        +'</tr>';
+    }).join('');
+    return '<table><thead><tr><th>Sana</th><th>Yo\'nalish</th><th>Kategoriya</th><th>Kontragent</th><th>Summa</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  }
+
+  // Summary panel per direction
+  function summaryPanelHTML(){
+    var dirs=[['cargo','📦','Cargo'],['logistics','🚛','Logistika'],['exchange','💱','Exchange'],['procurement','🏭','Procurement'],['holding','🏦','Holding']];
+    var rows=dirs.map(function(d){
+      var tx=TXNS.filter(function(t){return t.direction===d[0];});
+      var inc=tx.filter(function(t){return t.type==='income';}).reduce(function(s,t){return s+t.amount;},0);
+      var exp=tx.filter(function(t){return t.type!=='income'&&t.type!=='transfer';}).reduce(function(s,t){return s+t.amount;},0);
+      var cnt=tx.length;
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--b1)">'
+        +'<span style="font-size:11px">'+d[1]+' '+d[2]+'<span style="color:var(--t3);font-size:10px;margin-left:6px">('+cnt+')</span></span>'
+        +'<div style="display:flex;gap:10px">'
+        +'<span style="font-size:11px;color:var(--grn);font-family:var(--mono)">+$'+fS(inc)+'</span>'
+        +'<span style="font-size:11px;color:var(--red);font-family:var(--mono)">-$'+fS(exp)+'</span>'
+        +'</div></div>';
+    }).join('');
+    var totalInc=TXNS.filter(function(t){return t.type==='income';}).reduce(function(s,t){return s+t.amount;},0);
+    var totalExp=TXNS.filter(function(t){return t.type!=='income'&&t.type!=='transfer';}).reduce(function(s,t){return s+t.amount;},0);
+    var netCol=totalInc-totalExp>=0?'var(--grn)':'var(--red)';
+    return '<div style="font-size:10px;color:var(--t3);margin-bottom:8px;font-family:var(--mono);letter-spacing:.7px;text-transform:uppercase">📊 Konsolidatsiya</div>'
+      +rows
+      +'<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;margin-top:4px">'
+      +'<span style="font-size:12px;font-weight:600">Net (barcha)</span>'
+      +'<span style="font-family:var(--mono);font-weight:700;color:'+netCol+'">$'+fS(totalInc-totalExp)+'</span></div>';
+  }
+
+  // Main entry form HTML
+  function entryFormHTML(){
+    var coa=getCOA(entDir);
+    var curCol=coa[entType]?coa[entType].col:'var(--acc)';
+    var curLbl=coa[entType]?coa[entType].lbl:'';
+    var today=new Date().toISOString().split('T')[0];
+    var holdNote=entDir==='holding'?'<div style="padding:8px 12px;background:rgba(255,184,48,0.08);border:1px solid rgba(255,184,48,0.25);border-radius:6px;font-size:11px;color:var(--amb);margin-bottom:10px">🏦 Holding: faqat tashqi harajat yoki yo\'nalishga o\'tkazma kiritiladi. Daromad = yo\'nalishlardan konsolidatsiya.</div>':'';
+    var h='';
+    h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'+dirPillsHTML()+'</div>';
+    h+='<div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;padding:8px 10px;background:var(--s3);border-radius:8px;flex-wrap:wrap">';
+    h+='<span style="font-size:10px;color:var(--t3);white-space:nowrap">🏢 Bo\'lim:</span>';
+    h+=deptPillsHTML();
+    h+='</div>';
+    h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">'+typeBtnsHTML()+'</div>';
+    h+='<div class="card">';
+    h+=holdNote;
+    h+='<div style="font-size:11px;font-weight:600;color:'+curCol+';margin-bottom:12px;font-family:var(--mono)">';
+    h+=curLbl+' — '+entDir.toUpperCase()+' / '+entDept;
+    h+='</div>';
+    h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">';
+    // Date
+    h+='<div><div style="font-size:10px;color:var(--t3);margin-bottom:3px">📅 Sana</div>';
+    h+='<input type="date" id="ef_d" value="'+today+'" style="width:100%"></div>';
+    // Amount
+    h+='<div><div style="font-size:10px;color:var(--t3);margin-bottom:3px">💵 Summa (USD) <span style="color:var(--red)">*</span></div>';
+    h+='<input type="number" id="ef_amt" placeholder="0.00" min="0" step="0.01" style="width:100%;font-size:16px;font-family:var(--mono);font-weight:600"></div>';
+    // Sub-category
+    h+='<div><div style="font-size:10px;color:var(--t3);margin-bottom:3px">📋 Sub-kategoriya</div>';
+    h+='<select id="ef_subcat" style="width:100%;background:var(--s3);color:var(--t1);border:1px solid var(--b2);border-radius:6px;padding:7px">'+subcatOptsHTML()+'</select></div>';
+    // Status
+    h+='<div><div style="font-size:10px;color:var(--t3);margin-bottom:3px">✅ To\'lov holati</div>';
+    h+='<select id="ef_status" style="width:100%;background:var(--s3);color:var(--t1);border:1px solid var(--b2);border-radius:6px;padding:7px">';
+    h+="<option value=\"To'langan\">✅ To'langan</option>";
+    h+='<option value="Kutilmoqda">⏳ Kutilmoqda</option>';
+    h+='<option value="Qisman">🔶 Qisman to\'langan</option>';
+    h+='<option value="Bekor qilindi">❌ Bekor qilindi</option>';
+    h+='</select></div>';
+    // Counterparty with autocomplete
+    h+='<div style="position:relative"><div style="font-size:10px;color:var(--t3);margin-bottom:3px">🏢 Kontragent / Mijoz</div>';
+    h+='<input type="text" id="ef_cpty" placeholder="Kompaniya nomini yozing..." style="width:100%" oninput="entCptyAC(this.value)">';
+    h+='<div id="ef_cpty_ac" style="position:absolute;top:100%;left:0;right:0;background:var(--s2);border:1px solid var(--b2);border-radius:6px;z-index:99;max-height:150px;overflow-y:auto;display:none;box-shadow:0 4px 20px rgba(0,0,0,.4)"></div></div>';
+    // Purpose
+    h+='<div><div style="font-size:10px;color:var(--t3);margin-bottom:3px">📝 Sabab / Maqsad <span style="color:var(--red)">*</span></div>';
+    h+='<input type="text" id="ef_rs" placeholder="Nima maqsadda? Kim uchun?" style="width:100%;border-color:rgba(108,142,255,0.4)"></div>';
+    // Transfer to direction (conditional)
+    h+=transferFieldHTML();
+    // Note (full width)
+    h+='<div style="grid-column:span 2"><div style="font-size:10px;color:var(--t3);margin-bottom:3px">💬 Qo\'shimcha izoh</div>';
+    h+='<input type="text" id="ef_nt" placeholder="Batafsil izoh (ixtiyoriy)..." style="width:100%"></div>';
+    h+='</div>';
+    // Save button
+    h+='<button onclick="entSave()" style="width:100%;padding:12px;border-radius:var(--r);border:none;background:'+curCol+';color:#fff;cursor:pointer;font-size:13px;font-weight:600;font-family:var(--sans);letter-spacing:.3px;transition:.15s">✓ Saqlash — '+curLbl+'</button>';
+    h+='<div id="ent_msg" style="margin-top:8px;font-size:12px;color:var(--grn);min-height:18px;text-align:center"></div>';
+    h+='</div>';
+    return h;
+  }
+
+  // ─── window-level event handlers ─────────────
+  window.entSetDir=function(d){
+    entDir=d;
+    entDept=getDepts(d)[0];
+    var coa=getCOA(d);
+    if(!coa[entType]) entType=Object.keys(coa)[0];
+    document.getElementById('entryArea').innerHTML=entryFormHTML();
+  };
+  window.entSetDept=function(d){entDept=d;document.getElementById('entryArea').innerHTML=entryFormHTML();};
+  window.entSetType=function(t){entType=t;document.getElementById('entryArea').innerHTML=entryFormHTML();};
+
+  // Logist autocomplete for counterparty field
+  var _acT=null;
+  window.entCptyAC=function(q){
+    var ac=document.getElementById('ef_cpty_ac');
+    if(!ac) return;
+    if(!q||q.length<2){ac.style.display='none';return;}
+    clearTimeout(_acT);
+    _acT=setTimeout(function(){
+      searchLogist(q,function(results){
+        if(!results||!results.length){ac.style.display='none';return;}
+        ac.innerHTML=results.slice(0,6).map(function(r){
+          var nm=(r.kompaniya||r.chin_komp||'').replace(/</g,'&lt;');
+          var inn=r.inn?('<span style="color:var(--t3);font-size:10px;margin-left:6px">INN: '+r.inn+'</span>'):'';
+          return '<div onclick="entPickAC(\''+nm.replace(/'/g,"\\'")+'\')" style="padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--b1);font-size:12px" onmouseover="this.style.background=\'var(--s3)\'" onmouseout="this.style.background=\'\'">'+nm+inn+'</div>';
+        }).join('');
+        ac.style.display='block';
+      });
+    },300);
+  };
+  window.entPickAC=function(nm){
+    var inp=document.getElementById('ef_cpty');
+    var ac=document.getElementById('ef_cpty_ac');
+    if(inp) inp.value=nm;
+    if(ac) ac.style.display='none';
+  };
+
+  // ─── SAVE ────────────────────────────────────
+  window.entSave=async function(){
+    var gv=function(id){var e=document.getElementById(id);return e?e.value:'';};
+    var date=gv('ef_d')||new Date().toISOString().split('T')[0];
+    var amt=parseFloat(gv('ef_amt'))||0;
+    var subcat=gv('ef_subcat')||'Boshqa';
+    var status=gv('ef_status')||"To'langan";
+    var counterparty=gv('ef_cpty')||'—';
+    var purpose=gv('ef_rs')||'';
+    var note=gv('ef_nt')||'';
+    var toDir=gv('ef_to_dir')||'';
+    var m=document.getElementById('ent_msg');
+
+    if(!amt){if(m){m.style.color='var(--red)';m.textContent='⚠ Summa kiritilmadi!';setTimeout(function(){m.textContent='';},3000);}return;}
+    if(!purpose){if(m){m.style.color='var(--amb)';m.textContent='⚠ Sabab/Maqsad maydonini to\'ldiring!';setTimeout(function(){m.textContent='';},3000);}return;}
+
+    // 1. Save to unified TXNS
+    var txn={
+      id:'TXN-'+Date.now(),
+      date:date,direction:entDir,dept:entDept,
+      type:entType,subcat:subcat,amount:amt,
+      counterparty:counterparty,purpose:purpose,
+      status:status,note:note,to_dir:toDir
+    };
+    TXNS.push(txn);
+
+    // 2. Backward compat: push to old DATA arrays so existing renders still work
+    if(!DATA[entDir]) DATA[entDir]=[];
+    var noteStr=purpose+(counterparty!=='—'?' — '+counterparty:'')+(note?' | '+note:'');
+    if(entDir==='cargo'||entDir==='logistics'){
+      var rv2=entType==='income'?amt:0,cg2=entType==='cogs'?amt:0,ex2=(entType==='opex'||entType==='finance')?amt:0;
+      DATA[entDir].push({date:date,client:counterparty,sku:subcat,revenue:rv2,cogs:cg2,expense:ex2,margin:rv2-cg2-ex2,bank_usd:0,bank_cny:0,note:noteStr});
+    } else if(entDir==='exchange'){
+      DATA[entDir].push({date:date,spread:entType==='income'?amt:0,expense:entType!=='income'?amt:0,net:entType==='income'?amt:-amt,cash_usd:0,cash_cny:0,note:noteStr});
+    } else if(entDir==='procurement'){
+      DATA[entDir].push({date:date,client:counterparty,sku:subcat,order_value:0,commission_rate:0,commission:entType==='income'?amt:0,expense:entType!=='income'?amt:0,net:entType==='income'?amt:-amt,bank_usd:0,note:noteStr});
     } else {
-      row={...row,div_in:+gv('ef_dv')||0,div_from:gv('ef_df'),loan_in:+gv('ef_ln')||0,exp_out:+gv('ef_eo')||0,tr_out:+gv('ef_to')||0,tr_to:gv('ef_tt'),cash_usd:+gv('ef_cu')||0};
-      DATA.holding.push(row);
-      sbTable='holding_entries';
-      sbRow={entry_date:date,dividend_in_usd:+gv('ef_dv')||0,dividend_from:gv('ef_df'),loan_in_usd:+gv('ef_ln')||0,expense_out_usd:+gv('ef_eo')||0,transfer_out_usd:+gv('ef_to')||0,transfer_out_to:gv('ef_tt'),cash_balance_usd:+gv('ef_cu')||0,note};
+      DATA[entDir].push({date:date,div_in:entType==='income'?amt:0,loan_in:0,exp_out:entType==='opex'?amt:0,tr_out:entType==='transfer'?amt:0,tr_to:toDir,cash_usd:0,note:noteStr});
     }
 
-    if(m) m.textContent='Saqlanmoqda...';
-    if(SB&&sbTable&&sbRow){
+    // 3. Supabase — unified transactions table
+    if(m){m.style.color='var(--t3)';m.textContent='Saqlanmoqda...';}
+    var sbRow={entry_date:date,direction:entDir,department:entDept,txn_type:entType,subcategory:subcat,amount_usd:amt,counterparty:counterparty,purpose:purpose,status:status,note:note,to_direction:toDir||null};
+    if(SB){
       try{
-        const {error}=await SB.from(sbTable).insert(sbRow);
-        if(error)throw error;
-        if(m){m.textContent='✓ Supabase ga saqlandi!';setTimeout(()=>m.textContent='',3000);}
-      }catch(e){
-        console.error('Supabase save error:',e);
-        if(m){m.textContent='⚠ Lokal saqlandi (DB: '+e.message+')';setTimeout(()=>m.textContent='',4000);}
+        var r2=await SB.from('transactions').insert(sbRow);
+        if(r2.error) throw r2.error;
+        if(m){m.style.color='var(--grn)';m.textContent='✓ Supabase ga saqlandi!';setTimeout(function(){m.textContent='';},3000);}
+      }catch(e2){
+        console.warn('Supabase transactions:',e2.message);
+        if(m){m.style.color='var(--grn)';m.textContent='✓ Lokal saqlandi! ('+entDir+'/'+entDept+')';setTimeout(function(){m.textContent='';},3000);}
       }
     } else {
-      if(m){m.textContent='✓ Saqlandi!';setTimeout(()=>m.textContent='',2500);}
+      if(m){m.style.color='var(--grn)';m.textContent='✓ Saqlandi! '+entDir.toUpperCase()+' / '+entDept+' — $'+fS(amt);setTimeout(function(){m.textContent='';},3000);}
     }
+
+    // 4. Refresh side panels
+    var rt=document.getElementById('entRecentTxns');
+    if(rt) rt.innerHTML=recentTxnsHTML();
+    var sp=document.getElementById('entSummaryPanel');
+    if(sp) sp.innerHTML=summaryPanelHTML();
+
+    // 5. Clear amount + counterparty for next entry
+    var amtEl=document.getElementById('ef_amt');
+    var cptyEl=document.getElementById('ef_cpty');
+    if(amtEl) amtEl.value='';
+    if(cptyEl) cptyEl.value='';
   };
 
-  el.innerHTML=`<div style="font-size:15px;font-weight:600;margin-bottom:14px">Ma'lumot kiritish</div><div id="entryArea">${entryHTML('cargo')}</div>`;
+  // Also keep old saveEnt for backward compat
+  window.saveEnt=window.entSave;
+
+  // ─── RENDER ──────────────────────────────────
+  var summaryH=summaryPanelHTML();
+  var recentH=recentTxnsHTML();
+  el.innerHTML=''
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">'
+    +'<div style="font-size:15px;font-weight:600">📥 Ma\'lumot Kiritish</div>'
+    +'<div style="font-size:11px;color:var(--t3);font-family:var(--mono)">Yagona baza • <span id="txnCount">'+TXNS.length+'</span> ta transaksiya</div>'
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 360px;gap:14px;align-items:start">'
+    // Left: form
+    +'<div id="entryArea">'+entryFormHTML()+'</div>'
+    // Right: panels
+    +'<div>'
+    // Summary panel
+    +'<div class="card" style="margin-bottom:10px" id="entSummaryPanel">'+summaryH+'</div>'
+    // Recent txns
+    +'<div style="font-size:10px;color:var(--t3);font-family:var(--mono);letter-spacing:.7px;text-transform:uppercase;margin-bottom:6px">🕐 So\'nggi transaksiyalar</div>'
+    +'<div class="twrap" id="entRecentTxns">'+recentH+'</div>'
+    // Legend
+    +'<div style="margin-top:10px;padding:10px;background:var(--s2);border:1px solid var(--b1);border-radius:var(--r);font-size:10px;color:var(--t3);line-height:1.8">'
+    +'<div style="font-weight:600;color:var(--t2);margin-bottom:4px">📖 COA — Hisoblar Rejasi</div>'
+    +'<div><span style="color:#17B374">💰 Daromad</span> → P&L Revenue</div>'
+    +'<div><span style="color:#E8652A">📦 COGS</span> → P&L Gross Profit</div>'
+    +'<div><span style="color:#FF4D6A">⚙️ OpEx</span> → P&L EBIT</div>'
+    +'<div><span style="color:#A78BFF">🏦 Moliyaviy</span> → P&L Net Income</div>'
+    +'<div><span style="color:#00D4FF">🔄 O\'tkazma</span> → Balance Sheet / CF</div>'
+    +'</div>'
+    +'</div>'
+    +'</div>';
 }
 
 // ════════════════════════════════════════════
