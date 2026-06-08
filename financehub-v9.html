@@ -664,14 +664,14 @@ function updateCRMCards() {
         h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:7px">';
         results.forEach(function(r){
           var already = CRM_CLIENTS.some(function(c){ return c.company.toLowerCase()===r.company.toLowerCase(); });
-          h += '<div style="background:var(--bg);border:1px solid var(--b2);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:4px">';
+          h += '<div onclick="showLogistDetail(\''+r.company.replace(/'/g,"\\'")+'\',\''+r.inn+'\')" style="background:var(--bg);border:1px solid var(--b2);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:4px;cursor:pointer;transition:.15s" onmouseover="this.style.borderColor=\'var(--acc)\'" onmouseout="this.style.borderColor=\'var(--b2)\'">';
           h += '<div style="font-size:12px;font-weight:600;color:var(--t1)">'+r.company+'</div>';
           h += '<div style="font-size:10px;color:var(--t3)">🇨🇳 '+r.chin_supplier+'</div>';
           h += '<div style="font-size:10px;color:var(--t3)">📦 '+(r.product||'').substring(0,55)+'</div>';
-          h += '<button onclick="prefillAndAdd(\''+r.company.replace(/'/g,"\\'")+'\',\''+r.inn+'\')" '
-            + 'style="margin-top:4px;padding:4px 10px;border-radius:5px;border:none;'
-            + 'background:'+(already?'var(--s3)':'var(--acc)')+';color:'+(already?'var(--t3)':'#fff')+';font-size:10px;cursor:pointer">'
-            + (already ? '✓ CRM da bor' : '+ CRM ga qo\'shish')+'</button>';
+          h += '<div style="margin-top:4px;padding:4px 10px;border-radius:5px;text-align:center;'
+            + 'background:'+(already?'rgba(0,229,160,0.08)':'rgba(108,142,255,0.1)')+';'
+            + 'color:'+(already?'var(--grn)':'var(--acc)')+';font-size:10px">'
+            + (already ? '✓ CRM da bor' : '👁 Batafsil ko\'rish →')+'</div>';
           h += '</div>';
         });
         h += '</div></div>';
@@ -716,13 +716,13 @@ function crmLiveAC(q) {
         var inn=r.inn?(' <span style="color:var(--t3);font-size:10px">INN:'+r.inn+'</span>'):'';
         var prod=(r.product||'').substring(0,50);
         var already=CRM_CLIENTS.some(function(c){return c.company.toLowerCase()===nm.toLowerCase();});
-        h+='<div onclick="crmPickAC(\''+nm.replace(/'/g,"\\'")+'\',\''+r.inn+'\')" '
+        h+='<div onclick="showLogistDetail(\''+nm.replace(/'/g,"\\'")+'\',\''+r.inn+'\')" '
           +'style="padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--b1);display:flex;justify-content:space-between;align-items:center" '
           +'onmouseover="this.style.background=\'var(--s3)\'" onmouseout="this.style.background=\'\'">'
           +'<div><div style="font-size:12px;font-weight:500;color:var(--t1)">'+nm+inn+'</div>'
           +'<div style="font-size:10px;color:var(--t3)">📦 '+prod+'</div></div>'
           +(already?'<span style="font-size:9px;color:var(--grn);white-space:nowrap">✓ CRM da</span>'
-                   :'<span style="font-size:9px;color:var(--acc);white-space:nowrap">+ Qo\'shish</span>')
+                   :'<span style="font-size:9px;color:var(--acc);white-space:nowrap">👁 Ko\'rish</span>')
           +'</div>';
       });
       if(!h){ dd.style.display='none'; return; }
@@ -733,10 +733,10 @@ function crmLiveAC(q) {
 }
 
 function crmPickAC(company, inn){
-  var inp = document.getElementById('crm_search');
-  var dd  = document.getElementById('crm_search_dd');
-  if(inp){ inp.value=company; CRM_FILTER.search=company; updateCRMCards(); }
-  if(dd)  dd.style.display='none';
+  // Endi to'g'ridan qo'shmaymiz — detail modalini ochamiz
+  var dd = document.getElementById('crm_search_dd');
+  if(dd) dd.style.display='none';
+  showLogistDetail(company, inn);
 }
 
 // Click outside — dropdown yopilsin
@@ -745,6 +745,164 @@ document.addEventListener('click', function(e){
   var dd=document.getElementById('crm_search_dd');
   if(dd && !dd.contains(e.target)) dd.style.display='none';
 });
+
+// ══════════════════════════════════════════════════════
+// LOGIST DETAIL MODAL — kompaniya ma'lumotlarini ko'rish
+// ══════════════════════════════════════════════════════
+function showLogistDetail(company, inn) {
+  // Modal overlay yaratish (yo'q bo'lsa)
+  var existing = document.getElementById('logist_modal_overlay');
+  if(existing) existing.remove();
+
+  var overlay = document.createElement('div');
+  overlay.id = 'logist_modal_overlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)';
+  overlay.innerHTML = '<div style="background:var(--s1);border:1px solid var(--b2);border-radius:16px;width:100%;max-width:640px;max-height:85vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.6)">'
+    + '<div style="padding:16px 20px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--s1);z-index:1">'
+    + '<div style="font-size:14px;font-weight:600">🔍 Kompaniya Ma\'lumotlari</div>'
+    + '<button onclick="closeLogistModal()" style="background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:4px 10px;color:var(--t2);cursor:pointer;font-size:12px">✕ Yopish</button>'
+    + '</div>'
+    + '<div id="logist_modal_body" style="padding:20px">'
+    + '<div style="text-align:center;padding:30px;color:var(--t3)">⏳ Ma\'lumotlar yuklanmoqda...</div>'
+    + '</div>'
+    + '</div>';
+  document.body.appendChild(overlay);
+
+  // Overlay bosganida yopilsin
+  overlay.addEventListener('click', function(e){ if(e.target===overlay) closeLogistModal(); });
+
+  // Logist bazasidan to'liq ma'lumot tortish
+  var q = inn || company;
+  fetch(LOGIST_API + '/search?q=' + encodeURIComponent(q) + '&limit=50')
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      var rows = data.results || [];
+      // Bir xil kompaniya bo'yicha filter
+      if(inn) rows = rows.filter(function(r){ return r.inn === inn; });
+      if(!rows.length && company) {
+        // INN topilmasa ism bo'yicha qidirish
+        return fetch(LOGIST_API + '/search?q=' + encodeURIComponent(company) + '&limit=50')
+          .then(function(r2){ return r2.json(); })
+          .then(function(d2){
+            renderLogistModal(company, inn, d2.results||[]);
+          });
+      }
+      renderLogistModal(company, inn, rows);
+    })
+    .catch(function(){
+      var b = document.getElementById('logist_modal_body');
+      if(b) b.innerHTML = '<div style="color:var(--red);padding:20px">❌ Ma\'lumot yuklab bo\'lmadi. Server ishlamayapti.</div>';
+    });
+}
+
+function renderLogistModal(company, inn, rows) {
+  var b = document.getElementById('logist_modal_body');
+  if(!b) return;
+
+  // Agregatsiya
+  var compName = rows.length ? (rows[0].kompaniya||company) : company;
+  var chinName  = rows.length ? (rows[0].chin_komp||'—') : '—';
+  var address   = rows.length ? (rows[0].uz_komp_adr||'—') : '—';
+  var totalKg   = rows.reduce(function(s,r){ return s+(parseFloat(r.kg)||0); }, 0);
+  var totalVal  = rows.reduce(function(s,r){ return s+(parseFloat(r.g46)||0); }, 0);
+  var txnCount  = rows.length;
+
+  // Mahsulotlar — unique
+  var products = {};
+  rows.forEach(function(r){
+    var t = (r.tovar||'').trim().substring(0,60);
+    if(t) products[t] = (products[t]||0)+1;
+  });
+  var prodList = Object.keys(products).sort(function(a,b){return products[b]-products[a];}).slice(0,8);
+
+  var alreadyInCRM = CRM_CLIENTS.some(function(c){
+    return c.company.toLowerCase() === compName.toLowerCase();
+  });
+
+  var h = '';
+
+  // Header info
+  h += '<div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:20px">';
+  h += '<div style="width:52px;height:52px;border-radius:12px;background:linear-gradient(135deg,var(--acc),var(--pur));display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff;flex-shrink:0">'
+     + compName.charAt(0).toUpperCase() + '</div>';
+  h += '<div style="flex:1">';
+  h += '<div style="font-size:16px;font-weight:700;color:var(--t1);margin-bottom:3px">'+compName+'</div>';
+  h += '<div style="font-size:12px;color:var(--t3)">🇨🇳 '+chinName+'</div>';
+  if(inn) h += '<div style="font-size:11px;color:var(--t3);margin-top:2px">INN: <span style="font-family:var(--mono);color:var(--acc)">'+inn+'</span></div>';
+  h += '</div>';
+  if(alreadyInCRM) h += '<span style="padding:4px 10px;border-radius:999px;background:rgba(0,229,160,0.1);color:var(--grn);font-size:11px;white-space:nowrap">✓ CRM da bor</span>';
+  h += '</div>';
+
+  // Stats row
+  h += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:18px">';
+  var stats = [
+    {l:'Jami operatsiyalar', v:txnCount+' ta', c:'var(--acc)'},
+    {l:'Jami hajm (kg)', v:Math.round(totalKg).toLocaleString()+' kg', c:'var(--amb)'},
+    {l:'Jami qiymat ($)', v:'$'+Math.round(totalVal/1000)+'K', c:'var(--grn)'},
+  ];
+  stats.forEach(function(s){
+    h += '<div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:12px;text-align:center">';
+    h += '<div style="font-size:10px;color:var(--t3);margin-bottom:4px">'+s.l+'</div>';
+    h += '<div style="font-size:18px;font-weight:700;font-family:var(--mono);color:'+s.c+'">'+s.v+'</div>';
+    h += '</div>';
+  });
+  h += '</div>';
+
+  // Manzil
+  if(address && address!=='—') {
+    h += '<div style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px">';
+    h += '<span style="color:var(--t3)">📍 Manzil: </span><span style="color:var(--t2)">'+address+'</span>';
+    h += '</div>';
+  }
+
+  // Mahsulotlar
+  if(prodList.length) {
+    h += '<div style="margin-bottom:18px">';
+    h += '<div style="font-size:11px;color:var(--t3);margin-bottom:8px;font-family:var(--mono);letter-spacing:.5px;text-transform:uppercase">📦 Savdo qilgan mahsulotlar</div>';
+    h += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
+    prodList.forEach(function(p){
+      h += '<span style="padding:4px 10px;background:var(--s3);border:1px solid var(--b2);border-radius:6px;font-size:11px;color:var(--t2)">'+p+'</span>';
+    });
+    h += '</div></div>';
+  }
+
+  // So'nggi operatsiyalar (5 ta)
+  if(rows.length) {
+    h += '<div style="margin-bottom:20px">';
+    h += '<div style="font-size:11px;color:var(--t3);margin-bottom:8px;font-family:var(--mono);letter-spacing:.5px;text-transform:uppercase">📋 So\'nggi operatsiyalar</div>';
+    h += '<div class="twrap"><table><thead><tr><th>Mahsulot</th><th>Kg</th><th>Qiymat</th></tr></thead><tbody>';
+    rows.slice(0,5).forEach(function(r){
+      h += '<tr><td style="font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(r.tovar||'').substring(0,50)+'</td>'
+         + '<td style="font-family:var(--mono);font-size:11px">'+(parseFloat(r.kg)||0).toLocaleString()+'</td>'
+         + '<td style="font-family:var(--mono);font-size:11px;color:var(--grn)">$'+(parseFloat(r.g46)||0).toLocaleString()+'</td></tr>';
+    });
+    h += '</tbody></table></div></div>';
+  }
+
+  // Action buttons
+  h += '<div style="display:flex;gap:10px;padding-top:10px;border-top:1px solid var(--b1)">';
+  if(!alreadyInCRM) {
+    h += '<button onclick="addFromLogistModal(\''+compName.replace(/'/g,"\\'")+'\',\''+inn+'\')" '
+       + 'style="flex:1;padding:11px;border-radius:8px;border:none;background:var(--acc);color:#fff;cursor:pointer;font-size:13px;font-weight:600">+ CRM ga qo\'shish</button>';
+  } else {
+    h += '<button disabled style="flex:1;padding:11px;border-radius:8px;border:1px solid var(--b2);background:var(--s3);color:var(--t3);font-size:13px">✓ Allaqachon CRM da</button>';
+  }
+  h += '<button onclick="closeLogistModal()" style="padding:11px 20px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--t2);cursor:pointer;font-size:13px">Bekor qilish</button>';
+  h += '</div>';
+
+  b.innerHTML = h;
+}
+
+function closeLogistModal(){
+  var m = document.getElementById('logist_modal_overlay');
+  if(m) m.remove();
+}
+
+function addFromLogistModal(company, inn){
+  closeLogistModal();
+  prefillAndAdd(company);
+  toast('✅ '+company+' CRM ga qo\'shildi!');
+}
 
 function renderCRM() {
   var el = document.getElementById('pg-l1');
@@ -1101,11 +1259,12 @@ function searchInLogistDB() {
     }
     var h = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px;margin-top:10px">';
     results.forEach(function(r){
-      h += '<div class="card" style="cursor:pointer" onclick="prefillAndAdd(\''+r.company.replace(/'/g,"\\'")+'\')">';
+      var already = CRM_CLIENTS.some(function(c){return c.company.toLowerCase()===(r.company||'').toLowerCase();});
+      h += '<div class="card" style="cursor:pointer;transition:.15s" onclick="showLogistDetail(\''+r.company.replace(/'/g,"\\'")+'\',\''+r.inn+'\')" onmouseover="this.style.borderColor=\'var(--acc)\'" onmouseout="this.style.borderColor=\'\'">';
       h += '<div style="font-size:12px;font-weight:600;margin-bottom:4px">'+r.company+'</div>';
       h += '<div style="font-size:10px;color:var(--t3)">🇨🇳 '+r.chin_supplier+'</div>';
       h += '<div style="font-size:10px;color:var(--t3);margin-top:2px">📦 '+(r.product||'').substring(0,60)+'</div>';
-      h += '<button style="margin-top:8px;padding:4px 10px;border-radius:5px;border:none;background:var(--acc);color:#fff;font-size:10px;cursor:pointer">+ CRM ga qo\'shish</button>';
+      h += '<div style="margin-top:8px;padding:5px 10px;border-radius:5px;text-align:center;background:'+(already?'rgba(0,229,160,0.08)':'rgba(108,142,255,0.1)')+';color:'+(already?'var(--grn)':'var(--acc)')+';font-size:10px">'+(already?'✓ CRM da bor':'👁 Batafsil ko\'rish →')+'</div>';
       h += '</div>';
     });
     h += '</div>';
