@@ -664,7 +664,8 @@ function updateCRMCards() {
         h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:7px">';
         results.forEach(function(r){
           var already = CRM_CLIENTS.some(function(c){ return c.company.toLowerCase()===r.company.toLowerCase(); });
-          h += '<div onclick="showLogistDetail(\''+r.company.replace(/'/g,"\\'")+'\',\''+r.inn+'\')" style="background:var(--bg);border:1px solid var(--b2);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:4px;cursor:pointer;transition:.15s" onmouseover="this.style.borderColor=\'var(--acc)\'" onmouseout="this.style.borderColor=\'var(--b2)\'">';
+          var _k1=_ldReg(r.company,r.inn);
+          h += '<div onclick="showLogistDetailK(\''+_k1+'\')" style="background:var(--bg);border:1px solid var(--b2);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:4px;cursor:pointer;transition:.15s" onmouseover="this.style.borderColor=\'var(--acc)\'" onmouseout="this.style.borderColor=\'var(--b2)\'">';
           h += '<div style="font-size:12px;font-weight:600;color:var(--t1)">'+r.company+'</div>';
           h += '<div style="font-size:10px;color:var(--t3)">🇨🇳 '+r.chin_supplier+'</div>';
           h += '<div style="font-size:10px;color:var(--t3)">📦 '+(r.product||'').substring(0,55)+'</div>';
@@ -716,7 +717,8 @@ function crmLiveAC(q) {
         var inn=r.inn?(' <span style="color:var(--t3);font-size:10px">INN:'+r.inn+'</span>'):'';
         var prod=(r.product||'').substring(0,50);
         var already=CRM_CLIENTS.some(function(c){return c.company.toLowerCase()===nm.toLowerCase();});
-        h+='<div onclick="showLogistDetail(\''+nm.replace(/'/g,"\\'")+'\',\''+r.inn+'\')" '
+        var _k2=_ldReg(nm,r.inn);
+        h+='<div onclick="showLogistDetailK(\''+_k2+'\')" '
           +'style="padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--b1);display:flex;justify-content:space-between;align-items:center" '
           +'onmouseover="this.style.background=\'var(--s3)\'" onmouseout="this.style.background=\'\'">'
           +'<div><div style="font-size:12px;font-weight:500;color:var(--t1)">'+nm+inn+'</div>'
@@ -749,6 +751,20 @@ document.addEventListener('click', function(e){
 // ══════════════════════════════════════════════════════
 // LOGIST DETAIL MODAL — kompaniya ma'lumotlarini ko'rish
 // ══════════════════════════════════════════════════════
+
+// Cache: onclick ichida " yoki ' bo'lgan nomlarni xavfsiz uzatish uchun
+var _LDC = {}; // {key: {company, inn}}
+var _LDC_i = 0;
+function _ldReg(company, inn) {
+  var k = 'ld' + (++_LDC_i);
+  _LDC[k] = {company: company, inn: inn||''};
+  return k;
+}
+function showLogistDetailK(k) {
+  var d = _LDC[k];
+  if(d) showLogistDetail(d.company, d.inn);
+}
+
 function showLogistDetail(company, inn) {
   // Modal overlay yaratish (yo'q bo'lsa)
   var existing = document.getElementById('logist_modal_overlay');
@@ -882,7 +898,8 @@ function renderLogistModal(company, inn, rows) {
   // Action buttons
   h += '<div style="display:flex;gap:10px;padding-top:10px;border-top:1px solid var(--b1)">';
   if(!alreadyInCRM) {
-    h += '<button onclick="addFromLogistModal(\''+compName.replace(/'/g,"\\'")+'\',\''+inn+'\')" '
+    var _km=_ldReg(compName,inn);
+    h += '<button onclick="addFromLogistModalK(\''+_km+'\')" '
        + 'style="flex:1;padding:11px;border-radius:8px;border:none;background:var(--acc);color:#fff;cursor:pointer;font-size:13px;font-weight:600">+ CRM ga qo\'shish</button>';
   } else {
     h += '<button disabled style="flex:1;padding:11px;border-radius:8px;border:1px solid var(--b2);background:var(--s3);color:var(--t3);font-size:13px">✓ Allaqachon CRM da</button>';
@@ -898,6 +915,10 @@ function closeLogistModal(){
   if(m) m.remove();
 }
 
+function addFromLogistModalK(k){
+  var d=_LDC[k]||{};
+  addFromLogistModal(d.company||'',d.inn||'');
+}
 function addFromLogistModal(company, inn){
   closeLogistModal();
   prefillAndAdd(company);
@@ -1260,7 +1281,8 @@ function searchInLogistDB() {
     var h = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px;margin-top:10px">';
     results.forEach(function(r){
       var already = CRM_CLIENTS.some(function(c){return c.company.toLowerCase()===(r.company||'').toLowerCase();});
-      h += '<div class="card" style="cursor:pointer;transition:.15s" onclick="showLogistDetail(\''+r.company.replace(/'/g,"\\'")+'\',\''+r.inn+'\')" onmouseover="this.style.borderColor=\'var(--acc)\'" onmouseout="this.style.borderColor=\'\'">';
+      var _k3=_ldReg(r.company,r.inn);
+      h += '<div class="card" style="cursor:pointer;transition:.15s" onclick="showLogistDetailK(\''+_k3+'\')" onmouseover="this.style.borderColor=\'var(--acc)\'" onmouseout="this.style.borderColor=\'\'">';
       h += '<div style="font-size:12px;font-weight:600;margin-bottom:4px">'+r.company+'</div>';
       h += '<div style="font-size:10px;color:var(--t3)">🇨🇳 '+r.chin_supplier+'</div>';
       h += '<div style="font-size:10px;color:var(--t3);margin-top:2px">📦 '+(r.product||'').substring(0,60)+'</div>';
