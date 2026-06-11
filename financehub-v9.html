@@ -1137,6 +1137,76 @@ function clearAllData(){
   keys.forEach(function(k){try{localStorage.removeItem('fh_'+k);}catch(e){}});
 }
 
+// ════════════════════════════════════════════
+// PERIOD CLOSE — Davr yopish tizimi
+// ════════════════════════════════════════════
+var CLOSED_PERIODS = (function(){ return lsLoad('closed_periods') || []; })();
+function periodClose(){
+  var ym = prompt('Yopish uchun davr (YYYY-MM format, masalan 2025-05):');
+  if(!ym || !/^\d{4}-\d{2}$/.test(ym)) return toast('Noto'g'ri format');
+  if(CLOSED_PERIODS.indexOf(ym) >= 0) return toast('Bu davr allaqachon yopilgan');
+  if(!confirm(''' + ym + '' davrini yopishni tasdiqlaysizmi? Bu amalni qaytarib bo'lmaydi!')) return;
+  CLOSED_PERIODS.push(ym);
+  lsSave('closed_periods', CLOSED_PERIODS);
+  toast('✅ ' + ym + ' davri yopildi');
+}
+function isPeriodClosed(dateStr){
+  if(!dateStr) return false;
+  var ym = dateStr.substring(0,7);
+  return CLOSED_PERIODS.indexOf(ym) >= 0;
+}
+
+// ════════════════════════════════════════════
+// APPROVAL WORKFLOW
+// ════════════════════════════════════════════
+function approveTxn(id){
+  var t = TXNS.find(function(x){return x.id===id;});
+  if(!t) return;
+  if(CUR_USER && (CUR_USER.role==='owner'||CUR_USER.role==='manager')){
+    t.approval_status = 'approved';
+    t.approved_by = CUR_USER.full_name || CUR_USER.email;
+    t.approved_at = new Date().toISOString();
+    txnsSave();
+    toast('✅ Tasdiqlandi: ' + (t.purpose||t.note||t.id));
+    renderL2(t.direction||'logistics');
+  }
+}
+function rejectTxn(id){
+  var t = TXNS.find(function(x){return x.id===id;});
+  if(!t) return;
+  if(CUR_USER && (CUR_USER.role==='owner'||CUR_USER.role==='manager')){
+    t.approval_status = 'rejected';
+    t.approved_by = CUR_USER.full_name || CUR_USER.email;
+    t.approved_at = new Date().toISOString();
+    txnsSave();
+    toast('❌ Rad etildi: ' + (t.purpose||t.note||t.id));
+    renderL2(t.direction||'logistics');
+  }
+}
+function pendingTxnsHTML(dir){
+  var pending = TXNS.filter(function(t){
+    return t.approval_status==='pending' && (!dir || t.direction===dir);
+  });
+  if(!pending.length) return '';
+  var h = '<div class="card" style="border-color:var(--amb);margin-bottom:16px">';
+  h += '<div style="font-size:12px;font-weight:600;color:var(--amb);margin-bottom:10px">⏳ Tasdiqlash kutilayotgan tranzaksiyalar: '+pending.length+' ta</div>';
+  pending.slice(0,10).forEach(function(t){
+    var canApprove = CUR_USER && (CUR_USER.role==='owner'||CUR_USER.role==='manager');
+    h += '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:.5px solid var(--b1);font-size:12px">';
+    h += '<span style="color:var(--t3)">' + (t.date||'') + '</span>';
+    h += '<span style="color:var(--t2);flex:1">' + (t.purpose||t.note||'—') + '</span>';
+    h += '<span style="color:var(--amb);font-family:var(--mono)">$' + (+(t.amount)||0).toLocaleString() + '</span>';
+    h += '<span style="color:var(--t3);font-size:10px">' + (t.created_by||'') + '</span>';
+    if(canApprove){
+      h += '<button onclick="approveTxn('' + t.id + '')" style="padding:3px 10px;border-radius:5px;border:none;background:var(--grn);color:#000;cursor:pointer;font-size:10px;font-weight:600">✓</button>';
+      h += '<button onclick="rejectTxn('' + t.id + '')" style="padding:3px 10px;border-radius:5px;border:none;background:var(--red);color:#fff;cursor:pointer;font-size:10px;font-weight:600">✗</button>';
+    }
+    h += '</div>';
+  });
+  h += '</div>';
+  return h;
+}
+
 
 
 
@@ -15055,8 +15125,13 @@ function renderCashflow(focusDir){
 
 
 
-  const c=fil('cargo'),l=fil('logistics'),e=fil('exchange'),p=fil('procurement'),h=fil('holding');
-
+  // ✅ focusDir: faqat o'z yo'nalishi CF sini ko'rsatish
+  const _cfDir = focusDir || (CUR_USER && CUR_USER.role !== 'owner' ? CUR_USER.direction : null);
+  const c=_cfDir&&_cfDir!=='cargo'?[]:fil('cargo');
+  const l=_cfDir&&_cfDir!=='logistics'?[]:fil('logistics');
+  const e=_cfDir&&_cfDir!=='exchange'?[]:fil('exchange');
+  const p=_cfDir&&_cfDir!=='procurement'?[]:fil('procurement');
+  const h=_cfDir?[]:fil('holding');
 
   const ad=dys(PER);
 
@@ -15079,21 +15154,18 @@ function renderCashflow(focusDir){
   const op_opex      = -(sk(c,'expense')+sk(l,'expense')+sk(e,'expense')+sk(p,'expense'));
 
 
-  const op_wc_ar     = -Math.round(op_revenue*0.08);  // receivables increase
-
-
-  const op_wc_inv    = -Math.round(Math.abs(op_cogs)*0.05); // inventory build
-
-
-  const op_wc_ap     = Math.round(Math.abs(op_cogs)*0.04);  // payables increase
-
-
-  const op_da        = Math.round(op_revenue*0.02);   // D&A add-back
-
-
-  const op_tax_paid  = -Math.round(Math.max(0,(op_revenue+op_cogs+op_opex))*0.10);
-
-
+  // ✅ IAS 7: Haqiqiy DC_DATA dan AR/AP o'zgarishi
+  const op_wc_ar     = -(DC_DATA.debitor.reduce(function(s,r){return s+(r.amount-r.paid);},0));
+  const op_wc_ap     =  (DC_DATA.kreditor.reduce(function(s,r){return s+(r.amount-r.paid);},0));
+  // ✅ IAS 2: Inventar o'zgarishi haqiqiy TXNS dan
+  const _invIn = TXNS.filter(function(t){return t.type==='inventory'&&t.status!=='Bekor';}).reduce(function(s,t){return s+Math.abs(+(t.amount)||0);},0);
+  const _invOut= TXNS.filter(function(t){return t.type==='inventory_release'&&t.status!=='Bekor';}).reduce(function(s,t){return s+Math.abs(+(t.amount)||0);},0);
+  const op_wc_inv    = -(_invIn - _invOut);
+  // ✅ D&A haqiqiy OB dan (straight-line)
+  const op_da        = totalDA_period;
+  // ✅ Soliq: haqiqiy tax tranzaksiyalardan
+  const _taxPaid = TXNS.filter(function(t){return t.type==='tax'&&t.status!=='Bekor';}).reduce(function(s,t){return s+Math.abs(+(t.amount)||0);},0);
+  const op_tax_paid  = -_taxPaid;
   const cfo = op_revenue+op_cogs+op_opex+op_wc_ar+op_wc_inv+op_wc_ap+op_da+op_tax_paid;
 
 
@@ -15103,7 +15175,8 @@ function renderCashflow(focusDir){
   // II. INVESTING ACTIVITIES
 
 
-  const inv_capex    = -Math.round(op_revenue*0.04);
+  // ✅ CapEx haqiqiy TXNS dan (type='capex' yoki is_capex=true)
+  const inv_capex    = -TXNS.filter(function(t){return (t.type==='capex'||t.is_capex)&&t.status!=='Bekor';}).reduce(function(s,t){return s+Math.abs(+(t.amount)||0);},0);
 
 
   const inv_loans_given = -sk(h,'tr_out');
@@ -15139,9 +15212,9 @@ function renderCashflow(focusDir){
   const net_change = cfo+cfi+cff;
 
 
-  const begin_cash = Math.round(Math.abs(net_change)*1.8+12000);
-
-
+  // ✅ Boshlanish kassasi — haqiqiy KASSA_DATA dan
+  const _kassaTotCF=(function(){var tot=0;ensureKassaData();DIRS.forEach(function(d){var kas=KASSA_DATA[d.id]||{};KTYPES.forEach(function(tp){tot+=(kas['USD_'+tp]||{}).balance||0;tot+=((kas['RMB_'+tp]||{}).balance||0)/(OB.fx_rate_rmb||7.1);tot+=((kas['UZS_'+tp]||{}).balance||0)/(OB.fx_rate_uzs||12700);});});return Math.round(tot);})();
+  const begin_cash = _kassaTotCF > 0 ? _kassaTotCF : Math.round(Math.abs(net_change)*1.8+12000);
   const end_cash   = begin_cash+net_change;
 
 
@@ -19707,7 +19780,12 @@ function renderEntry(focusDir){
       is_loan_in: isLoanIn,          // Qarz olish → CF Moliyaviy faoliyat
 
 
-      tags:tags
+      tags:tags,
+
+      // ✅ Audit trail
+      created_by: CUR_USER ? (CUR_USER.full_name || CUR_USER.email || 'unknown') : 'unknown',
+      created_at: new Date().toISOString(),
+      approval_status: (CUR_USER && CUR_USER.role === 'owner') ? 'approved' : 'pending'
 
 
     };
@@ -20357,9 +20435,15 @@ function renderOBSettings(){
 
   h += '</div>';
 
-  // Faqat owner uchun: barcha ma'lumotlarni tozalash tugmasi
+  // Faqat owner uchun: davr yopish va tozalash
   if(CUR_USER && CUR_USER.role === 'owner'){
-    h += '<div class="card" style="margin-top:20px;border-color:var(--red)">';
+    h += '<div class="card" style="margin-top:20px;border-color:var(--tel)">';
+    h += '<div style="font-size:12px;font-weight:600;color:var(--tel);margin-bottom:8px">📅 Davr yopish (Period Close)</div>';
+    h += '<div style="font-size:11px;color:var(--t3);margin-bottom:8px">Yopilgan davrlarga tranzaksiya kiritish bloklanadi.</div>';
+    if(CLOSED_PERIODS.length){ h += '<div style="font-size:11px;color:var(--t2);margin-bottom:8px">Yopilgan davrlar: <b>' + CLOSED_PERIODS.join(', ') + '</b></div>'; }
+    h += '<button onclick="periodClose()" style="padding:9px 20px;border-radius:7px;border:1px solid var(--tel);background:rgba(0,212,255,0.1);color:var(--tel);cursor:pointer;font-size:12px;font-weight:600">📅 Davrni yopish</button>';
+    h += '</div>';
+    h += '<div class="card" style="margin-top:16px;border-color:var(--red)">';
     h += '<div style="font-size:12px;font-weight:600;color:var(--red);margin-bottom:8px">🗑️ Ma\'lumotlarni tozalash</div>';
     h += '<div style="font-size:11px;color:var(--t3);margin-bottom:12px">Barcha tranzaksiyalar, Payroll, CRM, Kassa va boshqa ma\'lumotlar o\'chiriladi. Bu amalni qaytarib bo\'lmaydi!</div>';
     h += '<button onclick="if(confirm(\'Haqiqatan barcha ma\\\'lumotlarni tozalashni xohlaysizmi?\')){clearAllData();location.reload();}" style="padding:9px 20px;border-radius:7px;border:1px solid var(--red);background:rgba(255,77,106,0.1);color:var(--red);cursor:pointer;font-size:12px;font-weight:600">🗑️ Barcha ma\'lumotlarni tozalash</button>';
@@ -21087,6 +21171,10 @@ function exSaveTxn(type){
     txn.cny=parseFloat(g('exF_cny'))||0;
   }
 
+  // ✅ Audit trail
+  txn.created_by = CUR_USER ? (CUR_USER.full_name || CUR_USER.email || 'unknown') : 'unknown';
+  txn.created_at = new Date().toISOString();
+  txn.approval_status = (CUR_USER && CUR_USER.role === 'owner') ? 'approved' : 'pending';
   EX_TXNS.push(txn);
   exSave();
   // Close any open overlays
