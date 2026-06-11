@@ -8369,8 +8369,12 @@ function renderPayroll(focusDir){
 
   var dirSummary={};
 
+  // Non-owner: faqat o'z yo'nalishi ko'rsatilsin
+  var _prPayrollData = (CUR_USER && CUR_USER.role !== 'owner' && CUR_USER.direction)
+    ? PAYROLL.filter(function(e){ return e.dir === CUR_USER.direction; })
+    : PAYROLL;
 
-  PAYROLL.forEach(function(e){
+  _prPayrollData.forEach(function(e){
 
 
     if(!dirSummary[e.dir]) dirSummary[e.dir]={count:0,gross:0,net:0};
