@@ -1143,9 +1143,9 @@ function clearAllData(){
 var CLOSED_PERIODS = (function(){ return lsLoad('closed_periods') || []; })();
 function periodClose(){
   var ym = prompt('Yopish uchun davr (YYYY-MM format, masalan 2025-05):');
-  if(!ym || !/^\d{4}-\d{2}$/.test(ym)) return toast('Noto'g'ri format');
+  if(!ym || !/^\d{4}-\d{2}$/.test(ym)) return toast("Noto'g'ri format");
   if(CLOSED_PERIODS.indexOf(ym) >= 0) return toast('Bu davr allaqachon yopilgan');
-  if(!confirm(''' + ym + '' davrini yopishni tasdiqlaysizmi? Bu amalni qaytarib bo'lmaydi!')) return;
+  if(!confirm('"' + ym + '" davrini yopishni tasdiqlaysizmi? Bu amalni qaytarib bolmaydi!')) return;
   CLOSED_PERIODS.push(ym);
   lsSave('closed_periods', CLOSED_PERIODS);
   toast('✅ ' + ym + ' davri yopildi');
