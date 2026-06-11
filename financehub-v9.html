@@ -1132,6 +1132,11 @@ function lsSave(key,val){try{localStorage.setItem('fh_'+key,JSON.stringify(val))
 
 function lsLoad(key){try{var v=localStorage.getItem('fh_'+key);return v?JSON.parse(v):null;}catch(e){return null;}}
 
+function clearAllData(){
+  var keys=['txns','payroll','crm_clients','pipeline','kassas2','ex_txns','pipeline_d','ehson','ob_settings'];
+  keys.forEach(function(k){try{localStorage.removeItem('fh_'+k);}catch(e){}});
+}
+
 
 
 
@@ -8184,106 +8189,106 @@ var PR_FILTER={dir:'',dept:''};
 
 
 
-var _PAYROLL_DEFAULT=[
+var _PAYROLL_DEFAULT=[];
 
 
-  // CARGO
 
 
-  {id:1,name:'Aziz Tursunov',dir:'cargo',dept:'Sotuv',pos:'Sotuv menejeri',base:1800,kpi:400,sales:600,allow:200,tax_pct:12},
 
 
-  {id:2,name:'Malika Hasanova',dir:'cargo',dept:'Sotuv',pos:'Katta menejer',base:2200,kpi:500,sales:800,allow:200,tax_pct:12},
 
 
-  {id:3,name:'Jamshid Ergashev',dir:'cargo',dept:'Sotuv',pos:'Sotuv vakili',base:1400,kpi:250,sales:400,allow:150,tax_pct:12},
 
 
-  {id:4,name:'Nilufar Yusupova',dir:'cargo',dept:'Marketing',pos:'Marketing menejeri',base:1600,kpi:300,sales:0,allow:200,tax_pct:12},
 
 
-  {id:5,name:'Otabek Mirzayev',dir:'cargo',dept:'Finance',pos:'Moliyachilik mutaxassisi',base:2000,kpi:350,sales:0,allow:200,tax_pct:12},
 
 
-  {id:6,name:'Sardor Nazarov',dir:'cargo',dept:'Operatsion',pos:'Operatsion menejer',base:1700,kpi:300,sales:0,allow:200,tax_pct:12},
 
 
-  {id:7,name:'Zulfiya Karimova',dir:'cargo',dept:'Operatsion',pos:'Logistika koordinator',base:1300,kpi:200,sales:0,allow:150,tax_pct:12},
 
 
-  {id:8,name:'Bekhzod Toshmatov',dir:'cargo',dept:'IT',pos:'IT mutaxassis',base:2200,kpi:300,sales:0,allow:200,tax_pct:12},
 
 
-  {id:9,name:'Ravshan Holmatov',dir:'cargo',dept:'Kuryerlik',pos:'Kuryer',base:900,kpi:150,sales:0,allow:100,tax_pct:12},
 
 
-  {id:10,name:'Doniyor Xasanov',dir:'cargo',dept:'Kuryerlik',pos:'Katta kuryer',base:1100,kpi:200,sales:0,allow:100,tax_pct:12},
 
 
-  {id:11,name:'Shahnoza Abdullayeva',dir:'cargo',dept:'Kuryerlik',pos:'Kuryer',base:900,kpi:150,sales:0,allow:100,tax_pct:12},
 
 
-  // LOGISTICS
 
 
-  {id:12,name:'Bobur Toshmatov',dir:'logistics',dept:'Sotuv',pos:'Sotuv menejeri',base:1900,kpi:450,sales:700,allow:200,tax_pct:12},
 
 
-  {id:13,name:'Nodira Yusupova',dir:'logistics',dept:'Sotuv',pos:'Katta menejer',base:2100,kpi:500,sales:750,allow:200,tax_pct:12},
 
 
-  {id:14,name:'Alisher Karimov',dir:'logistics',dept:'Sotuv',pos:'Sotuv vakili',base:1500,kpi:280,sales:450,allow:150,tax_pct:12},
 
 
-  {id:15,name:'Feruza Rашидova',dir:'logistics',dept:'Marketing',pos:'Marketing mutaxassis',base:1500,kpi:250,sales:0,allow:200,tax_pct:12},
 
 
-  {id:16,name:'Jahongir Yunusov',dir:'logistics',dept:'Finance',pos:'Moliyachilik',base:1900,kpi:320,sales:0,allow:200,tax_pct:12},
 
 
-  {id:17,name:'Kamol Sobirov',dir:'logistics',dept:'Operatsion',pos:'Operatsion koordinator',base:1400,kpi:220,sales:0,allow:150,tax_pct:12},
 
 
-  {id:18,name:'Umida Nazarova',dir:'logistics',dept:'Operatsion',pos:'Hujjatlar mutaxassisi',base:1200,kpi:180,sales:0,allow:150,tax_pct:12},
 
 
-  // EXCHANGE
 
 
-  {id:19,name:'Temur Rahimov',dir:'exchange',dept:'Finance',pos:'Valyuta diler',base:2500,kpi:600,sales:800,allow:250,tax_pct:12},
 
 
-  {id:20,name:'Dilnoza Tursunova',dir:'exchange',dept:'Finance',pos:'Kassa mutaxassisi',base:1800,kpi:400,sales:500,allow:200,tax_pct:12},
 
 
-  // PROCUREMENT
 
 
-  {id:21,name:'Sherzod Karimov',dir:'procurement',dept:'Sotuv',pos:'Procurement menejer',base:2000,kpi:450,sales:600,allow:200,tax_pct:12},
 
 
-  {id:22,name:'Kamola Mirzayeva',dir:'procurement',dept:'Sotuv',pos:'Sotuv vakili',base:1500,kpi:300,sales:400,allow:150,tax_pct:12},
 
 
-  {id:23,name:'Nozima Ergasheva',dir:'procurement',dept:'Finance',pos:'Moliyachilik',base:1700,kpi:280,sales:0,allow:200,tax_pct:12},
 
 
-  // HOLDING
 
 
-  {id:24,name:'Jasur Mirzayev',dir:'holding',dept:'Moliya',pos:'Bosh moliyachi (CFO)',base:4500,kpi:1000,sales:0,allow:500,tax_pct:15},
 
 
-  {id:25,name:'Madina Yusupova',dir:'holding',dept:'Moliya',pos:'Moliyaviy tahlilchi',base:2800,kpi:600,sales:0,allow:300,tax_pct:12},
 
 
-  {id:26,name:'Sarvar Xoliqov',dir:'holding',dept:'HR',pos:'HR menejer',base:2200,kpi:400,sales:0,allow:250,tax_pct:12},
 
 
-  {id:27,name:'Akbar Normatov',dir:'holding',dept:'IT',pos:'IT direktor',base:3500,kpi:700,sales:0,allow:400,tax_pct:12},
 
 
-];
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 var PAYROLL=(function(){var saved=lsLoad('payroll');return saved||_PAYROLL_DEFAULT;})();
@@ -20343,6 +20348,15 @@ function renderOBSettings(){
 
 
   h += '</div>';
+
+  // Faqat owner uchun: barcha ma'lumotlarni tozalash tugmasi
+  if(CUR_USER && CUR_USER.role === 'owner'){
+    h += '<div class="card" style="margin-top:20px;border-color:var(--red)">';
+    h += '<div style="font-size:12px;font-weight:600;color:var(--red);margin-bottom:8px">🗑️ Ma\'lumotlarni tozalash</div>';
+    h += '<div style="font-size:11px;color:var(--t3);margin-bottom:12px">Barcha tranzaksiyalar, Payroll, CRM, Kassa va boshqa ma\'lumotlar o\'chiriladi. Bu amalni qaytarib bo\'lmaydi!</div>';
+    h += '<button onclick="if(confirm(\'Haqiqatan barcha ma\\\'lumotlarni tozalashni xohlaysizmi?\')){clearAllData();location.reload();}" style="padding:9px 20px;border-radius:7px;border:1px solid var(--red);background:rgba(255,77,106,0.1);color:var(--red);cursor:pointer;font-size:12px;font-weight:600">🗑️ Barcha ma\'lumotlarni tozalash</button>';
+    h += '</div>';
+  }
 
 
   h += '</div>';
