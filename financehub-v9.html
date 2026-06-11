@@ -10659,7 +10659,7 @@ function setBc(items){
   document.getElementById('bc').innerHTML=items.map((it,i)=>
 
 
-    `<span class="bc-item${i===items.length-1?' cur':''" onclick="${it.fn||''">${it.lbl}</span>${i<items.length-1?'<span class="bc-sep">/</span>':''}`
+    `<span class="bc-item${i===items.length-1?' cur':''}" onclick="${it.fn||''}">${it.lbl}</span>${i<items.length-1?'<span class="bc-sep">/</span>':''}`
 
 
   ).join('');
