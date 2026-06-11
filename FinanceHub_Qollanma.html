@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinanceHub — Ma'lumot Kiritish Qo'llanmasi</title>
+<style>
+  :root {
+    --blue: #4F6EF7;
+    --blue-light: #EEF1FF;
+    --green: #22C55E;
+    --green-light: #F0FDF4;
+    --orange: #F59E0B;
+    --orange-light: #FFFBEB;
+    --red: #EF4444;
+    --red-light: #FEF2F2;
+    --purple: #8B5CF6;
+    --purple-light: #F5F3FF;
+    --gray: #6B7280;
+    --gray-light: #F9FAFB;
+    --border: #E5E7EB;
+    --text: #111827;
+    --text2: #374151;
+    --text3: #6B7280;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: var(--text);
+    background: #fff;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* COVER */
+  .cover {
+    background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #4F6EF7 100%);
+    color: #fff;
+    padding: 60px 48px 48px;
+    page-break-after: always;
+  }
+  .cover-logo { font-size: 13px; opacity: 0.7; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 40px; }
+  .cover-title { font-size: 42px; font-weight: 800; line-height: 1.15; margin-bottom: 16px; }
+  .cover-sub { font-size: 18px; opacity: 0.85; margin-bottom: 48px; }
+  .cover-chips { display: flex; gap: 10px; flex-wrap: wrap; }
+  .cover-chip {
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .cover-date { margin-top: 48px; opacity: 0.6; font-size: 12px; }
+
+  /* LAYOUT */
+  .container { max-width: 900px; margin: 0 auto; padding: 0 40px; }
+
+  /* TOC */
+  .toc-section { padding: 48px 40px; border-bottom: 2px solid var(--border); page-break-after: always; }
+  .toc-title { font-size: 22px; font-weight: 700; margin-bottom: 24px; }
+  .toc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .toc-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px; border-radius: 8px;
+    border: 1px solid var(--border);
+    cursor: pointer; text-decoration: none; color: var(--text);
+    transition: background 0.15s;
+  }
+  .toc-item:hover { background: var(--blue-light); border-color: var(--blue); }
+  .toc-num { font-size: 11px; font-weight: 700; color: var(--blue); min-width: 20px; }
+  .toc-lbl { font-size: 13px; font-weight: 500; }
+
+  /* SECTION */
+  .section {
+    padding: 48px 40px 40px;
+    border-bottom: 1px solid var(--border);
+    page-break-before: always;
+  }
+  .section-header {
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 28px;
+  }
+  .section-num {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--blue); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 700; flex-shrink: 0;
+  }
+  .section-title { font-size: 22px; font-weight: 700; }
+  .section-desc { color: var(--text3); font-size: 13px; margin-top: 2px; }
+
+  /* STEP */
+  .steps { display: flex; flex-direction: column; gap: 16px; }
+  .step {
+    display: flex; gap: 16px; align-items: flex-start;
+    padding: 16px 20px; border-radius: 10px;
+    border: 1px solid var(--border);
+    background: #fff;
+  }
+  .step-num {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--blue-light); color: var(--blue);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; flex-shrink: 0;
+  }
+  .step-content { flex: 1; }
+  .step-title { font-weight: 600; margin-bottom: 4px; }
+  .step-desc { color: var(--text3); font-size: 13px; }
+  .step-img {
+    background: var(--gray-light);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-family: 'SF Mono', 'Cascadia Code', monospace;
+    font-size: 12px;
+    color: var(--text2);
+    margin-top: 10px;
+  }
+
+  /* MOCKUP */
+  .mockup {
+    background: #F1F5F9;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 20px 0;
+  }
+  .mockup-bar {
+    background: #1e3a8a;
+    color: #fff;
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .mockup-body { padding: 16px; }
+  .mock-nav {
+    display: flex; gap: 4px; margin-bottom: 12px;
+  }
+  .mock-tab {
+    padding: 5px 12px; border-radius: 6px;
+    font-size: 11px; font-weight: 600;
+    background: rgba(255,255,255,0.2); color: #fff;
+  }
+  .mock-tab.active { background: #fff; color: #1e3a8a; }
+  .mock-subnav {
+    display: flex; gap: 4px; margin-bottom: 16px;
+    border-bottom: 1px solid var(--border); padding-bottom: 10px;
+  }
+  .mock-sub {
+    padding: 4px 10px; border-radius: 5px;
+    font-size: 11px; color: var(--gray);
+    cursor: pointer;
+  }
+  .mock-sub.active { background: var(--blue-light); color: var(--blue); font-weight: 600; }
+
+  /* FIELD */
+  .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 16px 0; }
+  .field {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    background: #fff;
+  }
+  .field-label { font-size: 10px; color: var(--gray); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .field-value { font-size: 13px; font-weight: 500; }
+  .field.required .field-label::after { content: ' *'; color: var(--red); }
+  .field.optional .field-label { opacity: 0.7; }
+
+  /* TABLE */
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 12px; }
+  th {
+    background: var(--gray-light);
+    padding: 8px 12px;
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--gray);
+    border-bottom: 2px solid var(--border);
+  }
+  td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--gray-light); }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 20px;
+    font-size: 10px; font-weight: 700;
+  }
+  .badge-income { background: var(--green-light); color: #16a34a; }
+  .badge-cogs { background: var(--red-light); color: var(--red); }
+  .badge-opex { background: var(--orange-light); color: #b45309; }
+  .badge-capex { background: var(--purple-light); color: var(--purple); }
+  .badge-loan { background: #EFF6FF; color: #2563eb; }
+  .badge-transfer { background: #F0FDF4; color: #15803d; }
+
+  /* NOTE */
+  .note {
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 14px 0;
+    display: flex; gap: 10px; align-items: flex-start;
+    font-size: 13px;
+  }
+  .note-info { background: var(--blue-light); border-left: 3px solid var(--blue); }
+  .note-warn { background: var(--orange-light); border-left: 3px solid var(--orange); }
+  .note-tip { background: var(--green-light); border-left: 3px solid var(--green); }
+  .note-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+  /* FLOW */
+  .flow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
+  .flow-step {
+    background: var(--blue); color: #fff;
+    border-radius: 8px; padding: 8px 14px;
+    font-size: 12px; font-weight: 600;
+  }
+  .flow-step.gray { background: var(--gray-light); color: var(--text2); border: 1px solid var(--border); }
+  .flow-step.green { background: var(--green); }
+  .flow-arrow { color: var(--gray); font-size: 16px; }
+
+  /* COA */
+  .coa-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 16px 0; }
+  .coa-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    background: #fff;
+  }
+  .coa-code { font-size: 20px; font-weight: 800; color: var(--blue); margin-bottom: 4px; }
+  .coa-name { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+  .coa-desc { font-size: 11px; color: var(--gray); }
+
+  /* SCREENSHOT-LIKE */
+  .screen {
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 16px 0;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+  .screen-header {
+    background: #1e3a8a;
+    color: #fff;
+    padding: 10px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .screen-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .screen-body { padding: 16px; background: #F8FAFC; }
+
+  /* INPUT FORM MOCKUP */
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .form-label { font-size: 10px; color: var(--gray); font-weight: 600; text-transform: uppercase; }
+  .form-input {
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 10px; font-size: 12px; background: #fff;
+    color: var(--text2);
+  }
+  .form-input.highlight { border-color: var(--blue); background: var(--blue-light); }
+  .form-select {
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 10px; font-size: 12px; background: #fff;
+    color: var(--text2);
+  }
+  .btn-save {
+    background: var(--blue); color: #fff;
+    border: none; border-radius: 8px;
+    padding: 8px 20px; font-size: 13px; font-weight: 600;
+    cursor: pointer; margin-top: 10px;
+  }
+
+  /* PRINT */
+  @media print {
+    body { font-size: 12px; }
+    .cover { page-break-after: always; }
+    .section { page-break-before: always; }
+    .no-print { display: none; }
+  }
+
+  /* PRINT BUTTON */
+  .print-btn {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--blue); color: #fff;
+    border: none; border-radius: 12px;
+    padding: 12px 20px; font-size: 13px; font-weight: 600;
+    cursor: pointer; box-shadow: 0 4px 16px rgba(79,110,247,0.4);
+    display: flex; align-items: center; gap: 8px;
+    z-index: 999;
+  }
+  .print-btn:hover { background: #3b5ae0; }
+  .back-btn {
+    position: fixed; bottom: 24px; left: 24px;
+    background: #1e3a8a; color: #fff;
+    border: none; border-radius: 12px;
+    padding: 12px 20px; font-size: 13px; font-weight: 600;
+    cursor: pointer; box-shadow: 0 4px 16px rgba(30,58,138,0.4);
+    display: flex; align-items: center; gap: 8px;
+    z-index: 999; text-decoration: none;
+  }
+  .back-btn:hover { background: #1e40af; }
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<div class="cover">
+  <div class="cover-logo">📊 FinanceHub · Qo'llanma</div>
+  <div class="cover-title">Ma'lumot Kiritish<br>To'liq Qo'llanmasi</div>
+  <div class="cover-sub">Barcha yo'nalishlar uchun tranzaksiya, CRM, Pipeline va Payroll ma'lumotlarini kiritish bo'yicha qadamma-qadam yo'riqnoma</div>
+  <div class="cover-chips">
+    <div class="cover-chip">📦 Cargo</div>
+    <div class="cover-chip">🚛 Logistics</div>
+    <div class="cover-chip">💱 Exchange</div>
+    <div class="cover-chip">🏭 Procurement</div>
+    <div class="cover-chip">👥 CRM</div>
+    <div class="cover-chip">📈 Pipeline</div>
+    <div class="cover-chip">👨‍💼 Payroll</div>
+  </div>
+  <div class="cover-date">Tayyorlangan: 2026-yil iyun · FinanceHub v9</div>
+</div>
+
+<!-- TOC -->
+<div class="toc-section container">
+  <div class="toc-title">📋 Mundarija</div>
+  <div class="toc-grid">
+    <a class="toc-item" href="#s1"><span class="toc-num">1</span><span class="toc-lbl">Tizimga kirish va yo'nalish tanlash</span></a>
+    <a class="toc-item" href="#s2"><span class="toc-num">2</span><span class="toc-lbl">Tranzaksiya turlari va COA kodlari</span></a>
+    <a class="toc-item" href="#s3"><span class="toc-num">3</span><span class="toc-lbl">Daromad (Income) kiritish</span></a>
+    <a class="toc-item" href="#s4"><span class="toc-num">4</span><span class="toc-lbl">Xarajat (COGS / OpEx) kiritish</span></a>
+    <a class="toc-item" href="#s5"><span class="toc-num">5</span><span class="toc-lbl">Kassa operatsiyalari</span></a>
+    <a class="toc-item" href="#s6"><span class="toc-num">6</span><span class="toc-lbl">Debitor / Kreditor kiritish</span></a>
+    <a class="toc-item" href="#s7"><span class="toc-num">7</span><span class="toc-lbl">CRM — Mijoz qo'shish</span></a>
+    <a class="toc-item" href="#s8"><span class="toc-num">8</span><span class="toc-lbl">Pipeline — Bitim boshqaruvi</span></a>
+    <a class="toc-item" href="#s9"><span class="toc-num">9</span><span class="toc-lbl">Payroll — Ish haqi kiritish</span></a>
+    <a class="toc-item" href="#s10"><span class="toc-num">10</span><span class="toc-lbl">Tez-tez yo'l qo'yiladigan xatolar</span></a>
+  </div>
+</div>
+
+<!-- SECTION 1 -->
+<div class="section container" id="s1">
+  <div class="section-header">
+    <div class="section-num">1</div>
+    <div>
+      <div class="section-title">Tizimga kirish va yo'nalish tanlash</div>
+      <div class="section-desc">FinanceHub qanday tuzilgan va qayerdan boshlash kerak</div>
+    </div>
+  </div>
+
+  <div class="note note-info">
+    <span class="note-icon">ℹ️</span>
+    <span>FinanceHub <strong>5 yo'nalishdan</strong> iborat: Holding (umumiy), Cargo, Logistics, Exchange, Procurement. Har bir yo'nalishning o'z CRM, Pipeline, Payroll va moliyaviy hisobotlari bor.</span>
+  </div>
+
+  <div class="screen">
+    <div class="screen-header">
+      <div class="screen-dot" style="background:#ff5f57"></div>
+      <div class="screen-dot" style="background:#febc2e"></div>
+      <div class="screen-dot" style="background:#28c840"></div>
+      <span>FinanceHub — Asosiy ekran</span>
+    </div>
+    <div class="screen-body">
+      <div style="display:flex;gap:6px;margin-bottom:12px;padding:8px;background:#1e3a8a;border-radius:8px;">
+        <div style="padding:5px 12px;background:rgba(255,255,255,0.15);color:#fff;border-radius:6px;font-size:11px;font-weight:600;">🏦 Holding</div>
+        <div style="padding:5px 12px;background:rgba(255,255,255,0.15);color:#fff;border-radius:6px;font-size:11px;font-weight:600;">📦 Cargo</div>
+        <div style="padding:5px 12px;background:#fff;color:#1e3a8a;border-radius:6px;font-size:11px;font-weight:700;">🚛 Logistics ✓</div>
+        <div style="padding:5px 12px;background:rgba(255,255,255,0.15);color:#fff;border-radius:6px;font-size:11px;font-weight:600;">💱 Exchange</div>
+        <div style="padding:5px 12px;background:rgba(255,255,255,0.15);color:#fff;border-radius:6px;font-size:11px;font-weight:600;">🏭 Procurement</div>
+      </div>
+      <div style="display:flex;gap:4px;margin-bottom:10px;border-bottom:1px solid #e5e7eb;padding-bottom:8px;">
+        <div style="padding:4px 10px;background:#EEF1FF;color:#4F6EF7;border-radius:5px;font-size:11px;font-weight:600;">Dashboard</div>
+        <div style="padding:4px 10px;color:#6b7280;font-size:11px;">P&L</div>
+        <div style="padding:4px 10px;color:#6b7280;font-size:11px;">Cash Flow</div>
+        <div style="padding:4px 10px;color:#6b7280;font-size:11px;">Inventar</div>
+        <div style="padding:4px 10px;color:#6b7280;font-size:11px;">Debitor/Kreditor</div>
+        <div style="padding:4px 10px;color:#6b7280;font-size:11px;">Mijozlar</div>
+        <div style="padding:4px 10px;color:#6b7280;font-size:11px;">Pipeline</div>
+        <div style="padding:4px 10px;color:#6b7280;font-size:11px;">Payroll</div>
+        <div style="padding:4px 10px;background:#22C55E;color:#fff;border-radius:5px;font-size:11px;font-weight:700;">✏️ Kiritish ←</div>
+      </div>
+      <div style="font-size:12px;color:#6b7280;text-align:center;padding:20px;">Ma'lumot kiritish uchun <strong>"Kiritish"</strong> tugmasini bosing</div>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="step-title">Yo'nalishni tanlang</div>
+        <div class="step-desc">Yuqori navigatsiyadan kerakli yo'nalishni bosing: Cargo, Logistics, Exchange yoki Procurement</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="step-title">"Kiritish" bo'limiga o'ting</div>
+        <div class="step-desc">Pastki navigatsiyadan (subnav) <strong>✏️ Kiritish</strong> tugmasini bosing — bu tranzaksiya kiritish formasi</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <div class="step-title">Tranzaksiya turini tanlang</div>
+        <div class="step-desc">Income (daromad), COGS (tannarx), OpEx (xarajat), Kassa, Debitor/Kreditor va boshqalar</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 2 -->
+<div class="section container" id="s2">
+  <div class="section-header">
+    <div class="section-num">2</div>
+    <div>
+      <div class="section-title">Tranzaksiya turlari va COA kodlari</div>
+      <div class="section-desc">Qaysi ma'lumot qaysi kategoriyaga kiradi?</div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Tur</th>
+        <th>COA Kod</th>
+        <th>Nima uchun</th>
+        <th>Misol</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="badge badge-income">income</span></td>
+        <td><strong>11</strong></td>
+        <td>Savdo daromadi, tushum</td>
+        <td>Cargo yetkazib berish puli olinishi</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-cogs">cogs</span></td>
+        <td><strong>21</strong></td>
+        <td>Tovar/xizmat tannarxi</td>
+        <td>Transport xarajati, bojxona to'lovi</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-opex">opex</span></td>
+        <td><strong>31</strong></td>
+        <td>Operatsion xarajatlar</td>
+        <td>Ijara, kommunal, ish haqi xarajati</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-capex">capex</span></td>
+        <td><strong>41</strong></td>
+        <td>Kapital xarajatlar</td>
+        <td>Avtomobil, uskunа sotib olish</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-loan">loan_in</span></td>
+        <td><strong>51</strong></td>
+        <td>Qarz olish</td>
+        <td>Bank kreditidan tushum</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-loan">loan_out</span></td>
+        <td><strong>52</strong></td>
+        <td>Qarz qaytarish</td>
+        <td>Bankka to'lov</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-transfer">transfer</span></td>
+        <td><strong>61</strong></td>
+        <td>Yo'nalishlar orasida pul o'tkazma</td>
+        <td>Holdingdan Cargoga kapital</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="coa-grid">
+    <div class="coa-card">
+      <div class="coa-code">11</div>
+      <div class="coa-name">Savdo Tushumi</div>
+      <div class="coa-desc">Mijozlardan olingan to'lovlar, faktura bo'yicha daromad</div>
+    </div>
+    <div class="coa-card">
+      <div class="coa-code">21</div>
+      <div class="coa-name">Tannarx (COGS)</div>
+      <div class="coa-desc">Tovar yoki xizmat ko'rsatishga sarflangan to'g'ridan-to'g'ri xarajat</div>
+    </div>
+    <div class="coa-card">
+      <div class="coa-code">31</div>
+      <div class="coa-name">Operatsion Xarajat</div>
+      <div class="coa-desc">Ijara, kommunal, marketing, ma'muriy xarajatlar</div>
+    </div>
+    <div class="coa-card">
+      <div class="coa-code">41</div>
+      <div class="coa-name">Kapital Xarajat</div>
+      <div class="coa-desc">Uzoq muddatli aktivlar: transport, jihozlar, ko'chmas mulk</div>
+    </div>
+    <div class="coa-card">
+      <div class="coa-code">51/52</div>
+      <div class="coa-name">Qarz (Loan)</div>
+      <div class="coa-desc">Bank yoki xususiy qarzlar — kirish va qaytarish</div>
+    </div>
+    <div class="coa-card">
+      <div class="coa-code">61</div>
+      <div class="coa-name">Ichki O'tkazma</div>
+      <div class="coa-desc">Yo'nalishlar yoki kassalar orasidagi kapital harakati</div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 3 -->
+<div class="section container" id="s3">
+  <div class="section-header">
+    <div class="section-num">3</div>
+    <div>
+      <div class="section-title">Daromad (Income) Kiritish</div>
+      <div class="section-desc">Mijozdan to'lov kelganda yoki faktura yopilganda</div>
+    </div>
+  </div>
+
+  <div class="flow">
+    <div class="flow-step gray">Yo'nalish tanlash</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">Kiritish</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">Tur: Income</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step gray">Maydonlar to'ldirish</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step green">Saqlash ✓</div>
+  </div>
+
+  <div class="screen">
+    <div class="screen-header">
+      <div class="screen-dot" style="background:#ff5f57"></div>
+      <div class="screen-dot" style="background:#febc2e"></div>
+      <div class="screen-dot" style="background:#28c840"></div>
+      <span>Cargo → ✏️ Kiritish — Yangi Tranzaksiya</span>
+    </div>
+    <div class="screen-body">
+      <div style="background:#fff;border-radius:8px;padding:16px;border:1px solid #e5e7eb;">
+        <div style="font-size:13px;font-weight:700;margin-bottom:14px;color:#1e3a8a;">📥 Yangi Daromad Kiritish</div>
+        <div class="form-row">
+          <div class="form-group">
+            <div class="form-label">Sana *</div>
+            <div class="form-input">2024-12-31</div>
+          </div>
+          <div class="form-group">
+            <div class="form-label">Tur *</div>
+            <div class="form-input highlight">income ▾</div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <div class="form-label">COA Kodi *</div>
+            <div class="form-input highlight">11 — Savdo Tushumi ▾</div>
+          </div>
+          <div class="form-group">
+            <div class="form-label">Summa (USD) *</div>
+            <div class="form-input highlight">15,000</div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <div class="form-label">Kontragent *</div>
+            <div class="form-input">Alibek Toshmatov OOO</div>
+          </div>
+          <div class="form-group">
+            <div class="form-label">Holat</div>
+            <div class="form-input">To'landi ▾</div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="grid-column:1/-1;">
+            <div class="form-label">Maqsad / Izoh *</div>
+            <div class="form-input">Dekabr 2024 — Cargo yetkazib berish xizmati uchun to'lov</div>
+          </div>
+        </div>
+        <button class="btn-save">💾 Saqlash</button>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:20px;">
+    <div style="font-weight:600;margin-bottom:12px;">Majburiy maydonlar:</div>
+    <div class="fields">
+      <div class="field required">
+        <div class="field-label">Sana</div>
+        <div class="field-value">YYYY-MM-DD format (masalan: 2024-12-31)</div>
+      </div>
+      <div class="field required">
+        <div class="field-label">Tranzaksiya Turi</div>
+        <div class="field-value">income — daromad uchun</div>
+      </div>
+      <div class="field required">
+        <div class="field-label">COA Kodi</div>
+        <div class="field-value">11 — Savdo tushumi</div>
+      </div>
+      <div class="field required">
+        <div class="field-label">Summa</div>
+        <div class="field-value">USD da raqam (masalan: 15000)</div>
+      </div>
+      <div class="field required">
+        <div class="field-label">Kontragent</div>
+        <div class="field-value">Mijoz nomi yoki kompaniya</div>
+      </div>
+      <div class="field required">
+        <div class="field-label">Maqsad</div>
+        <div class="field-value">Qisqacha izoh — nima uchun</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note note-tip">
+    <span class="note-icon">💡</span>
+    <span><strong>Accrual vs Cash:</strong> Agar to'lov keyinroq keladigan bo'lsa, <strong>Holat</strong>ni "Kutilmoqda" qiling. P&L hisoboti accrual sanasiga qarab ishlaydi.</span>
+  </div>
+</div>
+
+<!-- SECTION 4 -->
+<div class="section container" id="s4">
+  <div class="section-header">
+    <div class="section-num">4</div>
+    <div>
+      <div class="section-title">Xarajat Kiritish (COGS / OpEx)</div>
+      <div class="section-desc">Tannarx va operatsion xarajatlarni qayd etish</div>
+    </div>
+  </div>
+
+  <div class="note note-warn">
+    <span class="note-icon">⚠️</span>
+    <span><strong>COGS va OpEx farqi:</strong> COGS — faqat sotuv bilan to'g'ridan-to'g'ri bog'liq xarajat (transport, bojxona). OpEx — biznesni yuritish uchun umumiy xarajat (ijara, maosh, marketing).</span>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Tur</th><th>Misollar</th><th>COA</th><th>Gross Marginга ta'sir</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="badge badge-cogs">COGS</span></td>
+        <td>Yuk tashish, bojxona, sug'urta, yuk ortish-tushirish</td>
+        <td>21</td>
+        <td style="color:#ef4444;">❌ Kamaytiradi</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-opex">OpEx</span></td>
+        <td>Ijara, kommunal, reklama, bank to'lovlari</td>
+        <td>31</td>
+        <td style="color:#6b7280;">EBITDA'ga ta'sir</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-capex">CapEx</span></td>
+        <td>Avtomobil, anbar, kompyuter sotib olish</td>
+        <td>41</td>
+        <td style="color:#8B5CF6;">Balansga kiradi</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="font-weight:600;margin-bottom:12px;">Logistics — Oy xarajatlari kiritish namunasi:</div>
+  <div class="step-img">
+Sana:        2025-01-31
+Tur:         cogs
+COA:         21 — Tovar tannarxi
+Summa:       8,500 USD
+Kontragent:  UzAvtoyul Logistics
+Maqsad:      Yanvar 2025 — Toshkent-Samarqand yo'nalishi yuk tashish xarajati
+Holat:       To'landi
+Yo'nalish:   logistics
+  </div>
+</div>
+
+<!-- SECTION 5 -->
+<div class="section container" id="s5">
+  <div class="section-header">
+    <div class="section-num">5</div>
+    <div>
+      <div class="section-title">Kassa Operatsiyalari</div>
+      <div class="section-desc">Naqd pul va bank hisobi harakatlari</div>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="step-title">Kassalar bo'limiga o'ting</div>
+        <div class="step-desc">Holding yoki yo'nalish subnavigatsiyasidan <strong>Kassalar</strong> (💳) ni tanlang</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="step-title">Kassa turini tanlang</div>
+        <div class="step-desc">USD Naqd · UZS Naqd · Humo Karta · Uzcard · Bank Hisob (SWIFT)</div>
+        <div class="step-img">
+Kassa turlari:
+  • USD Naqd    — Dollar naqd pul
+  • UZS Naqd    — So'm naqd pul
+  • Humo / Uzcard — Plastik karta
+  • Bank (SWIFT) — Xalqaro o'tkazmalar
+        </div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <div class="step-title">Kirdi-chiqdi tranzaksiyasini kiritish</div>
+        <div class="step-desc">Kiritish bo'limida kassa tranzaksiyasi sifatida yarating — to'lov usuli (kassa turi) ni ko'rsating</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note note-info">
+    <span class="note-icon">ℹ️</span>
+    <span>Kassalar orasida pul o'tkazish uchun <strong>transfer</strong> turidan foydalaning va <strong>to_dir</strong> maydonida qaysi kassaga o'tkazilishini ko'rsating.</span>
+  </div>
+</div>
+
+<!-- SECTION 6 -->
+<div class="section container" id="s6">
+  <div class="section-header">
+    <div class="section-num">6</div>
+    <div>
+      <div class="section-title">Debitor / Kreditor</div>
+      <div class="section-desc">Qarzdorlar va qarzdor bo'linganlar hisobi</div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Tur</th><th>Ta'rif</th><th>Qachon kiritiladi</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Debitor</strong> (Receivable)</td>
+        <td>Biz kutayotgan to'lov — mijoz bizga qarz</td>
+        <td>Hizmat ko'rsatildi, lekin pul hali olinmadi</td>
+      </tr>
+      <tr>
+        <td><strong>Kreditor</strong> (Payable)</td>
+        <td>Biz to'lashimiz kerak — biz ta'minotchiga qarz</td>
+        <td>Tovar olindi, lekin hali to'lanmadi</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="fields">
+    <div class="field required">
+      <div class="field-label">Kontragent</div>
+      <div class="field-value">Debitor yoki kreditor nomi</div>
+    </div>
+    <div class="field required">
+      <div class="field-label">Summa</div>
+      <div class="field-value">Qarz miqdori (USD)</div>
+    </div>
+    <div class="field required">
+      <div class="field-label">Muddati</div>
+      <div class="field-value">To'lov qachon bo'lishi kerak</div>
+    </div>
+    <div class="field optional">
+      <div class="field-label">Holat</div>
+      <div class="field-value">Kutilmoqda / Qisman / To'landi</div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 7 -->
+<div class="section container" id="s7">
+  <div class="section-header">
+    <div class="section-num">7</div>
+    <div>
+      <div class="section-title">CRM — Mijoz Qo'shish</div>
+      <div class="section-desc">Har bir yo'nalishning o'z mijozlar bazasi bor</div>
+    </div>
+  </div>
+
+  <div class="note note-warn">
+    <span class="note-icon">⚠️</span>
+    <span>CRM Holding darajasida emas — <strong>har bir yo'nalish ichida</strong> joylashgan. Cargo → Mijozlar va Logistics → Mijozlar alohida bazalar.</span>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="step-title">Yo'nalish → Mijozlar bo'limiga o'ting</div>
+        <div class="step-desc">Masalan: Cargo → 👥 Mijozlar</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="step-title">"+ Yangi Mijoz" tugmasini bosing</div>
+        <div class="step-desc">Modal oyna ochiladi</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <div class="step-title">Mijoz ma'lumotlarini to'ldiring</div>
+        <div class="step-img">
+Ismi:       Abdullayev Jasur
+Telefon:    +998 90 123 45 67
+Email:      jasur@cargo.uz
+Kompaniya:  Jasur Cargo LLC
+Holat:      Faol         ← Faol/VIP → Pipeline'ga avtomatik o'tadi
+Segment:    B2B          ← B2B / B2C / Davlat
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note note-tip">
+    <span class="note-icon">💡</span>
+    <span><strong>Avtomatik sinxronizatsiya:</strong> Holati <strong>Faol</strong> yoki <strong>VIP</strong> bo'lgan mijozlar Pipeline'dagi <strong>Lead</strong> bosqichiga avtomatik o'tadi.</span>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Holat</th><th>Ma'nosi</th><th>Pipeline ta'siri</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><span class="badge" style="background:#f0fdf4;color:#16a34a;">Faol</span></td><td>Doimiy hamkor</td><td>Lead bosqichiga o'tadi ✓</td></tr>
+      <tr><td><span class="badge" style="background:#fef9c3;color:#854d0e;">VIP</span></td><td>Yuqori qiymatli mijoz</td><td>Lead bosqichiga o'tadi ✓</td></tr>
+      <tr><td><span class="badge" style="background:#f1f5f9;color:#475569;">Potensial</span></td><td>Hali bitim bo'lmagan</td><td>Manual qo'shish kerak</td></tr>
+      <tr><td><span class="badge" style="background:#fef2f2;color:#ef4444;">Nofaol</span></td><td>Munosabat to'xtatilgan</td><td>Pipeline'ga o'tmaydi</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- SECTION 8 -->
+<div class="section container" id="s8">
+  <div class="section-header">
+    <div class="section-num">8</div>
+    <div>
+      <div class="section-title">Pipeline — Bitim Boshqaruvi</div>
+      <div class="section-desc">Savdo jarayonini bosqichma-bosqich kuzatish</div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:6px;margin:16px 0;overflow-x:auto;padding-bottom:4px;">
+    <div style="min-width:110px;background:#6C8EFF;color:#fff;border-radius:8px;padding:10px;text-align:center;">
+      <div style="font-size:10px;opacity:0.8;margin-bottom:4px;">1-BOSQICH</div>
+      <div style="font-size:13px;font-weight:700;">Lead</div>
+      <div style="font-size:10px;opacity:0.8;margin-top:4px;">CRM'dan avtomatik</div>
+    </div>
+    <div style="align-self:center;color:#9ca3af;font-size:18px;">→</div>
+    <div style="min-width:110px;background:#FFB830;color:#fff;border-radius:8px;padding:10px;text-align:center;">
+      <div style="font-size:10px;opacity:0.8;margin-bottom:4px;">2-BOSQICH</div>
+      <div style="font-size:13px;font-weight:700;">Muzokarа</div>
+      <div style="font-size:10px;opacity:0.8;margin-top:4px;">Suhbat boshlandi</div>
+    </div>
+    <div style="align-self:center;color:#9ca3af;font-size:18px;">→</div>
+    <div style="min-width:110px;background:#3DD68C;color:#fff;border-radius:8px;padding:10px;text-align:center;">
+      <div style="font-size:10px;opacity:0.8;margin-bottom:4px;">3-BOSQICH</div>
+      <div style="font-size:13px;font-weight:700;">Taklif</div>
+      <div style="font-size:10px;opacity:0.8;margin-top:4px;">KP yuborildi</div>
+    </div>
+    <div style="align-self:center;color:#9ca3af;font-size:18px;">→</div>
+    <div style="min-width:110px;background:#A78BFA;color:#fff;border-radius:8px;padding:10px;text-align:center;">
+      <div style="font-size:10px;opacity:0.8;margin-bottom:4px;">4-BOSQICH</div>
+      <div style="font-size:13px;font-weight:700;">Shartnoma</div>
+      <div style="font-size:10px;opacity:0.8;margin-top:4px;">Imzolash jarayoni</div>
+    </div>
+    <div style="align-self:center;color:#9ca3af;font-size:18px;">→</div>
+    <div style="min-width:110px;background:#6B7280;color:#fff;border-radius:8px;padding:10px;text-align:center;">
+      <div style="font-size:10px;opacity:0.8;margin-bottom:4px;">5-BOSQICH</div>
+      <div style="font-size:13px;font-weight:700;">Yopildi</div>
+      <div style="font-size:10px;opacity:0.8;margin-top:4px;">Bitim yakunlandi</div>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="step-title">Yo'nalish → Pipeline</div>
+        <div class="step-desc">Masalan: Logistics → 📈 Pipeline</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="step-title">Yangi deal qo'shish</div>
+        <div class="step-desc">"+ Yangi Deal" tugmasini bosing yoki Kanban taxtasida bosqichga karta suring</div>
+        <div class="step-img">
+Deal nomi:   Abdullayev Jasur — Noyabr shartnomasi
+Mijoz:       Abdullayev Jasur  ← CRM dan avtomatik
+Summa:       $25,000
+Bosqich:     Muzokarа
+Bashorat:    85%
+Yopilish:    2025-02-28
+Izoh:        Toshkent anbar uchun yillik shartnoma
+        </div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <div class="step-title">Bosqichni yangilash</div>
+        <div class="step-desc">Deal kartasini boshqa ustunга sudrab o'ting yoki tahrirlash orqali bosqichni o'zgartiring</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note note-tip">
+    <span class="note-icon">💡</span>
+    <span><strong>Kanban ko'rinishi:</strong> Barcha deallar ustunlarda ko'rinadi. <strong>Ro'yxat ko'rinishi</strong>ga o'tish uchun "List" tugmasini bosing — filter va saralash imkoniyatlari kengayadi.</span>
+  </div>
+</div>
+
+<!-- SECTION 9 -->
+<div class="section container" id="s9">
+  <div class="section-header">
+    <div class="section-num">9</div>
+    <div>
+      <div class="section-title">Payroll — Ish Haqi Kiritish</div>
+      <div class="section-desc">Har yo'nalishning o'z xodimlari va ish haqi tizimi</div>
+    </div>
+  </div>
+
+  <div class="note note-warn">
+    <span class="note-icon">⚠️</span>
+    <span>Payroll Holding tarkibida emas — <strong>har bir yo'nalish ichida</strong> joylashgan. Cargo xodimlari va Logistics xodimlari alohida.</span>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="step-title">Yo'nalish → 👨‍💼 Payroll</div>
+        <div class="step-desc">Masalan: Procurement → Payroll</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="step-title">Xodim qo'shish</div>
+        <div class="step-img">
+Ism Familiya: Karimov Bobur
+Lavozim:      Logistika menejeri
+Yo'nalish:    logistics
+Asosiy maosh: $800 / oy
+Ish boshlagan: 2024-06-01
+        </div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <div class="step-title">Oylik ish haqi chiqarish</div>
+        <div class="step-desc">Oy tanlang → "Ish haqi hisoblash" → har xodim uchun bonus/jarima qo'shish mumkin → "Tasdiqlash"</div>
+      </div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Maydon</th><th>To'ldirish</th><th>Izoh</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Asosiy maosh</td><td>USD da oylik</td><td>Bonussiz bazaviy miqdor</td></tr>
+      <tr><td>Bonus</td><td>Foiz yoki summa</td><td>Ixtiyoriy — KPI asosida</td></tr>
+      <tr><td>Jarima</td><td>Chegirma summasi</td><td>Kechikish, kamchilik uchun</td></tr>
+      <tr><td>Jami (Net)</td><td>Avtomatik hisoblanadi</td><td>Maosh + Bonus − Jarima</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- SECTION 10 -->
+<div class="section container" id="s10">
+  <div class="section-header">
+    <div class="section-num">10</div>
+    <div>
+      <div class="section-title">Tez-tez Yo'l Qo'yiladigan Xatolar</div>
+      <div class="section-desc">Va ularni tuzatish yo'llari</div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Muammo</th><th>Sababi</th><th>Yechimi</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Dashboard $0 ko'rsatmoqda</td>
+        <td>Sana filtri "Bugun" — eski ma'lumotlar ko'rinmaydi</td>
+        <td>"<strong>Hammasi</strong>" tugmasini bosing</td>
+      </tr>
+      <tr>
+        <td>Cargo ma'lumotlari ko'rinmaydi</td>
+        <td>Logistics yoki boshqa yo'nalish tanlanган</td>
+        <td>Yuqoridan to'g'ri yo'nalishni tanlang</td>
+      </tr>
+      <tr>
+        <td>CRM da mijoz yo'q</td>
+        <td>Boshqa yo'nalish CRM sida qo'shilgan</td>
+        <td>Har yo'nalish alohida baza — to'g'ri yo'nalish ichida qo'shing</td>
+      </tr>
+      <tr>
+        <td>Pipeline bo'sh</td>
+        <td>CRM da mijoz holati "Potensial" yoki "Nofaol"</td>
+        <td>CRM da holatni "Faol" ga o'zgartiring</td>
+      </tr>
+      <tr>
+        <td>P&L da daromad kichik ko'rinadi</td>
+        <td>COGS income sifatida kiritilgan yoki aksincha</td>
+        <td>Tranzaksiya turi (income/cogs) to'g'riligini tekshiring</td>
+      </tr>
+      <tr>
+        <td>Gross Profit manfiy</td>
+        <td>COGS > Revenue</td>
+        <td>Tranzaksiya summalarini tekshiring; biror kiritish ikki marta yozilmadimi?</td>
+      </tr>
+      <tr>
+        <td>Sahifa to'satdan bo'shab qoldi</td>
+        <td>JavaScript xatosi yoki noto'g'ri tranzaksiya ma'lumoti</td>
+        <td>F5 bosing; agar davom etsa — Sana formatini YYYY-MM-DD tekshiring</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="note note-info">
+    <span class="note-icon">ℹ️</span>
+    <div>
+      <strong>Muhim eslatmalar:</strong>
+      <ul style="margin-top:6px;padding-left:16px;font-size:13px;">
+        <li>Barcha summalar <strong>USD</strong> da kiritiladi</li>
+        <li>Sana formati: <strong>YYYY-MM-DD</strong> (masalan: 2025-03-15)</li>
+        <li>Ma'lumotlar brauzer localStorage'da saqlanadi — turli qurilmadan kirish uchun eksport qiling</li>
+        <li>"Hammasi" filtri — hamma vaqt uchun ma'lumotlarni ko'rsatadi</li>
+        <li>Demo ma'lumotlarini o'chirish uchun: Sozlama → Demo ma'lumotlarni tozalash</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- QUICK REFERENCE -->
+  <div style="margin-top:28px;background:#1e3a8a;color:#fff;border-radius:12px;padding:20px 24px;">
+    <div style="font-size:15px;font-weight:700;margin-bottom:14px;">⚡ Tez Yo'riqnoma</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
+      <div style="background:rgba(255,255,255,0.1);border-radius:6px;padding:8px 12px;"><strong>Daromad:</strong> Yo'nalish → Kiritish → income → COA 11</div>
+      <div style="background:rgba(255,255,255,0.1);border-radius:6px;padding:8px 12px;"><strong>Tannarx:</strong> Yo'nalish → Kiritish → cogs → COA 21</div>
+      <div style="background:rgba(255,255,255,0.1);border-radius:6px;padding:8px 12px;"><strong>Xarajat:</strong> Yo'nalish → Kiritish → opex → COA 31</div>
+      <div style="background:rgba(255,255,255,0.1);border-radius:6px;padding:8px 12px;"><strong>Mijoz:</strong> Yo'nalish → Mijozlar → + Yangi</div>
+      <div style="background:rgba(255,255,255,0.1);border-radius:6px;padding:8px 12px;"><strong>Bitim:</strong> Yo'nalish → Pipeline → + Yangi Deal</div>
+      <div style="background:rgba(255,255,255,0.1);border-radius:6px;padding:8px 12px;"><strong>Maosh:</strong> Yo'nalish → Payroll → Xodim qo'sh</div>
+      <div style="background:rgba(255,255,255,0.1);border-radius:6px;padding:8px 12px;"><strong>Hisobot:</strong> Yo'nalish → P&L → Hammasi filtri</div>
+      <div style="background:rgba(255,255,255,0.1);border-radius:6px;padding:8px 12px;"><strong>Kassa:</strong> Holding → Kassalar yoki yo'nalish</div>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div style="text-align:center;padding:32px 40px;color:#9ca3af;font-size:12px;border-top:1px solid #e5e7eb;">
+  FinanceHub v9 · Ma'lumot Kiritish Qo'llanmasi · 2026-yil iyun
+  <br>Muallif: FinanceHub tizimi · Barcha huquqlar himoyalangan
+</div>
+
+<!-- Back button -->
+<a class="back-btn no-print" href="financehub-v9.html">
+  ← FinanceHub ga qaytish
+</a>
+
+<!-- PDF button -->
+<button class="print-btn no-print" onclick="window.print()">
+  🖨️ PDF sifatida saqlash
+</button>
+
+</body>
+</html>
