@@ -21026,32 +21026,68 @@ function exShowForm(type){
   if(type==='break'){
     var mid0=EX_BOC_RATE||EX_FX_RATE, buy0=exBuyRate(mid0), sell0=exSellRate(mid0);
     form+='<div style="grid-column:1/-1;background:var(--s3);border-radius:8px;padding:10px 12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center;margin-bottom:4px;">'
-      +'<div><div style="font-size:10px;color:var(--t3);">BOC O\'rta kurs</div><div style="font-size:16px;font-weight:800;color:#6C8EFF;">¥'+mid0+'</div></div>'
+      +'<div><div style="font-size:10px;color:var(--t3);">BOC Buying Rate</div><div style="font-size:16px;font-weight:800;color:#6C8EFF;">¥'+mid0+'</div></div>'
       +'<div><div style="font-size:10px;color:#16a34a;">Bizning sotib olish kursi</div><div style="font-size:16px;font-weight:800;color:#16a34a;" id="exBuyRateShow">¥'+buy0+'</div></div>'
       +'<div><div style="font-size:10px;color:#ef4444;">Bizning sotish kursi</div><div style="font-size:16px;font-weight:800;color:#ef4444;" id="exSellRateShow">¥'+sell0+'</div></div>'
       +'</div>';
     form+=exField('Summa (USD)','USD miqdori','exF_usd','number','');
     form+=exField('Operatsiya turi','','exF_break_dir','select','<option value="buy">Mijoz USD beradi (biz CNY beramiz)</option><option value="sell">Mijoz CNY beradi (biz USD beramiz)</option>');
     form+=exFieldRO('Mijoz oladi','Avtomatik hisoblanadi','exF_result_display');
-    form+=exFieldRO('Bizning daromad (CNY)','Spread komissiyasi','exF_comm_display');
+    form+='<div style="grid-column:1/-1;background:var(--s3);border-radius:8px;padding:12px;border:1px dashed var(--amb);">'
+      +'<div style="font-size:10px;color:var(--amb);font-weight:700;text-transform:uppercase;margin-bottom:8px;">💰 Komissiya (har klient uchun individual)</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">'
+      +exField('Komissiya %','0.06','exF_comm_pct','number',(EX_SPREAD_PCT*100).toFixed(2))
+      +exField('Komissiya CNY (manual)','Qo\'lda kiriting','exF_comm_cny_manual','number','')
+      +exFieldRO('Komissiya CNY (hisob)','Avtomatik','exF_comm_display')
+      +'</div>'
+      +'<div style="font-size:10px;color:var(--t3);margin-top:6px;">⚠️ Manual CNY kiritilsa — u ustuvorlik qiladi. Bo\'sh qoldirilsa, % dan hisoblanadi.</div>'
+      +'</div>';
   } else if(type==='send_cny'){
     form+=exField('Summa (CNY)','CNY miqdori','exF_cny','number','');
     form+=exField("Ta'minotchi nomi","Qabul qiluvchi","exF_supplier",'text','');
+    form+='<div style="grid-column:1/-1;background:var(--s3);border-radius:8px;padding:12px;border:1px dashed var(--amb);">'
+      +'<div style="font-size:10px;color:var(--amb);font-weight:700;text-transform:uppercase;margin-bottom:8px;">💰 Komissiya</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
+      +exField('Komissiya % (CNY dan)','0','exF_comm_pct','number','0')
+      +exFieldRO('Komissiya CNY','Avtomatik','exF_comm_display')
+      +'</div></div>';
   } else if(type==='send_usd'){
     form+=exField('Summa (USD)','USD miqdori','exF_usd','number','');
     form+=exField("Ta'minotchi nomi","Qabul qiluvchi","exF_supplier",'text','');
-    form+=exFieldRO('Komissiya (USD)','0.02 × USD miqdori','exF_comm_display');
+    form+='<div style="grid-column:1/-1;background:var(--s3);border-radius:8px;padding:12px;border:1px dashed var(--amb);">'
+      +'<div style="font-size:10px;color:var(--amb);font-weight:700;text-transform:uppercase;margin-bottom:8px;">💰 Komissiya (har klient uchun individual)</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">'
+      +exField('Komissiya %','0.02','exF_comm_pct','number','0.02')
+      +exField('Komissiya USD (manual)','Qo\'lda kiriting','exF_comm_usd_manual','number','')
+      +exFieldRO('Komissiya USD (hisob)','Avtomatik','exF_comm_display')
+      +'</div>'
+      +'<div style="font-size:10px;color:var(--t3);margin-top:6px;">⚠️ Manual USD kiritilsa — u ustuvorlik qiladi.</div>'
+      +'</div>';
   } else if(type==='deposit'){
     form+=exField('USD Miqdori','0 bo\'lsa kiritmaslik','exF_usd','number',0);
     form+=exField('CNY Miqdori','0 bo\'lsa kiritmaslik','exF_cny','number',0);
   } else if(type==='cashout'){
     form+=exField('Summa (USD)','Xitoydan kirgan USD','exF_usd','number','');
-    form+=exField('Komissiya %','0.06% default','exF_comm_rate','number',0.06);
-    form+=exFieldRO('Komissiya USD','Avtomatik hisoblanadi','exF_comm_display');
+    form+='<div style="grid-column:1/-1;background:var(--s3);border-radius:8px;padding:12px;border:1px dashed var(--amb);">'
+      +'<div style="font-size:10px;color:var(--amb);font-weight:700;text-transform:uppercase;margin-bottom:8px;">💰 Komissiya (har klient uchun individual)</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">'
+      +exField('Komissiya %','0.06','exF_comm_pct','number','0.06')
+      +exField('Komissiya USD (manual)','Qo\'lda kiriting','exF_comm_usd_manual','number','')
+      +exFieldRO('Komissiya USD (hisob)','Avtomatik','exF_comm_display')
+      +'</div>'
+      +'<div style="font-size:10px;color:var(--t3);margin-top:6px;">⚠️ Manual USD kiritilsa — u ustuvorlik qiladi.</div>'
+      +'</div>';
   } else if(type==='cashin'){
     form+=exField('Summa (USD)','UZBda qabul qilingan','exF_usd','number','');
-    form+=exField('Komissiya %','0.06% default','exF_comm_rate','number',0.06);
-    form+=exFieldRO('Komissiya USD','Avtomatik hisoblanadi','exF_comm_display');
+    form+='<div style="grid-column:1/-1;background:var(--s3);border-radius:8px;padding:12px;border:1px dashed var(--amb);">'
+      +'<div style="font-size:10px;color:var(--amb);font-weight:700;text-transform:uppercase;margin-bottom:8px;">💰 Komissiya (har klient uchun individual)</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">'
+      +exField('Komissiya %','0.06','exF_comm_pct','number','0.06')
+      +exField('Komissiya USD (manual)','Qo\'lda kiriting','exF_comm_usd_manual','number','')
+      +exFieldRO('Komissiya USD (hisob)','Avtomatik','exF_comm_display')
+      +'</div>'
+      +'<div style="font-size:10px;color:var(--t3);margin-top:6px;">⚠️ Manual USD kiritilsa — u ustuvorlik qiladi.</div>'
+      +'</div>';
   }
 
   form+=exField('Izoh','Qo\'shimcha ma\'lumot','exF_note','text','');
@@ -21065,44 +21101,53 @@ function exShowForm(type){
   document.getElementById('exFormArea').innerHTML=form;
 
   // Auto-calc listeners
+  function _g(id){ var e=document.getElementById(id); return e?e.value:''; }
+  function _gf(id){ return parseFloat(_g(id))||0; }
+
   if(type==='break'){
     function exBreakCalc(){
-      var u=parseFloat(document.getElementById('exF_usd').value)||0;
-      var dir=(document.getElementById('exF_break_dir')||{}).value||'buy';
+      var u=_gf('exF_usd');
+      var dir=_g('exF_break_dir')||'buy';
+      var pct=_gf('exF_comm_pct');
+      var manual=_g('exF_comm_cny_manual');
       var mid=EX_BOC_RATE||EX_FX_RATE;
       var rate = dir==='buy' ? exBuyRate(mid) : exSellRate(mid);
-      var mid_rate = mid;
-      // Spread commission = difference between mid and our rate × amount
-      var comm_cny = u * Math.abs(mid_rate - rate);
       var result_cny = u * rate;
+      // Komissiya: manual CNY kiritilgan bo'lsa — uni ishlatamiz
+      var comm_cny = manual!=='' ? parseFloat(manual)||0 : u*(pct/100);
       var cd=document.getElementById('exF_comm_display');
       var rd=document.getElementById('exF_result_display');
-      if(cd) cd.value='¥'+comm_cny.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})+' (spread: '+(EX_SPREAD_PCT*100).toFixed(2)+'%)';
+      if(cd) cd.value='¥'+comm_cny.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})+(manual!==''?' (manual)':' ('+pct+'%)');
       if(rd) rd.value='¥'+result_cny.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})+' (kurs: ¥'+rate+')';
     }
-    ['exF_usd','exF_break_dir'].forEach(function(id){
+    ['exF_usd','exF_break_dir','exF_comm_pct','exF_comm_cny_manual'].forEach(function(id){
       var el=document.getElementById(id);
-      if(el) el.addEventListener('input', exBreakCalc);
-      if(el) el.addEventListener('change', exBreakCalc);
+      if(el){ el.addEventListener('input',exBreakCalc); el.addEventListener('change',exBreakCalc); }
     });
-  } else if(type==='send_usd'){
-    var el=document.getElementById('exF_usd');
-    if(el) el.addEventListener('input',function(){
-      var u=parseFloat(this.value)||0;
-      var comm=u*0.0002;
+  } else if(type==='send_cny'){
+    function exSendCnyCalc(){
+      var c=_gf('exF_cny');
+      var pct=_gf('exF_comm_pct');
+      var comm=c*(pct/100);
       var cd=document.getElementById('exF_comm_display');
-      if(cd) cd.value='$'+comm.toLocaleString('en',{maximumFractionDigits:4});
-    });
-  } else if(type==='cashout'||type==='cashin'){
-    ['exF_usd','exF_comm_rate'].forEach(function(id){
+      if(cd) cd.value='¥'+comm.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})+' ('+pct+'%)';
+    }
+    ['exF_cny','exF_comm_pct'].forEach(function(id){
       var el=document.getElementById(id);
-      if(el) el.addEventListener('input',function(){
-        var u=parseFloat(document.getElementById('exF_usd').value)||0;
-        var r=parseFloat(document.getElementById('exF_comm_rate').value)||0.06;
-        var comm=u*(r/100);
-        var cd=document.getElementById('exF_comm_display');
-        if(cd) cd.value='$'+comm.toLocaleString('en',{maximumFractionDigits:2});
-      });
+      if(el){ el.addEventListener('input',exSendCnyCalc); el.addEventListener('change',exSendCnyCalc); }
+    });
+  } else if(type==='send_usd'||type==='cashout'||type==='cashin'){
+    function exUsdCommCalc(){
+      var u=_gf('exF_usd');
+      var pct=_gf('exF_comm_pct');
+      var manual=_g('exF_comm_usd_manual');
+      var comm = manual!=='' ? parseFloat(manual)||0 : u*(pct/100);
+      var cd=document.getElementById('exF_comm_display');
+      if(cd) cd.value='$'+comm.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})+(manual!==''?' (manual)':' ('+pct+'%)');
+    }
+    ['exF_usd','exF_comm_pct','exF_comm_usd_manual'].forEach(function(id){
+      var el=document.getElementById(id);
+      if(el){ el.addEventListener('input',exUsdCommCalc); el.addEventListener('change',exUsdCommCalc); }
     });
   }
 }
@@ -21137,36 +21182,59 @@ function exSaveTxn(type){
     usd: 0, cny: 0, fx_rate: EX_FX_RATE, commission: 0
   };
 
+  // Komissiya helper: manual kiritilgan bo'lsa uni ishlatamiz, aks holda % dan hisoblaymiz
+  function _exComm(amountField, pctField, manualField, isCny){
+    var amount = parseFloat(g(amountField))||0;
+    var pct    = parseFloat(g(pctField))||0;
+    var manual = g(manualField);
+    if(manual !== '') return parseFloat(manual)||0;
+    return amount * (pct/100);
+  }
+
   if(type==='break'){
     var u=parseFloat(g('exF_usd'))||0;
     var dir=(document.getElementById('exF_break_dir')||{}).value||'buy';
+    var pct=parseFloat(g('exF_comm_pct'))||EX_SPREAD_PCT*100;
     var mid=EX_BOC_RATE||EX_FX_RATE;
     var rate = dir==='buy' ? exBuyRate(mid) : exSellRate(mid);
-    var comm_cny = u * Math.abs(mid - rate);
-    txn.usd=u; txn.fx_rate=rate; txn.commission=comm_cny/mid;
+    var manualCny = g('exF_comm_cny_manual');
+    var comm_cny = manualCny!=='' ? parseFloat(manualCny)||0 : u*(pct/100);
+    txn.usd=u; txn.fx_rate=rate; txn.comm_rate=pct; txn.commission=comm_cny/(mid||1);
+    txn.comm_cny=comm_cny;
     txn.note=note||(dir==='buy'
-      ? 'USD '+u+' → CNY '+(u*rate).toFixed(0)+' (sotib olish kursi: ¥'+rate+', foyda: ¥'+comm_cny.toFixed(2)+')'
-      : 'CNY '+(u*rate).toFixed(0)+' → USD '+u+' (sotish kursi: ¥'+rate+', foyda: ¥'+comm_cny.toFixed(2)+')');
+      ? 'USD '+u+' → CNY '+(u*rate).toFixed(0)+' | kurs: ¥'+rate+' | komissiya: ¥'+comm_cny.toFixed(2)+' ('+pct+'%)'
+      : 'CNY '+(u*rate).toFixed(0)+' → USD '+u+' | kurs: ¥'+rate+' | komissiya: ¥'+comm_cny.toFixed(2)+' ('+pct+'%)');
   } else if(type==='send_cny'){
-    txn.cny=parseFloat(g('exF_cny'))||0;
-    txn.note=note||(g('exF_supplier')+"ga CNY o'tkazma");
+    var c=parseFloat(g('exF_cny'))||0;
+    var pctC=parseFloat(g('exF_comm_pct'))||0;
+    var comm_c=c*(pctC/100);
+    txn.cny=c; txn.comm_rate=pctC; txn.commission=comm_c/(EX_BOC_RATE||EX_FX_RATE||1);
+    txn.comm_cny=comm_c;
+    txn.note=note||(g('exF_supplier')+"ga CNY o'tkazma: ¥"+c+(pctC>0?' | komissiya: ¥'+comm_c.toFixed(2)+' ('+pctC+'%)':''));
   } else if(type==='send_usd'){
     var u2=parseFloat(g('exF_usd'))||0;
-    txn.usd=u2; txn.commission=u2*0.0002;
-    txn.note=note||(g('exF_supplier')+"ga USD o'tkazma");
+    var pct2=parseFloat(g('exF_comm_pct'))||0.02;
+    var manU2=g('exF_comm_usd_manual');
+    var comm2= manU2!=='' ? parseFloat(manU2)||0 : u2*(pct2/100);
+    txn.usd=u2; txn.comm_rate=pct2; txn.commission=comm2;
+    txn.note=note||(g('exF_supplier')+"ga USD o'tkazma: $"+u2+' | komissiya: $'+comm2.toFixed(2)+' ('+pct2+'%)');
   } else if(type==='deposit'){
     txn.usd=parseFloat(g('exF_usd'))||0;
     txn.cny=parseFloat(g('exF_cny'))||0;
   } else if(type==='cashout'){
     var u3=parseFloat(g('exF_usd'))||0;
-    var r3=(parseFloat(g('exF_comm_rate'))||0.06)/100;
-    txn.usd=u3; txn.comm_rate=r3; txn.commission=u3*r3;
-    txn.note=note||('Naqd chiqarish: $'+u3+', komissiya: $'+(u3*r3).toFixed(2));
+    var pct3=parseFloat(g('exF_comm_pct'))||0.06;
+    var manU3=g('exF_comm_usd_manual');
+    var comm3= manU3!=='' ? parseFloat(manU3)||0 : u3*(pct3/100);
+    txn.usd=u3; txn.comm_rate=pct3; txn.commission=comm3;
+    txn.note=note||('Naqd chiqarish: $'+u3+' | komissiya: $'+comm3.toFixed(2)+' ('+pct3+'%)');
   } else if(type==='cashin'){
     var u4=parseFloat(g('exF_usd'))||0;
-    var r4=(parseFloat(g('exF_comm_rate'))||0.06)/100;
-    txn.usd=u4; txn.comm_rate=r4; txn.commission=u4*r4;
-    txn.note=note||('Naqd kirim: $'+u4+', komissiya: $'+(u4*r4).toFixed(2));
+    var pct4=parseFloat(g('exF_comm_pct'))||0.06;
+    var manU4=g('exF_comm_usd_manual');
+    var comm4= manU4!=='' ? parseFloat(manU4)||0 : u4*(pct4/100);
+    txn.usd=u4; txn.comm_rate=pct4; txn.commission=comm4;
+    txn.note=note||('Naqd kirim: $'+u4+' | komissiya: $'+comm4.toFixed(2)+' ('+pct4+'%)');
   } else if(type==='withdraw'){
     txn.usd=parseFloat(g('exF_usd'))||0;
     txn.cny=parseFloat(g('exF_cny'))||0;
