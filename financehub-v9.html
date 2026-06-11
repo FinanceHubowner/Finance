@@ -462,9 +462,16 @@ body[style*="--is-light: 1"] .topbar,
 
 <script>
 
+// User profiles fallback (agar Supabase profiles jadvali ishlamasa)
+var FH_USER_PROFILES = {
+  'owner@financehub.com':       {role:'owner',   direction:null,          full_name:'Owner'},
+  'logistics@manager.com':      {role:'manager', direction:'logistics',   full_name:'Logistics Manager'},
+  'cargo@manager.com':          {role:'manager', direction:'cargo',       full_name:'Cargo Manager'},
+  'exchange@manager.com':       {role:'manager', direction:'exchange',    full_name:'Exchange Manager'},
+  'procurement@manager.com':    {role:'manager', direction:'procurement', full_name:'Procurement Manager'},
+};
 
 var SB = null;
-
 
 var CUR_USER = null;
 
@@ -709,7 +716,7 @@ async function LGO() {
     
 
 
-    var profile = prof.data || {role:"owner", direction:null, full_name: email};
+    var profile = prof.data || FH_USER_PROFILES[email] || {role:"owner", direction:null, full_name: email};
 
 
     profile.email = email;
@@ -799,7 +806,7 @@ window.addEventListener("load", async function() {
       var prof = await SB.from("profiles").select("*").eq("id", uid).single();
 
 
-      var profile = prof.data || {role:"owner", direction:null, full_name: s.data.session.user.email};
+      var profile = prof.data || FH_USER_PROFILES[s.data.session.user.email] || {role:"owner", direction:null, full_name: s.data.session.user.email};
 
 
       profile.email = s.data.session.user.email;
