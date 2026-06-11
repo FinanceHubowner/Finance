@@ -311,8 +311,8 @@
 <!-- COVER -->
 <div class="cover">
   <div class="cover-logo">📊 FinanceHub · Qo'llanma</div>
-  <div class="cover-title">Ma'lumot Kiritish<br>To'liq Qo'llanmasi</div>
-  <div class="cover-sub">Barcha yo'nalishlar uchun tranzaksiya, CRM, Pipeline va Payroll ma'lumotlarini kiritish bo'yicha qadamma-qadam yo'riqnoma</div>
+  <div class="cover-title">To'liq Foydalanuvchi<br>Qo'llanmasi</div>
+  <div class="cover-sub">Barcha yo'nalishlar, rol asosida kirish, Logistics workflow, Exchange dashboard, Period Close va moliyaviy hisobotlar bo'yicha to'liq yo'riqnoma</div>
   <div class="cover-chips">
     <div class="cover-chip">📦 Cargo</div>
     <div class="cover-chip">🚛 Logistics</div>
@@ -321,15 +321,17 @@
     <div class="cover-chip">👥 CRM</div>
     <div class="cover-chip">📈 Pipeline</div>
     <div class="cover-chip">👨‍💼 Payroll</div>
+    <div class="cover-chip">📅 Period Close</div>
+    <div class="cover-chip">⚖️ Balance Sheet</div>
   </div>
-  <div class="cover-date">Tayyorlangan: 2026-yil iyun · FinanceHub v9</div>
+  <div class="cover-date">Yangilangan: 2026-yil iyun · FinanceHub v9</div>
 </div>
 
 <!-- TOC -->
 <div class="toc-section container">
   <div class="toc-title">📋 Mundarija</div>
   <div class="toc-grid">
-    <a class="toc-item" href="#s1"><span class="toc-num">1</span><span class="toc-lbl">Tizimga kirish va yo'nalish tanlash</span></a>
+    <a class="toc-item" href="#s1"><span class="toc-num">1</span><span class="toc-lbl">Tizimga kirish — Rol asosida kirish</span></a>
     <a class="toc-item" href="#s2"><span class="toc-num">2</span><span class="toc-lbl">Tranzaksiya turlari va COA kodlari</span></a>
     <a class="toc-item" href="#s3"><span class="toc-num">3</span><span class="toc-lbl">Daromad (Income) kiritish</span></a>
     <a class="toc-item" href="#s4"><span class="toc-num">4</span><span class="toc-lbl">Xarajat (COGS / OpEx) kiritish</span></a>
@@ -337,8 +339,12 @@
     <a class="toc-item" href="#s6"><span class="toc-num">6</span><span class="toc-lbl">Debitor / Kreditor kiritish</span></a>
     <a class="toc-item" href="#s7"><span class="toc-num">7</span><span class="toc-lbl">CRM — Mijoz qo'shish</span></a>
     <a class="toc-item" href="#s8"><span class="toc-num">8</span><span class="toc-lbl">Pipeline — Bitim boshqaruvi</span></a>
-    <a class="toc-item" href="#s9"><span class="toc-num">9</span><span class="toc-lbl">Payroll — Ish haqi kiritish</span></a>
-    <a class="toc-item" href="#s10"><span class="toc-num">10</span><span class="toc-lbl">Tez-tez yo'l qo'yiladigan xatolar</span></a>
+    <a class="toc-item" href="#s9"><span class="toc-num">9</span><span class="toc-lbl">Payroll — Ish haqi va soliq</span></a>
+    <a class="toc-item" href="#s10"><span class="toc-num">10</span><span class="toc-lbl">🚛 Logistics — Yuk tashish jarayoni</span></a>
+    <a class="toc-item" href="#s11"><span class="toc-num">11</span><span class="toc-lbl">💱 Exchange — Tangachi Dashboard</span></a>
+    <a class="toc-item" href="#s12"><span class="toc-num">12</span><span class="toc-lbl">⚖️ Balans va moliyaviy hisobotlar</span></a>
+    <a class="toc-item" href="#s13"><span class="toc-num">13</span><span class="toc-lbl">📅 Period Close va Tasdiqlash</span></a>
+    <a class="toc-item" href="#s14"><span class="toc-num">14</span><span class="toc-lbl">Tez-tez yo'l qo'yiladigan xatolar</span></a>
   </div>
 </div>
 
@@ -347,15 +353,36 @@
   <div class="section-header">
     <div class="section-num">1</div>
     <div>
-      <div class="section-title">Tizimga kirish va yo'nalish tanlash</div>
-      <div class="section-desc">FinanceHub qanday tuzilgan va qayerdan boshlash kerak</div>
+      <div class="section-title">Tizimga kirish — Rol asosida kirish</div>
+      <div class="section-desc">Kim nimani ko'radi? Owner, Manager va Staff farqi</div>
     </div>
   </div>
 
   <div class="note note-info">
     <span class="note-icon">ℹ️</span>
-    <span>FinanceHub <strong>5 yo'nalishdan</strong> iborat: Holding (umumiy), Cargo, Logistics, Exchange, Procurement. Har bir yo'nalishning o'z CRM, Pipeline, Payroll va moliyaviy hisobotlari bor.</span>
+    <span>FinanceHub <strong>5 yo'nalishdan</strong> iborat: Holding, Cargo, Logistics, Exchange, Procurement. <strong>Owner</strong> barcha yo'nalishlarni ko'radi. <strong>Staff</strong> faqat o'z yo'nalishini ko'radi.</span>
   </div>
+
+  <table>
+    <thead><tr><th>Rol</th><th>Ko'rinadigan navigatsiya</th><th>Kiritish imkoniyati</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="badge" style="background:#fef9c3;color:#854d0e;">owner</span></td>
+        <td>Holding · Cargo · Logistics · Exchange · Procurement — <strong>hammasi</strong></td>
+        <td>Barcha yo'nalishlarga, Sozlama, Period Close</td>
+      </tr>
+      <tr>
+        <td><span class="badge" style="background:#EEF1FF;color:#4F6EF7;">manager</span></td>
+        <td>Faqat <strong>o'z yo'nalishi</strong></td>
+        <td>Kiritadi + pending tranzaksiyalarni tasdiqlaydi</td>
+      </tr>
+      <tr>
+        <td><span class="badge" style="background:#f0fdf4;color:#16a34a;">staff</span></td>
+        <td>Faqat <strong>o'z yo'nalishi</strong></td>
+        <td>Faqat o'z yo'nalishiga kiritadi</td>
+      </tr>
+    </tbody>
+  </table>
 
   <div class="screen">
     <div class="screen-header">
@@ -977,6 +1004,269 @@ Ish boshlagan: 2024-06-01
   <div class="section-header">
     <div class="section-num">10</div>
     <div>
+      <div class="section-title">🚛 Logistics — Yuk tashish jarayoni</div>
+      <div class="section-desc">8 bosqichli shipment pipeline boshqaruvi</div>
+    </div>
+  </div>
+
+  <div class="note note-info">
+    <span class="note-icon">ℹ️</span>
+    <span>Logistics yo'nalishi o'zining alohida <strong>Shipment Pipeline</strong>iga ega — bu umumiy Pipeline (CRM deals)dan farqli. Har bir yuk zayavkasi 8 bosqichdan o'tadi.</span>
+  </div>
+
+  <div style="display:flex;gap:4px;flex-wrap:wrap;margin:16px 0;">
+    <div style="background:#6C8EFF;color:#fff;border-radius:8px;padding:8px 12px;font-size:11px;font-weight:700;text-align:center;min-width:90px;">📨<br>1. Lead</div>
+    <div style="align-self:center;color:#9ca3af;font-size:14px;">→</div>
+    <div style="background:#FFB830;color:#fff;border-radius:8px;padding:8px 12px;font-size:11px;font-weight:700;text-align:center;min-width:90px;">💲<br>2. Pricing</div>
+    <div style="align-self:center;color:#9ca3af;font-size:14px;">→</div>
+    <div style="background:#F97316;color:#fff;border-radius:8px;padding:8px 12px;font-size:11px;font-weight:700;text-align:center;min-width:90px;">📝<br>3. Contracting</div>
+    <div style="align-self:center;color:#9ca3af;font-size:14px;">→</div>
+    <div style="background:#22C55E;color:#fff;border-radius:8px;padding:8px 12px;font-size:11px;font-weight:700;text-align:center;min-width:90px;">📥<br>4. Acceptance</div>
+    <div style="align-self:center;color:#9ca3af;font-size:14px;">→</div>
+    <div style="background:#00BCD4;color:#fff;border-radius:8px;padding:8px 12px;font-size:11px;font-weight:700;text-align:center;min-width:90px;">🚚<br>5. Shipment</div>
+    <div style="align-self:center;color:#9ca3af;font-size:14px;">→</div>
+    <div style="background:#8B5CF6;color:#fff;border-radius:8px;padding:8px 12px;font-size:11px;font-weight:700;text-align:center;min-width:90px;">🌐<br>6. Delivery</div>
+    <div style="align-self:center;color:#9ca3af;font-size:14px;">→</div>
+    <div style="background:#10B981;color:#fff;border-radius:8px;padding:8px 12px;font-size:11px;font-weight:700;text-align:center;min-width:90px;">✅<br>7. Final Acc.</div>
+    <div style="align-self:center;color:#9ca3af;font-size:14px;">→</div>
+    <div style="background:#EF4444;color:#fff;border-radius:8px;padding:8px 12px;font-size:11px;font-weight:700;text-align:center;min-width:90px;">🆘<br>8. Rescue</div>
+  </div>
+
+  <table>
+    <thead><tr><th>Bosqich</th><th>Nima qilinadi</th><th>Asosiy hujjatlar</th></tr></thead>
+    <tbody>
+      <tr><td><strong>1. Lead</strong></td><td>Klientdan zayavka tushadi: yuk ma'lumoti, TNVED kodi, Incoterms, marshrut</td><td>Dastlabki so'rov</td></tr>
+      <tr><td><strong>2. Pricing</strong></td><td>Ekspeditor transport narxini hisoblaydi va klientga taklif yuboradi</td><td>Tijorat taklif (KP)</td></tr>
+      <tr><td><strong>3. Contracting</strong></td><td>Klient taklif qabul qiladi — shartnoma imzolanadi</td><td>Shartnoma, Invoice</td></tr>
+      <tr><td><strong>4. Acceptance</strong></td><td>Yuk qabul qilinadi, tizimda ro'yxatdan o'tkaziladi, hujjatlar yuklanadi</td><td>CMR, Packing list</td></tr>
+      <tr><td><strong>5. Shipment</strong></td><td>Transport zayavkasi beriladi, haydovchi biriktiriladi, yo'lga chiqiladi</td><td>Yo'l varaqasi</td></tr>
+      <tr><td><strong>6. Delivery</strong></td><td><strong>Intermodal</strong> (bitta transport) yoki <strong>Multimodal</strong> (Temir yo'l + Avto + Parom + Avia kombinatsiyasi)</td><td>Eksport deklaratsiya</td></tr>
+      <tr><td><strong>7. Final Acceptance</strong></td><td>Bojxona, sertifikatlar, aktlar — yukni klientga topshirish</td><td>Akt, Sertifikat</td></tr>
+      <tr><td><strong>8. Rescue</strong></td><td>Muammoli holatlar: shikast, kechikish, yo'qolish</td><td>Pretenziya, Sug'urta</td></tr>
+    </tbody>
+  </table>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="step-title">Logistics → Dashboard → "+ Yangi Zayavka"</div>
+        <div class="step-desc">Klient nomi, marshrut (FROM → TO), TNVED kodi, og'irlik, hajm, Incoterms, transport turi, daromad va xarajatni kiriting</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="step-title">Bosqich tanlang</div>
+        <div class="step-desc">Yangi zayavka odatda <strong>Lead</strong> bosqichidan boshlanadi. Saqlashda bosqichni belgilash mumkin.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <div class="step-title">Zayavkani ochib bosqichni yangilang</div>
+        <div class="step-desc">Zayavka kartasini bosing → "Bosqichni o'zgartirish" tugmalaridan kerakli bosqichni tanlang → tarix avtomatik yoziladi</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note note-tip">
+    <span class="note-icon">💡</span>
+    <span><strong>Transport modlari:</strong> Intermodal (bitta transport vositasi), yoki Multimodal: Temir yo'l + Avtofurgon, Parom + Avto, yoki 3 xil kombinatsiya. Zayavka yaratishda transport turini tanlang.</span>
+  </div>
+</div>
+
+<!-- SECTION 11 -->
+<div class="section container" id="s11">
+  <div class="section-header">
+    <div class="section-num">11</div>
+    <div>
+      <div class="section-title">💱 Exchange — Tangachi Dashboard</div>
+      <div class="section-desc">Valyuta almashtirish va pul o'tkazma operatsiyalari</div>
+    </div>
+  </div>
+
+  <div class="note note-info">
+    <span class="note-icon">ℹ️</span>
+    <span>Exchange yo'nalishi boshqalardan farqli — u <strong>alohida operatsiya tizimiga</strong> ega. USD/CNY kursi, 3 tomonlama balans (Bank · Mijoz · Tangachi) va real-vaqt komissiya hisobi.</span>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:16px 0;">
+    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px;text-align:center;"><div style="font-size:10px;color:#16a34a;font-weight:700;">Bank (USD)</div><div style="font-size:13px;font-weight:800;color:#16a34a;">$124,500</div></div>
+    <div style="background:#EEF1FF;border:1px solid #a5b4fc;border-radius:8px;padding:10px;text-align:center;"><div style="font-size:10px;color:#4F6EF7;font-weight:700;">Bank (CNY)</div><div style="font-size:13px;font-weight:800;color:#4F6EF7;">¥890,000</div></div>
+    <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:10px;text-align:center;"><div style="font-size:10px;color:#b45309;font-weight:700;">Mijozlar</div><div style="font-size:13px;font-weight:800;color:#b45309;">$45,200</div></div>
+    <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:10px;text-align:center;"><div style="font-size:10px;color:#854d0e;font-weight:700;">Jami Foyda</div><div style="font-size:13px;font-weight:800;color:#854d0e;">$8,340</div></div>
+    <div style="background:#f5f3ff;border:1px solid #c4b5fd;border-radius:8px;padding:10px;text-align:center;"><div style="font-size:10px;color:#7c3aed;font-weight:700;">Bugungi</div><div style="font-size:13px;font-weight:800;color:#7c3aed;">$320</div></div>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="step-title">FX kursini sozlang</div>
+        <div class="step-desc">Dashboard yuqorisidagi <strong>⚙️</strong> tugmasini bosing yoki <strong>🔄</strong> orqali live kursni yangilang. O'rta kurs, sotib olish va sotish kursi avtomatik hisoblanadi.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="step-title">"+ Yangi Operatsiya" tugmasini bosing</div>
+        <div class="step-desc">Operatsiya turlari: <strong>Remittance</strong> (pul o'tkazma), <strong>FX Buy</strong> (dollar sotib olish), <strong>FX Sell</strong> (dollar sotish), <strong>Commission</strong></div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <div class="step-title">3 tomonlama balansni kuzating</div>
+        <div class="step-desc">Bank balansi · Mijozlar balansi · Tangachi foydasi — har operatsiyada avtomatik yangilanadi</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note note-warn">
+    <span class="note-icon">⚠️</span>
+    <span>Exchange operatsiyalari <strong>umumiy TXNS</strong> ga emas, alohida <strong>EX_TXNS</strong> ga saqlanadi. P&L va Cash Flow da Exchange daromadi ham hisobga olinadi.</span>
+  </div>
+</div>
+
+<!-- SECTION 12 -->
+<div class="section container" id="s12">
+  <div class="section-header">
+    <div class="section-num">12</div>
+    <div>
+      <div class="section-title">⚖️ Balans va Moliyaviy Hisobotlar</div>
+      <div class="section-desc">P&L, Cash Flow, Balance Sheet — har yo'nalish uchun alohida</div>
+    </div>
+  </div>
+
+  <table>
+    <thead><tr><th>Hisobot</th><th>Qayerda</th><th>Nima ko'rsatadi</th><th>Standart</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>P&L</strong> 📈</td>
+        <td>Yo'nalish → P&L</td>
+        <td>Daromad, COGS, Gross Profit, OpEx, EBITDA, Net Profit</td>
+        <td>IFRS (accrual)</td>
+      </tr>
+      <tr>
+        <td><strong>Cash Flow</strong> 💵</td>
+        <td>Yo'nalish → Cash Flow</td>
+        <td>Operatsion, Investitsion, Moliyaviy oqimlar — IAS 7</td>
+        <td>IAS 7</td>
+      </tr>
+      <tr>
+        <td><strong>Balans</strong> ⚖️</td>
+        <td>Yo'nalish → Balans</td>
+        <td>Aktivlar, Majburiyatlar, Kapital — kompaniya moliyaviy holati</td>
+        <td>IFRS</td>
+      </tr>
+      <tr>
+        <td><strong>Kassa</strong> 💳</td>
+        <td>Yo'nalish → Kassa</td>
+        <td>USD Naqd, UZS Naqd, Humo, Uzcard, Bank (SWIFT) qoldiqlari</td>
+        <td>Real-vaqt</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="note note-tip">
+    <span class="note-icon">💡</span>
+    <span><strong>Balans tab</strong> barcha yo'nalishlar subnavigatsiyasida mavjud: Dashboard · P&L · Cash Flow · <strong>⚖️ Balans</strong> · Kassa · ...</span>
+  </div>
+
+  <div style="font-weight:600;margin:16px 0 10px;">P&L tuzilishi:</div>
+  <div class="flow">
+    <div class="flow-step">Revenue</div>
+    <div class="flow-arrow">−</div>
+    <div class="flow-step" style="background:#ef4444;">COGS</div>
+    <div class="flow-arrow">=</div>
+    <div class="flow-step" style="background:#22c55e;">Gross Profit</div>
+    <div class="flow-arrow">−</div>
+    <div class="flow-step" style="background:#f59e0b;">OpEx</div>
+    <div class="flow-arrow">=</div>
+    <div class="flow-step" style="background:#8b5cf6;">EBITDA</div>
+    <div class="flow-arrow">−</div>
+    <div class="flow-step gray">D&A · Tax</div>
+    <div class="flow-arrow">=</div>
+    <div class="flow-step" style="background:#0ea5e9;">Net Profit</div>
+  </div>
+
+  <div style="font-weight:600;margin:16px 0 10px;">Sana filtrlari:</div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;">
+    <div style="background:#EEF1FF;color:#4F6EF7;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;">Bugun</div>
+    <div style="background:#f1f5f9;color:#475569;padding:6px 14px;border-radius:6px;font-size:12px;">Hafta</div>
+    <div style="background:#f1f5f9;color:#475569;padding:6px 14px;border-radius:6px;font-size:12px;">Oy</div>
+    <div style="background:#f1f5f9;color:#475569;padding:6px 14px;border-radius:6px;font-size:12px;">Kvartal</div>
+    <div style="background:#f1f5f9;color:#475569;padding:6px 14px;border-radius:6px;font-size:12px;">Hammasi</div>
+    <div style="background:#f1f5f9;color:#475569;padding:6px 14px;border-radius:6px;font-size:12px;">📅 Belgilash (maxsus oraliq)</div>
+  </div>
+
+  <div class="note note-warn">
+    <span class="note-icon">⚠️</span>
+    <span>Agar hisobotda $0 ko'rinsa — sana filtri <strong>"Bugun"</strong> da. <strong>"Hammasi"</strong> ni bosing yoki "Belgilash" orqali aniq sana oralig'ini tanlang.</span>
+  </div>
+</div>
+
+<!-- SECTION 13 -->
+<div class="section container" id="s13">
+  <div class="section-header">
+    <div class="section-num">13</div>
+    <div>
+      <div class="section-title">📅 Period Close va Tasdiqlash tizimi</div>
+      <div class="section-desc">Moliyaviy davrni yopish va tranzaksiyalarni tasdiqlash</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0;">
+    <div style="border:1px solid #bfdbfe;border-radius:10px;padding:16px;background:#eff6ff;">
+      <div style="font-size:13px;font-weight:700;color:#1d4ed8;margin-bottom:10px;">📅 Period Close (Davr yopish)</div>
+      <div style="font-size:12px;color:#374151;margin-bottom:8px;">Yopilgan davrlarga yangi tranzaksiya kiritib bo'lmaydi.</div>
+      <div class="step-img" style="font-size:11px;">
+Qayerda: Sozlama → 📅 Davrni yopish
+Kim: Faqat Owner
+Format: YYYY-MM (masalan: 2026-05)
+Natija: O'sha oyga kiritish bloklanadi
+      </div>
+    </div>
+    <div style="border:1px solid #bbf7d0;border-radius:10px;padding:16px;background:#f0fdf4;">
+      <div style="font-size:13px;font-weight:700;color:#16a34a;margin-bottom:10px;">✅ Approval Workflow (Tasdiqlash)</div>
+      <div style="font-size:12px;color:#374151;margin-bottom:8px;">Staff kiritgan tranzaksiya — <strong>pending</strong> holatida qoladi, owner/manager tasdiqlaydi.</div>
+      <div class="step-img" style="font-size:11px;">
+Staff kiritadi  → approval_status: pending
+Owner/Manager   → approveTxn() → approved
+Rad etilsa      → rejectTxn()  → rejected
+      </div>
+    </div>
+  </div>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="step-title">Davrni yopish: Sozlama → "📅 Davrni yopish"</div>
+        <div class="step-desc">YYYY-MM formatida oy kiriting (masalan: 2026-05). Tasdiqlashdan so'ng o'sha oy bloklanadi — yana ochib bo'lmaydi.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="step-title">Audit trail — har tranzaksiyada avtomatik</div>
+        <div class="step-desc">Kim kiritdi (<code>created_by</code>), qachon (<code>created_at</code>), tasdiqlandi yoki kutilmoqda (<code>approval_status</code>) — barchasi yoziladi.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note note-warn">
+    <span class="note-icon">⚠️</span>
+    <span><strong>Barcha ma'lumotlarni tozalash:</strong> Sozlama → 🗑️ Barcha ma'lumotlarni tozalash — bu amalni qaytarib bo'lmaydi! Faqat owner ko'radi.</span>
+  </div>
+</div>
+
+<!-- SECTION 14 -->
+<div class="section container" id="s14">
+  <div class="section-header">
+    <div class="section-num">14</div>
+    <div>
       <div class="section-title">Tez-tez Yo'l Qo'yiladigan Xatolar</div>
       <div class="section-desc">Va ularni tuzatish yo'llari</div>
     </div>
@@ -990,12 +1280,17 @@ Ish boshlagan: 2024-06-01
       <tr>
         <td>Dashboard $0 ko'rsatmoqda</td>
         <td>Sana filtri "Bugun" — eski ma'lumotlar ko'rinmaydi</td>
-        <td>"<strong>Hammasi</strong>" tugmasini bosing</td>
+        <td><strong>"Hammasi"</strong> tugmasini bosing</td>
       </tr>
       <tr>
-        <td>Cargo ma'lumotlari ko'rinmaydi</td>
-        <td>Logistics yoki boshqa yo'nalish tanlanган</td>
-        <td>Yuqoridan to'g'ri yo'nalishni tanlang</td>
+        <td>Boshqa yo'nalish ko'rinmayapti</td>
+        <td>Staff foydalanuvchi — faqat o'z yo'nalishini ko'radi</td>
+        <td>Owner huquqi bilan kiring yoki admin profil yangilash kerak</td>
+      </tr>
+      <tr>
+        <td>Tranzaksiya kiritib bo'lmayapti</td>
+        <td>Davr yopilgan (Period Close) yoki boshqa yo'nalish tanlangan</td>
+        <td>Sana tekshiring — yopilgan oy bo'lmasin; yo'nalishingizni tanlang</td>
       </tr>
       <tr>
         <td>CRM da mijoz yo'q</td>
@@ -1003,24 +1298,24 @@ Ish boshlagan: 2024-06-01
         <td>Har yo'nalish alohida baza — to'g'ri yo'nalish ichida qo'shing</td>
       </tr>
       <tr>
-        <td>Pipeline bo'sh</td>
-        <td>CRM da mijoz holati "Potensial" yoki "Nofaol"</td>
-        <td>CRM da holatni "Faol" ga o'zgartiring</td>
-      </tr>
-      <tr>
         <td>P&L da daromad kichik ko'rinadi</td>
         <td>COGS income sifatida kiritilgan yoki aksincha</td>
         <td>Tranzaksiya turi (income/cogs) to'g'riligini tekshiring</td>
       </tr>
       <tr>
-        <td>Gross Profit manfiy</td>
-        <td>COGS > Revenue</td>
-        <td>Tranzaksiya summalarini tekshiring; biror kiritish ikki marta yozilmadimi?</td>
+        <td>Payroll soliq noto'g'ri</td>
+        <td>Nafaqalar (allowance) soliq bazasiga qo'shilgan edi</td>
+        <td>Tizim endi nafaqalarni soliqdan ajratadi: soliq = (base+KPI+sales) × 12%</td>
       </tr>
       <tr>
-        <td>Sahifa to'satdan bo'shab qoldi</td>
-        <td>JavaScript xatosi yoki noto'g'ri tranzaksiya ma'lumoti</td>
-        <td>F5 bosing; agar davom etsa — Sana formatini YYYY-MM-DD tekshiring</td>
+        <td>Sahifa bo'shab qoldi</td>
+        <td>Brauzer keshi eski versiyani ko'rsatyapti</td>
+        <td><strong>Ctrl+Shift+R</strong> (hard refresh) bosing</td>
+      </tr>
+      <tr>
+        <td>Logistics dashboard ko'rinmaydi</td>
+        <td>Navigatsiyadan Logistics tanlanmagan</td>
+        <td>Yuqori navdan 🚛 Logistics → Dashboard bosing</td>
       </tr>
     </tbody>
   </table>
@@ -1032,14 +1327,13 @@ Ish boshlagan: 2024-06-01
       <ul style="margin-top:6px;padding-left:16px;font-size:13px;">
         <li>Barcha summalar <strong>USD</strong> da kiritiladi</li>
         <li>Sana formati: <strong>YYYY-MM-DD</strong> (masalan: 2025-03-15)</li>
-        <li>Ma'lumotlar brauzer localStorage'da saqlanadi — turli qurilmadan kirish uchun eksport qiling</li>
-        <li>"Hammasi" filtri — hamma vaqt uchun ma'lumotlarni ko'rsatadi</li>
-        <li>Demo ma'lumotlarini o'chirish uchun: Sozlama → Demo ma'lumotlarni tozalash</li>
+        <li>Ma'lumotlar brauzer <strong>localStorage</strong>da saqlanadi — turli qurilmada ko'rinmaydi</li>
+        <li>Kesh muammosi bo'lsa: <strong>Ctrl+Shift+R</strong></li>
+        <li>Barcha ma'lumotlarni o'chirish: <strong>Sozlama → 🗑️ Tozalash</strong> (faqat owner)</li>
       </ul>
     </div>
   </div>
 
-  <!-- QUICK REFERENCE -->
   <div style="margin-top:28px;background:#1e3a8a;color:#fff;border-radius:12px;padding:20px 24px;">
     <div style="font-size:15px;font-weight:700;margin-bottom:14px;">⚡ Tez Yo'riqnoma</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
@@ -1048,17 +1342,19 @@ Ish boshlagan: 2024-06-01
       <div style="background:rgba(255,255,255,0.1);border-radius:6px;padding:8px 12px;"><strong>Xarajat:</strong> Yo'nalish → Kiritish → opex → COA 31</div>
       <div style="background:rgba(255,255,255,0.1);border-radius:6px;padding:8px 12px;"><strong>Mijoz:</strong> Yo'nalish → Mijozlar → + Yangi</div>
       <div style="background:rgba(255,255,255,0.1);border-radius:6px;padding:8px 12px;"><strong>Bitim:</strong> Yo'nalish → Pipeline → + Yangi Deal</div>
+      <div style="background:rgba(255,255,255,0.1);border-radius:6px;padding:8px 12px;"><strong>Logistics zayavka:</strong> Logistics → Dashboard → + Yangi Zayavka</div>
+      <div style="background:rgba(255,255,255,0.1);border-radius:6px;padding:8px 12px;"><strong>Exchange:</strong> Exchange → Dashboard → + Yangi Operatsiya</div>
+      <div style="background:rgba(255,255,255,0.1);border-radius:6px;padding:8px 12px;"><strong>Balans:</strong> Yo'nalish → ⚖️ Balans</div>
       <div style="background:rgba(255,255,255,0.1);border-radius:6px;padding:8px 12px;"><strong>Maosh:</strong> Yo'nalish → Payroll → Xodim qo'sh</div>
-      <div style="background:rgba(255,255,255,0.1);border-radius:6px;padding:8px 12px;"><strong>Hisobot:</strong> Yo'nalish → P&L → Hammasi filtri</div>
-      <div style="background:rgba(255,255,255,0.1);border-radius:6px;padding:8px 12px;"><strong>Kassa:</strong> Holding → Kassalar yoki yo'nalish</div>
+      <div style="background:rgba(255,255,255,0.1);border-radius:6px;padding:8px 12px;"><strong>Davr yopish:</strong> Sozlama → 📅 Davrni yopish (owner)</div>
     </div>
   </div>
 </div>
 
 <!-- FOOTER -->
 <div style="text-align:center;padding:32px 40px;color:#9ca3af;font-size:12px;border-top:1px solid #e5e7eb;">
-  FinanceHub v9 · Ma'lumot Kiritish Qo'llanmasi · 2026-yil iyun
-  <br>Muallif: FinanceHub tizimi · Barcha huquqlar himoyalangan
+  FinanceHub v9 · To'liq Foydalanuvchi Qo'llanmasi · 2026-yil iyun
+  <br>Yangilangan: Logistics workflow, Exchange dashboard, Period Close, Rol asosida kirish
 </div>
 
 <!-- Back button -->
