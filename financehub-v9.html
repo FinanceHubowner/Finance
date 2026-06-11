@@ -15172,8 +15172,10 @@ function renderCashflow(focusDir){
   const _invIn = TXNS.filter(function(t){return t.type==='inventory'&&t.status!=='Bekor';}).reduce(function(s,t){return s+Math.abs(+(t.amount)||0);},0);
   const _invOut= TXNS.filter(function(t){return t.type==='inventory_release'&&t.status!=='Bekor';}).reduce(function(s,t){return s+Math.abs(+(t.amount)||0);},0);
   const op_wc_inv    = -(_invIn - _invOut);
-  // ✅ D&A haqiqiy OB dan (straight-line)
-  const op_da        = totalDA_period;
+  // ✅ D&A haqiqiy OB dan (straight-line) — renderPL ga bog'liq emas, bu yerda hisoblaymiz
+  const _cfDA_annual = Math.round((OB.ppe_net||0)/10 + (OB.intangibles_net||0)/5);
+  const _cfDA_period = Math.round(_cfDA_annual * (PER||30) / 365);
+  const op_da        = _cfDA_period;
   // ✅ Soliq: haqiqiy tax tranzaksiyalardan
   const _taxPaid = TXNS.filter(function(t){return t.type==='tax'&&t.status!=='Bekor';}).reduce(function(s,t){return s+Math.abs(+(t.amount)||0);},0);
   const op_tax_paid  = -_taxPaid;
