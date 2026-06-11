@@ -462,14 +462,21 @@ body[style*="--is-light: 1"] .topbar,
 
 <script>
 
-// User profiles fallback (agar Supabase profiles jadvali ishlamasa)
+// User profiles — owner va yo'nalish menejerlar ro'yxati
+// Bu ro'yxatda bo'lmagan barcha Supabase foydalanuvchilari
+// avtomatik Exchange (Tangachi) yo'nalishiga yo'naltiriladi
 var FH_USER_PROFILES = {
+  // === OWNER ===
+  'chinwakil@controller.com':   {role:'owner',   direction:null,          full_name:'Chinwakil (Owner)'},
   'owner@financehub.com':       {role:'owner',   direction:null,          full_name:'Owner'},
+  // === YO'NALISH MENEJERLAR ===
   'logistics@manager.com':      {role:'manager', direction:'logistics',   full_name:'Logistics Manager'},
   'cargo@manager.com':          {role:'manager', direction:'cargo',       full_name:'Cargo Manager'},
   'exchange@manager.com':       {role:'manager', direction:'exchange',    full_name:'Exchange Manager'},
   'procurement@manager.com':    {role:'manager', direction:'procurement', full_name:'Procurement Manager'},
 };
+// Tanilmagan email → Tangachi (Exchange) xodimi sifatida kiradi
+var FH_DEFAULT_PROFILE = {role:'staff', direction:'exchange', full_name:'Exchange Staff'};
 
 var SB = null;
 
@@ -716,7 +723,7 @@ async function LGO() {
     
 
 
-    var profile = FH_USER_PROFILES[email] || prof.data || {role:"owner", direction:null, full_name: email};
+    var profile = FH_USER_PROFILES[email] || prof.data || FH_DEFAULT_PROFILE;
 
 
     profile.email = email;
@@ -806,7 +813,7 @@ window.addEventListener("load", async function() {
       var prof = await SB.from("profiles").select("*").eq("id", uid).single();
 
 
-      var profile = FH_USER_PROFILES[s.data.session.user.email] || prof.data || {role:"owner", direction:null, full_name: s.data.session.user.email};
+      var profile = FH_USER_PROFILES[s.data.session.user.email] || prof.data || FH_DEFAULT_PROFILE;
 
 
       profile.email = s.data.session.user.email;
