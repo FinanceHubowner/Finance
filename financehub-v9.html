@@ -563,9 +563,8 @@ function showDash(profile) {
 
     var d = profile.direction;
 
-
-
-
+    // Non-owner hech qachon barcha yo'nalishlarni ko'rmasin
+    if (profile.role !== "owner") { d = d || "exchange"; }
 
     if (profile.role !== "owner" && d) {
 
