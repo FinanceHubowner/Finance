@@ -16153,13 +16153,17 @@ function renderCashflow(focusDir){
 // ════════════════════════════════════════════
 
 
-function renderBalance(){
+function renderBalance(focusDir){
 
 
   const el=document.getElementById('pg-l1');el.classList.add('on');
 
-
-  setBc([{lbl:'Holding',fn:'goNav("l1")'},{lbl:'Balance Sheet',fn:''}]);
+  if(focusDir){
+    var _d=DIRS.find(function(d){return d.id===focusDir;})||{};
+    setBc([{lbl:'Holding',fn:'goNav("l1")'},{lbl:(_d.e||'')+' '+(_d.name||focusDir),fn:"goNav('"+focusDir+"')"},{lbl:'Balance Sheet',fn:''}]);
+  } else {
+    setBc([{lbl:'Holding',fn:'goNav("l1")'},{lbl:'Balance Sheet',fn:''}]);
+  }
 
 
 
@@ -18456,6 +18460,10 @@ function renderEntry(focusDir){
 
               ['holding','🏦 Holding','#E8652A']];
 
+    // Non-owner: faqat o'z yo'nalishini ko'rsin
+    if(CUR_USER && CUR_USER.role !== 'owner' && CUR_USER.direction){
+      list = list.filter(function(x){ return x[0] === CUR_USER.direction; });
+    }
 
     return list.map(function(x){
 
