@@ -716,7 +716,7 @@ async function LGO() {
     
 
 
-    var profile = prof.data || FH_USER_PROFILES[email] || {role:"owner", direction:null, full_name: email};
+    var profile = FH_USER_PROFILES[email] || prof.data || {role:"owner", direction:null, full_name: email};
 
 
     profile.email = email;
@@ -806,7 +806,7 @@ window.addEventListener("load", async function() {
       var prof = await SB.from("profiles").select("*").eq("id", uid).single();
 
 
-      var profile = prof.data || FH_USER_PROFILES[s.data.session.user.email] || {role:"owner", direction:null, full_name: s.data.session.user.email};
+      var profile = FH_USER_PROFILES[s.data.session.user.email] || prof.data || {role:"owner", direction:null, full_name: s.data.session.user.email};
 
 
       profile.email = s.data.session.user.email;
