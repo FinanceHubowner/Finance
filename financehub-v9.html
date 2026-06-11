@@ -469,13 +469,23 @@ var FH_USER_PROFILES = {
   // === OWNER ===
   'chinwakil@controller.com':   {role:'owner',   direction:null,          full_name:'Chinwakil (Owner)'},
   'owner@financehub.com':       {role:'owner',   direction:null,          full_name:'Owner'},
+  // === YO'NALISH DIREKTORLAR ===
+  'logistics@director.com':     {role:'manager', direction:'logistics',   full_name:'Logistics Director'},
+  'cargo@director.com':         {role:'manager', direction:'cargo',       full_name:'Cargo Director'},
+  'exchange@director.com':      {role:'manager', direction:'exchange',    full_name:'Exchange Director'},
+  'procurement@director.com':   {role:'manager', direction:'procurement', full_name:'Procurement Director'},
   // === YO'NALISH MENEJERLAR ===
   'logistics@manager.com':      {role:'manager', direction:'logistics',   full_name:'Logistics Manager'},
   'cargo@manager.com':          {role:'manager', direction:'cargo',       full_name:'Cargo Manager'},
   'exchange@manager.com':       {role:'manager', direction:'exchange',    full_name:'Exchange Manager'},
   'procurement@manager.com':    {role:'manager', direction:'procurement', full_name:'Procurement Manager'},
+  // === STAFF ===
+  'logistics@staff.com':        {role:'staff',   direction:'logistics',   full_name:'Logistics Staff'},
+  'cargo@staff.com':            {role:'staff',   direction:'cargo',       full_name:'Cargo Staff'},
+  'exchange@staff.com':         {role:'staff',   direction:'exchange',    full_name:'Exchange Staff'},
+  'procurement@staff.com':      {role:'staff',   direction:'procurement', full_name:'Procurement Staff'},
 };
-// Tanilmagan email → Tangachi (Exchange) xodimi sifatida kiradi
+// Tanilmagan email → Exchange xodimi sifatida kiradi
 var FH_DEFAULT_PROFILE = {role:'staff', direction:'exchange', full_name:'Exchange Staff'};
 
 var SB = null;
@@ -21268,12 +21278,17 @@ function exFetchBOCRate(cb){
     .then(function(data){
       var rate = null;
       if(data && data.contents){
-        // USD qatorini topib Buying Rate ni olamiz (1-sonli ustun)
-        var m = data.contents.match(/USD[\s\S]{0,50}?<\/td>\s*<td[^>]*>([\d.]+)/i);
-        if(!m) m = data.contents.match(/USD[^<]*<[^>]+>([\d.]+)/i);
+        // BOC jadvali: USD | Buying Rate | Cash Buying | Selling | Cash Selling | Middle | Time
+        // Kurslar per 100 USD (masalan 676.62) — 100 ga bo'lib 1 USD uchun olamiz
+        var html = data.contents;
+        // USD qatorini topib birinchi raqamni (Buying Rate) olamiz
+        var m = html.match(/>\s*USD\s*<\/td>\s*<td[^>]*>\s*([\d.]+)/i);
+        if(!m) m = html.match(/USD[^<]{0,20}<\/td>[^<]{0,30}<td[^>]*>\s*([\d.]+)/i);
+        if(!m) m = html.match(/USD[\s\S]{0,100}?(6\d\d\.\d+)/);
         if(m && m[1]){
           var v = parseFloat(m[1]);
-          if(v > 500 && v < 900) rate = v; // CNY/USD uchun mantiqiy diapazon
+          // BOC per-100-USD formatida (600-900 oralig'i)
+          if(v > 500 && v < 1000) rate = Math.round(v / 100 * 10000) / 10000;
         }
       }
       if(rate){
