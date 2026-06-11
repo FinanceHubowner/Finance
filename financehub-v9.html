@@ -10426,6 +10426,8 @@ function buildNav(){
 
 function goNav(id){
 
+  // Non-owner foydalanuvchi Holding (l1) ga kira olmaydi
+  if(id==='l1' && CUR_USER && CUR_USER.role !== 'owner') return;
 
   // ── Parse hierarchical id: "cargo:pl" → dir="cargo", sub="pl"
 
@@ -10652,9 +10654,7 @@ function goNav(id){
 
 
 function setBc(items){
-  if(CUR_USER && CUR_USER.role !== "owner"){
-    items=items.filter(function(it){return it.fn !== "goNav('l1')" && it.fn !== 'goNav("l1")';});
-  }
+
 
   document.getElementById('bc').innerHTML=items.map((it,i)=>
 
