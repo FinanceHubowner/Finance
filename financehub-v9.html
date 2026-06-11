@@ -717,13 +717,8 @@ async function LGO() {
     var uid = res.data.user.id;
 
 
-    var prof = await SB.from("profiles").select("*").eq("id", uid).single();
-
-
-    
-
-
-    var profile = FH_USER_PROFILES[email] || prof.data || FH_DEFAULT_PROFILE;
+    // FH_USER_PROFILES — ishonchli manba. Supabase profiles jadvalida role yanlish bo'lishi mumkin.
+    var profile = FH_USER_PROFILES[email] || Object.assign({}, FH_DEFAULT_PROFILE, {full_name: email});
 
 
     profile.email = email;
@@ -810,10 +805,8 @@ window.addEventListener("load", async function() {
       var uid = s.data.session.user.id;
 
 
-      var prof = await SB.from("profiles").select("*").eq("id", uid).single();
-
-
-      var profile = FH_USER_PROFILES[s.data.session.user.email] || prof.data || FH_DEFAULT_PROFILE;
+      // FH_USER_PROFILES — ishonchli manba
+      var profile = FH_USER_PROFILES[s.data.session.user.email] || Object.assign({}, FH_DEFAULT_PROFILE, {full_name: s.data.session.user.email});
 
 
       profile.email = s.data.session.user.email;
