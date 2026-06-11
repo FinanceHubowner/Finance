@@ -563,8 +563,12 @@ function showDash(profile) {
 
     var d = profile.direction;
 
-    // Non-owner hech qachon barcha yo'nalishlarni ko'rmasin
-    if (profile.role !== "owner") { d = d || "exchange"; }
+    // Non-owner: ALLOWED_NAVS orqali har doim cheklangan nav
+    if (profile.role !== "owner") {
+      d = d || "exchange";
+    } else {
+      window.ALLOWED_NAVS = null;
+    }
 
     if (profile.role !== "owner" && d) {
 
@@ -599,6 +603,7 @@ function showDash(profile) {
       DRILL = {dir: d, kpi: null, row: null};
 
 
+      window.ALLOWED_NAVS = window.NAVS;
       buildNav();
 
 
@@ -10304,7 +10309,8 @@ function buildNav(){
     ['crm','pipeline'].includes(ACTV)?ACTV: ACTV.split(':')[0]||'l1';
 
 
-  document.getElementById('mainNav').innerHTML = NAVS.map(function(n){
+  var _navs = window.ALLOWED_NAVS || NAVS;
+  document.getElementById('mainNav').innerHTML = _navs.map(function(n){
 
 
     var isOn = n.id===topActive;
