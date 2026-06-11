@@ -716,17 +716,24 @@ async function LGO() {
 
     var uid = res.data.user.id;
 
-
-    // FH_USER_PROFILES — ishonchli manba. Supabase profiles jadvalida role yanlish bo'lishi mumkin.
-    var profile = FH_USER_PROFILES[email] || Object.assign({}, FH_DEFAULT_PROFILE, {full_name: email});
-
+    // 1. Aniq belgilangan owner/manager emaillar
+    var profile;
+    if (FH_USER_PROFILES[email]) {
+      profile = FH_USER_PROFILES[email];
+    } else {
+      // 2. Supabase profiles jadvalidan direction o'qish
+      var prof = await SB.from('profiles').select('direction,full_name').eq('id', uid).single();
+      var sbDir = prof.data && prof.data.direction ? prof.data.direction : null;
+      if (sbDir) {
+        // direction bor — o'sha yo'nalish xodimi (role hech qachon owner emas)
+        profile = {role:'staff', direction:sbDir, full_name: (prof.data.full_name || email)};
+      } else {
+        // direction yo'q — Tangachi (Exchange) xodimi
+        profile = Object.assign({}, FH_DEFAULT_PROFILE, {full_name: email});
+      }
+    }
 
     profile.email = email;
-
-
-    
-
-
     showDash(profile);
 
 
@@ -803,15 +810,22 @@ window.addEventListener("load", async function() {
 
 
       var uid = s.data.session.user.id;
+      var semail = s.data.session.user.email;
 
+      var profile;
+      if (FH_USER_PROFILES[semail]) {
+        profile = FH_USER_PROFILES[semail];
+      } else {
+        var prof2 = await SB.from('profiles').select('direction,full_name').eq('id', uid).single();
+        var sbDir2 = prof2.data && prof2.data.direction ? prof2.data.direction : null;
+        if (sbDir2) {
+          profile = {role:'staff', direction:sbDir2, full_name: (prof2.data.full_name || semail)};
+        } else {
+          profile = Object.assign({}, FH_DEFAULT_PROFILE, {full_name: semail});
+        }
+      }
 
-      // FH_USER_PROFILES — ishonchli manba
-      var profile = FH_USER_PROFILES[s.data.session.user.email] || Object.assign({}, FH_DEFAULT_PROFILE, {full_name: s.data.session.user.email});
-
-
-      profile.email = s.data.session.user.email;
-
-
+      profile.email = semail;
       showDash(profile);
 
 
