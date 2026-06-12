@@ -4753,12 +4753,45 @@ const fil=(k)=>{
 
 
 var CRM_CLIENTS = [];
-
-
 (function(){var saved=lsLoad('crm_clients');if(saved&&saved.length)CRM_CLIENTS=saved;})();
-
-
 function crmSave(){lsSave('crm_clients',CRM_CLIENTS);}
+
+// ── Kontragentlar bazasi (har yo'nalish uchun alohida) ─────────────────────
+// Struktura: { id, name, type:'client'|'supplier'|'other', direction, inn, phone, note, usedAt }
+var KONTRAGENTS = {logistics:[], cargo:[], exchange:[], procurement:[], holding:[]};
+(function(){
+  ['logistics','cargo','exchange','procurement','holding'].forEach(function(d){
+    var saved = lsLoad('kontragents_'+d);
+    if(saved && saved.length) KONTRAGENTS[d] = saved;
+  });
+  // CRM mijozlarini Kontragents ga ko'chirish (bir martalik migration)
+  if(!lsLoad('kontragents_migrated')){
+    CRM_CLIENTS.forEach(function(c){
+      var dir = c.direction || 'cargo';
+      if(!KONTRAGENTS[dir]) KONTRAGENTS[dir]=[];
+      var exists = KONTRAGENTS[dir].some(function(k){return k.name.toLowerCase()===c.company.toLowerCase();});
+      if(!exists) KONTRAGENTS[dir].push({id:'k_'+Date.now()+'_'+Math.random().toString(36).slice(2), name:c.company, type:'client', direction:dir, inn:'', phone:c.phone||'', note:'', usedAt:Date.now()});
+    });
+    kontragentsSaveAll();
+    lsSave('kontragents_migrated', 1);
+  }
+})();
+function kontragentsSave(dir){ lsSave('kontragents_'+dir, KONTRAGENTS[dir]||[]); }
+function kontragentsSaveAll(){ Object.keys(KONTRAGENTS).forEach(kontragentsSave); }
+function kontragentsAdd(dir, name, type){
+  if(!dir||!name) return;
+  var arr = KONTRAGENTS[dir]||(KONTRAGENTS[dir]=[]);
+  var existing = arr.find(function(k){return k.name.toLowerCase()===name.toLowerCase();});
+  if(existing){ existing.usedAt=Date.now(); }
+  else { arr.push({id:'k_'+Date.now(), name:name, type:type||'other', direction:dir, inn:'', phone:'', note:'', usedAt:Date.now()}); }
+  kontragentsSave(dir);
+}
+function kontragentsSearch(dir, q){
+  var arr = KONTRAGENTS[dir]||[];
+  var ql = q.toLowerCase();
+  return arr.filter(function(k){return k.name.toLowerCase().indexOf(ql)>=0;})
+            .sort(function(a,b){return (b.usedAt||0)-(a.usedAt||0);});
+}
 
 
 
@@ -7481,9 +7514,9 @@ function saveNewClient() {
 
 
   CRM_CLIENTS.push(newClient);
-
-
   crmSave();
+  // Kontragentlar bazasiga ham qo'shish
+  kontragentsAdd(newClient.direction||'cargo', newClient.company, 'client');
 
 
 
@@ -10326,6 +10359,7 @@ const SUBNAV_DEFS = {
     {id:'dashboard', lbl:'Dashboard',        icon:'📊'},
     {id:'pl',        lbl:'P&L',              icon:'📈'},
     {id:'cashflow',  lbl:'Cash Flow',        icon:'💵'},
+    {id:'balance',   lbl:'Balans',           icon:'⚖️'},
     {id:'kassa',     lbl:'Kassa',            icon:'💳'},
     {id:'inventory', lbl:'Inventar',         icon:'📦'},
     {id:'debcred',   lbl:'Debitor/Kreditor', icon:'📋'},
@@ -10338,6 +10372,7 @@ const SUBNAV_DEFS = {
     {id:'dashboard', lbl:'Dashboard',        icon:'📊'},
     {id:'pl',        lbl:'P&L',              icon:'📈'},
     {id:'cashflow',  lbl:'Cash Flow',        icon:'💵'},
+    {id:'balance',   lbl:'Balans',           icon:'⚖️'},
     {id:'kassa',     lbl:'Kassa',            icon:'💳'},
     {id:'inventory', lbl:'Inventar',         icon:'📦'},
     {id:'debcred',   lbl:'Debitor/Kreditor', icon:'📋'},
@@ -10361,6 +10396,7 @@ const SUBNAV_DEFS = {
     {id:'dashboard', lbl:'Dashboard',        icon:'📊'},
     {id:'pl',        lbl:'P&L',              icon:'📈'},
     {id:'cashflow',  lbl:'Cash Flow',        icon:'💵'},
+    {id:'balance',   lbl:'Balans',           icon:'⚖️'},
     {id:'kassa',     lbl:'Kassa',            icon:'💳'},
     {id:'inventory', lbl:'Inventar',         icon:'📦'},
     {id:'debcred',   lbl:'Debitor/Kreditor', icon:'📋'},
@@ -19425,53 +19461,42 @@ function renderEntry(focusDir){
 
 
   window.entCptyAC=function(q){
-
-
     var ac=document.getElementById('ef_cpty_ac');
-
-
     if(!ac) return;
-
-
     if(!q||q.length<2){ac.style.display='none';return;}
-
-
     clearTimeout(_acT);
-
-
     _acT=setTimeout(function(){
-
-
-      searchLogist(q,function(results){
-
-
-        if(!results||!results.length){ac.style.display='none';return;}
-
-
-        ac.innerHTML=results.slice(0,6).map(function(r){
-
-
-          var nm=(r.kompaniya||r.chin_komp||'').replace(/</g,'&lt;');
-
-
-          var inn=r.inn?('<span style="color:var(--t3);font-size:10px;margin-left:6px">INN: '+r.inn+'</span>'):'';
-
-
-          return '<div onclick="entPickAC(\''+nm.replace(/'/g,"\\'")+'\')" style="padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--b1);font-size:12px" onmouseover="this.style.background=\'var(--s3)\'" onmouseout="this.style.background=\'\'">'+nm+inn+'</div>';
-
-
-        }).join('');
-
-
-        ac.style.display='block';
-
-
+      // 1. Avval o'z yo'nalish Kontragentlar bazasidan qidirish
+      var localResults = kontragentsSearch(entDir, q);
+      var rows = '';
+      localResults.slice(0,5).forEach(function(k){
+        var nm = k.name.replace(/</g,'&lt;');
+        var badge = k.type==='client' ? '<span style="font-size:9px;padding:1px 5px;border-radius:999px;background:rgba(0,229,160,0.15);color:#00E5A0;margin-left:5px">mijoz</span>'
+                  : k.type==='supplier' ? '<span style="font-size:9px;padding:1px 5px;border-radius:999px;background:rgba(255,184,48,0.15);color:#FFB830;margin-left:5px">yetk.</span>'
+                  : '<span style="font-size:9px;padding:1px 5px;border-radius:999px;background:rgba(108,142,255,0.15);color:#6C8EFF;margin-left:5px">baza</span>';
+        rows += '<div onclick="entPickAC(\''+nm.replace(/'/g,"\\'")+'\',\'local\')" style="padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--b1);font-size:12px;display:flex;align-items:center" onmouseover="this.style.background=\'var(--s3)\'" onmouseout="this.style.background=\'\'">'+nm+badge+'</div>';
       });
 
-
-    },300);
-
-
+      // 2. Logistics bo'lsa Logist DB dan ham qidirish
+      if(entDir==='logistics' && LOGIST_AVAILABLE){
+        searchLogist(q, function(results){
+          var logistRows = '';
+          (results||[]).slice(0,5).forEach(function(r){
+            var nm=(r.kompaniya||r.chin_komp||'').replace(/</g,'&lt;');
+            if(!nm) return;
+            var inn=r.inn?(' <span style="color:var(--t3);font-size:10px">INN:'+r.inn+'</span>'):'';
+            var badge='<span style="font-size:9px;padding:1px 5px;border-radius:999px;background:rgba(23,179,116,0.15);color:#17B374;margin-left:5px">logist</span>';
+            logistRows += '<div onclick="entPickAC(\''+nm.replace(/'/g,"\\'")+'\',\'logist\')" style="padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--b1);font-size:12px;display:flex;align-items:center" onmouseover="this.style.background=\'var(--s3)\'" onmouseout="this.style.background=\'\'">'+nm+inn+badge+'</div>';
+          });
+          var combined = rows + (logistRows ? '<div style="padding:4px 10px;font-size:10px;color:var(--t3);background:var(--s1)">📦 Logist baza:</div>'+logistRows : '');
+          if(combined){ ac.innerHTML=combined; ac.style.display='block'; }
+          else { ac.style.display='none'; }
+        });
+      } else {
+        if(rows){ ac.innerHTML=rows; ac.style.display='block'; }
+        else { ac.style.display='none'; }
+      }
+    },250);
   };
 
 
@@ -19805,9 +19830,13 @@ function renderEntry(focusDir){
 
 
     TXNS.push(txn);
-
-
     txnsSave();
+
+    // Kontragentni avtomatik bazaga qo'shish
+    if(counterparty && counterparty !== '—'){
+      var kType = entType==='income' ? 'client' : entType==='opex'||entType==='cogs' ? 'supplier' : 'other';
+      kontragentsAdd(entDir, counterparty, kType);
+    }
 
 
 
@@ -21258,6 +21287,8 @@ function exSaveTxn(type){
   txn.approval_status = (CUR_USER && CUR_USER.role === 'owner') ? 'approved' : 'pending';
   EX_TXNS.push(txn);
   exSave();
+  // Exchange mijozini Kontragentlar bazasiga qo'shish
+  if(txn.client) kontragentsAdd('exchange', txn.client, 'client');
   // Close any open overlays
   document.querySelectorAll('[id^="exOv"], .ex-overlay').forEach(function(el){el.remove();});
   toast('✅ Operatsiya saqlandi: '+( EX_TYPE_META[type]||{}).lbl);
