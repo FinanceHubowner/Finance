@@ -467,26 +467,36 @@ body[style*="--is-light: 1"] .topbar,
 // avtomatik Exchange (Tangachi) yo'nalishiga yo'naltiriladi
 var FH_USER_PROFILES = {
   // === HOLDING OWNER / CONTROLLER ===
-  'chinwakil@controller.com':   {role:'owner',   direction:null,          full_name:'Chinwakil (Controller)'},
-  'chinwakil@owner.com':        {role:'owner',   direction:null,          full_name:'Chinwakil (Owner)'},
-  'owner@financehub.com':       {role:'owner',   direction:null,          full_name:'Owner'},
+  'chinwakil@controller.com':   {role:'owner',       direction:null,          full_name:'Chinwakil (Controller)'},
+  'chinwakil@owner.com':        {role:'owner',       direction:null,          full_name:'Chinwakil (Owner)'},
+  'owner@financehub.com':       {role:'owner',       direction:null,          full_name:'Owner'},
+  // Holding bo'limlari — barcha yo'nalishlar ko'rinadi
+  'holding@hr.com':             {role:'holding_hr',  direction:null,          full_name:'Holding HR',      dept:'hr'},
+  'holding@finance.com':        {role:'holding_fin', direction:null,          full_name:'Holding Finance', dept:'finance'},
 
   // === CARGO YO'NALISHI ===
   'cargo@director.com':         {role:'manager', direction:'cargo',       full_name:'Cargo Director'},
   'cargo@manager.com':          {role:'manager', direction:'cargo',       full_name:'Cargo Manager'},
+  'cargo@finance.com':          {role:'staff',   direction:'cargo',       full_name:'Cargo Finance',    dept:'finance'},
   'cargo@seller.com':           {role:'staff',   direction:'cargo',       full_name:'Cargo Seller',     dept:'sales'},
+  'cargo@hr.com':               {role:'staff',   direction:'cargo',       full_name:'Cargo HR',         dept:'hr'},
   'cargo@advicer.com':          {role:'staff',   direction:'cargo',       full_name:'Cargo Advicer',    dept:'sales'},
   'cargo@staff.com':            {role:'staff',   direction:'cargo',       full_name:'Cargo Staff'},
 
   // === LOGISTICS YO'NALISHI ===
   'logistics@director.com':     {role:'manager', direction:'logistics',   full_name:'Logistics Director'},
   'logistics@manager.com':      {role:'manager', direction:'logistics',   full_name:'Logistics Manager'},
+  'logistics@finance.com':      {role:'staff',   direction:'logistics',   full_name:'Logistics Finance', dept:'finance'},
   'logistics@seller.com':       {role:'staff',   direction:'logistics',   full_name:'Logistics Seller',  dept:'sales'},
+  'logistics@hr.com':           {role:'staff',   direction:'logistics',   full_name:'Logistics HR',      dept:'hr'},
   'logistics@staff.com':        {role:'staff',   direction:'logistics',   full_name:'Logistics Staff'},
 
   // === EXCHANGE (TANGACHI) YO'NALISHI ===
   'tangachi@director.com':      {role:'manager', direction:'exchange',    full_name:'Tangachi Director'},
   'tangachi@manager.com':       {role:'manager', direction:'exchange',    full_name:'Tangachi Manager'},
+  'tangachi@finance.com':       {role:'staff',   direction:'exchange',    full_name:'Tangachi Finance',  dept:'finance'},
+  'tangachi@seller.com':        {role:'staff',   direction:'exchange',    full_name:'Tangachi Seller',   dept:'sales'},
+  'tangachi@hr.com':            {role:'staff',   direction:'exchange',    full_name:'Tangachi HR',       dept:'hr'},
   'exchange@director.com':      {role:'manager', direction:'exchange',    full_name:'Exchange Director'},
   'exchange@manager.com':       {role:'manager', direction:'exchange',    full_name:'Exchange Manager'},
   'exchange@staff.com':         {role:'staff',   direction:'exchange',    full_name:'Exchange Staff'},
@@ -494,6 +504,9 @@ var FH_USER_PROFILES = {
   // === PROCUREMENT YO'NALISHI ===
   'procurement@director.com':   {role:'manager', direction:'procurement', full_name:'Procurement Director'},
   'procurement@manager.com':    {role:'manager', direction:'procurement', full_name:'Procurement Manager'},
+  'procurement@finance.com':    {role:'staff',   direction:'procurement', full_name:'Procurement Finance', dept:'finance'},
+  'procurement@seller.com':     {role:'staff',   direction:'procurement', full_name:'Procurement Seller',  dept:'sales'},
+  'procurement@hr.com':         {role:'staff',   direction:'procurement', full_name:'Procurement HR',      dept:'hr'},
   'procurement@staff.com':      {role:'staff',   direction:'procurement', full_name:'Procurement Staff'},
 };
 // Tanilmagan email → Supabase profiles jadvalidan o'qiladi
@@ -628,14 +641,17 @@ function showDash(profile) {
 
     var d = profile.direction;
 
+    // Faqat holding_fin va holding_hr barcha yo'nalishlarni ko'ra oladi
+    var isHoldingStaff = (profile.role === 'holding_fin' || profile.role === 'holding_hr');
+
     // Non-owner: ALLOWED_NAVS orqali har doim cheklangan nav
-    if (profile.role !== "owner") {
+    if (profile.role !== "owner" && !isHoldingStaff) {
       d = d || "exchange";
     } else {
       window.ALLOWED_NAVS = null;
     }
 
-    if (profile.role !== "owner" && d) {
+    if (profile.role !== "owner" && !isHoldingStaff && d) {
 
 
       window.NAVS = [
@@ -10576,6 +10592,21 @@ function buildNav(){
 
 
   }
+
+  // RBAC: ba'zi bo'lim xodimlari cheklangan tablarni ko'radi
+  if(CUR_USER && CUR_USER.role === 'staff' && CUR_USER.dept) {
+    var deptTabMap = {
+      // finance: barcha tablar ko'rinadi (cheklov yo'q)
+      hr:    ['payroll'],
+      sales: ['crm','pipeline','entry'],
+    };
+    var allowed = deptTabMap[CUR_USER.dept];
+    if(allowed) snItems = snItems.filter(function(s){ return allowed.indexOf(s.id) >= 0; });
+  }
+  if(CUR_USER && CUR_USER.role === 'holding_hr') {
+    snItems = snItems.filter(function(s){ return s.id === 'payroll'; });
+  }
+  // holding_fin: barcha tablar ko'rinadi (cheklov yo'q)
 
 
   var dirInfo = {
