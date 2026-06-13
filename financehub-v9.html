@@ -21047,12 +21047,25 @@ function renderExchangeEntry(){
   // Get client list from CRM
   var crmClients = (typeof CRM_CLIENTS !== 'undefined') ? CRM_CLIENTS.filter(function(c){return c.direction==='exchange';}) : [];
 
+  // Kontragentlar bazasidan exchange mijozlarini olish (CRM + kiritilgan)
+  var kontDir = (typeof KONTRAGENTS !== 'undefined' && KONTRAGENTS['exchange']) ? KONTRAGENTS['exchange'] : [];
   var clientOpts = '<option value="">-- Mijoz tanlang --</option>';
-  crmClients.forEach(function(c){ clientOpts += '<option value="'+c.name+'">'+c.name+'</option>'; });
+  // Avval Kontragentlar bazasidan (oxirgi ishlatilgan birinchi)
+  kontDir.forEach(function(k){
+    clientOpts += '<option value="'+k.name.replace(/"/g,'&quot;')+'">'+k.name+'</option>';
+  });
+  // CRM da bor lekin Kontragentlarda yo'q bo'lsa qo'sh
+  crmClients.forEach(function(c){
+    var nm = c.company || c.name || '';
+    if(nm && !kontDir.find(function(k){return k.name.toLowerCase()===nm.toLowerCase();})){
+      clientOpts += '<option value="'+nm.replace(/"/g,'&quot;')+'">'+nm+'</option>';
+    }
+  });
   if(EX_CLIENTS_DATA.length>0){
     EX_CLIENTS_DATA.forEach(function(c){
-      if(!crmClients.find(function(x){return x.name===c.name;})){
-        clientOpts += '<option value="'+c.name+'">'+c.name+'</option>';
+      var nm = c.name || c.company || '';
+      if(nm && !kontDir.find(function(k){return k.name.toLowerCase()===nm.toLowerCase();})){
+        clientOpts += '<option value="'+nm.replace(/"/g,'&quot;')+'">'+nm+'</option>';
       }
     });
   }
