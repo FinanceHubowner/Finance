@@ -520,18 +520,34 @@ try {
 
 
 
+function exTxnToRow(t){
+  // Faqat Supabase jadvalidagi maydonlarni yuborish
+  return {
+    id: t.id, date: t.date||'', type: t.type||'',
+    client: t.client||'', note: t.note||'',
+    usd: +(t.usd||0), cny: +(t.cny||0),
+    fx_rate: +(t.fx_rate||0), commission: +(t.commission||0),
+    comm_rate: +(t.comm_rate||0),
+    approval_status: t.approval_status||'pending',
+    created_by: t.created_by||'', created_at: t.created_at||new Date().toISOString()
+  };
+}
 function exSyncFromSupabase(){
   if(!SB) return;
-  // 1. Avval local EX_TXNS ni Supabase ga push qilish (eski ma'lumotlar uchun)
+  // 1. Local EX_TXNS ni Supabase ga push
   if(EX_TXNS && EX_TXNS.length > 0){
-    SB.from('ex_txns').upsert(EX_TXNS).then(function(){});
+    var rows = EX_TXNS.map(exTxnToRow);
+    SB.from('ex_txns').upsert(rows, {onConflict:'id'})
+      .then(function(res){
+        if(res.error) console.warn('exSync upsert error:', res.error.message, res.error.details);
+        else console.log('exSync: pushed', rows.length, 'rows to Supabase');
+      });
   }
   // 2. Supabase dan barchasini yuklab olish
   SB.from('ex_txns').select('*').order('date',{ascending:true}).limit(2000)
     .then(function(res){
-      if(res.error){ console.warn('exSync error:', res.error.message); return; }
+      if(res.error){ console.warn('exSync fetch error:', res.error.message); return; }
       if(!res.data || !res.data.length) return;
-      // Merge: Supabase + local (id bo'yicha dedup)
       var sbIds = res.data.map(function(t){return t.id;});
       var localOnly = EX_TXNS.filter(function(t){return sbIds.indexOf(t.id)<0;});
       var merged = localOnly.concat(res.data);
@@ -539,7 +555,7 @@ function exSyncFromSupabase(){
       EX_TXNS = merged;
       exSave();
       if(ACTV==='exchange' && ACTV_SUB==='dashboard') renderExchangeDash();
-    }).catch(function(e){ console.warn('exSync catch:', e); });
+    }).catch(function(e){ console.warn('exSync fetch catch:', e); });
 }
 
 function showDash(profile) {
