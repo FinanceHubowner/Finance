@@ -521,7 +521,6 @@ try {
 
 
 function exTxnToRow(t){
-  // Faqat Supabase jadvalidagi maydonlarni yuborish
   return {
     id: t.id, date: t.date||'', type: t.type||'',
     client: t.client||'', note: t.note||'',
@@ -529,33 +528,40 @@ function exTxnToRow(t){
     fx_rate: +(t.fx_rate||0), commission: +(t.commission||0),
     comm_rate: +(t.comm_rate||0),
     approval_status: t.approval_status||'pending',
-    created_by: t.created_by||'', created_at: t.created_at||new Date().toISOString()
+    created_by: t.created_by||'',
+    created_at: t.created_at||new Date().toISOString()
   };
 }
+function exPushToSupabase(){
+  // Lokaldan Supabase ga push — faqat alohida chaqiriladi
+  if(!SB || !EX_TXNS || !EX_TXNS.length) return;
+  var rows = EX_TXNS.map(exTxnToRow);
+  SB.from('ex_txns').upsert(rows, {onConflict:'id'})
+    .then(function(res){
+      if(res.error) console.warn('exPush error:', res.error.message);
+      else console.log('exPush: OK, pushed', rows.length, 'rows');
+    });
+}
 function exSyncFromSupabase(){
+  // Faqat Supabase dan yuklaydi, hech qachon localdan o'chirmaydi
   if(!SB) return;
-  // 1. Local EX_TXNS ni Supabase ga push
-  if(EX_TXNS && EX_TXNS.length > 0){
-    var rows = EX_TXNS.map(exTxnToRow);
-    SB.from('ex_txns').upsert(rows, {onConflict:'id'})
-      .then(function(res){
-        if(res.error) console.warn('exSync upsert error:', res.error.message, res.error.details);
-        else console.log('exSync: pushed', rows.length, 'rows to Supabase');
-      });
-  }
-  // 2. Supabase dan barchasini yuklab olish
   SB.from('ex_txns').select('*').order('date',{ascending:true}).limit(2000)
     .then(function(res){
-      if(res.error){ console.warn('exSync fetch error:', res.error.message); return; }
-      if(!res.data || !res.data.length) return;
-      var sbIds = res.data.map(function(t){return t.id;});
-      var localOnly = EX_TXNS.filter(function(t){return sbIds.indexOf(t.id)<0;});
-      var merged = localOnly.concat(res.data);
-      merged.sort(function(a,b){return (a.date||'').localeCompare(b.date||'');});
-      EX_TXNS = merged;
-      exSave();
-      if(ACTV==='exchange' && ACTV_SUB==='dashboard') renderExchangeDash();
-    }).catch(function(e){ console.warn('exSync fetch catch:', e); });
+      if(res.error){ console.warn('exSync error:', res.error.message); return; }
+      if(!res.data || !res.data.length){ console.log('exSync: Supabase bo\'sh'); return; }
+      // Lokaldan o'chirmasdan faqat yangilarini qo'shish
+      var localIds = EX_TXNS.map(function(t){return t.id;});
+      var newFromSB = res.data.filter(function(t){return localIds.indexOf(t.id)<0;});
+      if(newFromSB.length > 0){
+        EX_TXNS = EX_TXNS.concat(newFromSB);
+        EX_TXNS.sort(function(a,b){return (a.date||'').localeCompare(b.date||'');});
+        exSave();
+        console.log('exSync: added', newFromSB.length, 'new rows from Supabase');
+        if(ACTV==='exchange' && ACTV_SUB==='dashboard') renderExchangeDash();
+      } else {
+        console.log('exSync: hamma narsa yangi, qo\'shildi 0');
+      }
+    }).catch(function(e){ console.warn('exSync catch:', e); });
 }
 
 function showDash(profile) {
