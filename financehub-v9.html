@@ -466,27 +466,38 @@ body[style*="--is-light: 1"] .topbar,
 // Bu ro'yxatda bo'lmagan barcha Supabase foydalanuvchilari
 // avtomatik Exchange (Tangachi) yo'nalishiga yo'naltiriladi
 var FH_USER_PROFILES = {
-  // === OWNER ===
-  'chinwakil@controller.com':   {role:'owner',   direction:null,          full_name:'Chinwakil (Owner)'},
+  // === HOLDING OWNER / CONTROLLER ===
+  'chinwakil@controller.com':   {role:'owner',   direction:null,          full_name:'Chinwakil (Controller)'},
+  'chinwakil@owner.com':        {role:'owner',   direction:null,          full_name:'Chinwakil (Owner)'},
   'owner@financehub.com':       {role:'owner',   direction:null,          full_name:'Owner'},
-  // === YO'NALISH DIREKTORLAR ===
-  'logistics@director.com':     {role:'manager', direction:'logistics',   full_name:'Logistics Director'},
+
+  // === CARGO YO'NALISHI ===
   'cargo@director.com':         {role:'manager', direction:'cargo',       full_name:'Cargo Director'},
-  'exchange@director.com':      {role:'manager', direction:'exchange',    full_name:'Exchange Director'},
-  'procurement@director.com':   {role:'manager', direction:'procurement', full_name:'Procurement Director'},
-  // === YO'NALISH MENEJERLAR ===
-  'logistics@manager.com':      {role:'manager', direction:'logistics',   full_name:'Logistics Manager'},
   'cargo@manager.com':          {role:'manager', direction:'cargo',       full_name:'Cargo Manager'},
-  'exchange@manager.com':       {role:'manager', direction:'exchange',    full_name:'Exchange Manager'},
-  'procurement@manager.com':    {role:'manager', direction:'procurement', full_name:'Procurement Manager'},
-  // === STAFF ===
-  'logistics@staff.com':        {role:'staff',   direction:'logistics',   full_name:'Logistics Staff'},
+  'cargo@seller.com':           {role:'staff',   direction:'cargo',       full_name:'Cargo Seller',     dept:'sales'},
+  'cargo@advicer.com':          {role:'staff',   direction:'cargo',       full_name:'Cargo Advicer',    dept:'sales'},
   'cargo@staff.com':            {role:'staff',   direction:'cargo',       full_name:'Cargo Staff'},
+
+  // === LOGISTICS YO'NALISHI ===
+  'logistics@director.com':     {role:'manager', direction:'logistics',   full_name:'Logistics Director'},
+  'logistics@manager.com':      {role:'manager', direction:'logistics',   full_name:'Logistics Manager'},
+  'logistics@seller.com':       {role:'staff',   direction:'logistics',   full_name:'Logistics Seller',  dept:'sales'},
+  'logistics@staff.com':        {role:'staff',   direction:'logistics',   full_name:'Logistics Staff'},
+
+  // === EXCHANGE (TANGACHI) YO'NALISHI ===
+  'tangachi@director.com':      {role:'manager', direction:'exchange',    full_name:'Tangachi Director'},
+  'tangachi@manager.com':       {role:'manager', direction:'exchange',    full_name:'Tangachi Manager'},
+  'exchange@director.com':      {role:'manager', direction:'exchange',    full_name:'Exchange Director'},
+  'exchange@manager.com':       {role:'manager', direction:'exchange',    full_name:'Exchange Manager'},
   'exchange@staff.com':         {role:'staff',   direction:'exchange',    full_name:'Exchange Staff'},
+
+  // === PROCUREMENT YO'NALISHI ===
+  'procurement@director.com':   {role:'manager', direction:'procurement', full_name:'Procurement Director'},
+  'procurement@manager.com':    {role:'manager', direction:'procurement', full_name:'Procurement Manager'},
   'procurement@staff.com':      {role:'staff',   direction:'procurement', full_name:'Procurement Staff'},
 };
-// Tanilmagan email → Exchange xodimi sifatida kiradi
-var FH_DEFAULT_PROFILE = {role:'staff', direction:'exchange', full_name:'Exchange Staff'};
+// Tanilmagan email → Supabase profiles jadvalidan o'qiladi
+var FH_DEFAULT_PROFILE = {role:'staff', direction:'exchange', full_name:'Xodim'};
 
 var SB = null;
 
