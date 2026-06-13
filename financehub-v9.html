@@ -20800,12 +20800,12 @@ function renderExchangeDash(){
   h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
   h += '<div style="font-size:20px;font-weight:800;color:var(--t1)">💱 Exchange — Tangachi Remittance Paneli</div>';
   h += '<div style="display:flex;gap:8px;">';
-  var mid = EX_BOC_RATE||EX_FX_RATE, buyR=exBuyRate(mid), sellR=exSellRate(mid);
+  var buyR = EX_BOC_RATE||EX_FX_RATE;
+  var sellR = exSellRate(buyR);
   h += '<div style="display:flex;align-items:center;gap:6px;background:var(--s2);border:1px solid var(--b2);border-radius:8px;padding:6px 10px;">';
   h += '<span style="font-size:10px;color:var(--t3);font-weight:600;">1 USD</span>';
-  h += '<span style="font-size:11px;color:#6b7280;">O\'rta: <b style="color:var(--t1)">¥'+mid+'</b></span>';
-  h += '<span style="font-size:10px;color:#16a34a;background:#f0fdf4;padding:2px 6px;border-radius:4px;">Sotib olish ¥'+buyR+'</span>';
-  h += '<span style="font-size:10px;color:#ef4444;background:#fef2f2;padding:2px 6px;border-radius:4px;">Sotish ¥'+sellR+'</span>';
+  h += '<span style="font-size:10px;color:#16a34a;background:#f0fdf4;padding:2px 8px;border-radius:4px;font-weight:700;">📥 Buying ¥'+buyR+'</span>';
+  h += '<span style="font-size:10px;color:#ef4444;background:#fef2f2;padding:2px 8px;border-radius:4px;font-weight:700;">📤 Selling ¥'+sellR+'</span>';
   h += '<button onclick="exFxModal()" style="padding:4px 8px;border-radius:5px;border:1px solid var(--b2);background:transparent;color:var(--t3);cursor:pointer;font-size:10px;">⚙️</button>';
   h += '<button onclick="exFetchLiveAndRefresh()" style="padding:4px 8px;border-radius:5px;border:none;background:#6C8EFF;color:#fff;cursor:pointer;font-size:10px;font-weight:700;">🔄</button>';
   h += '</div>';
