@@ -20783,6 +20783,21 @@ function renderExchangeDash(){
   var el=document.getElementById('pg-l1'); el.classList.add('on');
   setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:'💱 Exchange',fn:"goNav('exchange')"},{lbl:'Dashboard',fn:''}]);
 
+  // Supabase dan yangi txn larni yuklab olish
+  if(SB){
+    SB.from('ex_txns').select('*').order('date', {ascending:false}).limit(500)
+      .then(function(res){
+        if(res.data && res.data.length){
+          // Mavjud local txn lar bilan birlashtirish (id bo'yicha dedup)
+          var sbIds = res.data.map(function(t){return t.id;});
+          var localOnly = EX_TXNS.filter(function(t){return sbIds.indexOf(t.id)<0;});
+          EX_TXNS = localOnly.concat(res.data);
+          exSave();
+          renderExchangeDash();
+        }
+      }).catch(function(){});
+  }
+
   var bal = exCalcBalance();
   var totalCommUSD = bal.comm_total_usd + bal.comm_total_cny/EX_FX_RATE;
 
@@ -21365,6 +21380,12 @@ function exSaveTxn(type){
   exSave();
   // Exchange mijozini Kontragentlar bazasiga qo'shish
   if(txn.client) kontragentsAdd('exchange', txn.client, 'client');
+  // Supabase ga saqlash
+  if(SB){
+    SB.from('ex_txns').upsert([txn]).then(function(res){
+      if(res.error) console.warn('ex_txns Supabase xato:', res.error.message);
+    });
+  }
   // Close any open overlays
   document.querySelectorAll('[id^="exOv"], .ex-overlay').forEach(function(el){el.remove();});
   toast('✅ Operatsiya saqlandi: '+( EX_TYPE_META[type]||{}).lbl);
