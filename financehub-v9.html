@@ -751,9 +751,6 @@ async function LGO() {
 
 
   try {
-    // Avval eski sessionni tozalash
-    await SB.auth.signOut();
-
     var res = await SB.auth.signInWithPassword({email: email, password: pass});
 
 
