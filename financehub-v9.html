@@ -1158,6 +1158,49 @@ function clearAllData(){
   keys.forEach(function(k){try{localStorage.removeItem('fh_'+k);}catch(e){}});
 }
 
+function dataExport(){
+  var keys=['txns','payroll','crm_clients','pipeline','kassas2','ex_txns','pipeline_d','ehson','ob_settings',
+            'closed_periods','logistics_shipments','kontragents_logistics','kontragents_cargo',
+            'kontragents_exchange','kontragents_procurement','kontragents_holding'];
+  var data={};
+  keys.forEach(function(k){
+    var v=localStorage.getItem('fh_'+k);
+    if(v) data[k]=v;
+  });
+  var json=JSON.stringify(data);
+  // Clipboard ga nusxa
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(json).then(function(){
+      toast('✅ Ma\'lumotlar clipboard ga ko\'chirildi! Import sahifasida "Joylashtirish" ni bosing.');
+    });
+  } else {
+    var ta=document.createElement('textarea');
+    ta.value=json;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    toast('✅ Nusxa olindi! Import sahifasida joylashtiring.');
+  }
+}
+
+function dataImport(){
+  var json=prompt('Export qilingan ma\'lumotlarni shu yerga joylashtiring (Ctrl+V):');
+  if(!json||!json.trim()) return;
+  try{
+    var data=JSON.parse(json);
+    var count=0;
+    Object.keys(data).forEach(function(k){
+      localStorage.setItem('fh_'+k, data[k]);
+      count++;
+    });
+    toast('✅ '+count+' ta kalit import qilindi! Sahifa yangilanadi...');
+    setTimeout(function(){ location.reload(); }, 1500);
+  } catch(e){
+    toast('❌ Xato: noto\'g\'ri format. Eksport to\'g\'ri qilindimi?');
+  }
+}
+
 // ════════════════════════════════════════════
 // PERIOD CLOSE — Davr yopish tizimi
 // ════════════════════════════════════════════
@@ -20487,6 +20530,15 @@ function renderOBSettings(){
 
 
   h += '</div>';
+
+  // Export / Import (barcha userlar uchun)
+  h += '<div class="card" style="margin-top:20px;border-color:var(--grn)">';
+  h += '<div style="font-size:12px;font-weight:600;color:var(--grn);margin-bottom:8px">📤 Ma\'lumotlarni ko\'chirish (Export / Import)</div>';
+  h += '<div style="font-size:11px;color:var(--t3);margin-bottom:12px">Lokal fayldan GitHub Pages ga yoki boshqa qurilmaga ma\'lumotlarni ko\'chirish uchun.</div>';
+  h += '<div style="display:flex;gap:10px;flex-wrap:wrap">';
+  h += '<button onclick="dataExport()" style="padding:9px 18px;border-radius:7px;border:1px solid var(--grn);background:rgba(0,229,160,0.1);color:var(--grn);cursor:pointer;font-size:12px;font-weight:600">📤 Eksport (nusxa olish)</button>';
+  h += '<button onclick="dataImport()" style="padding:9px 18px;border-radius:7px;border:1px solid var(--acc);background:rgba(108,142,255,0.1);color:var(--acc);cursor:pointer;font-size:12px;font-weight:600">📥 Import (joylashtirish)</button>';
+  h += '</div></div>';
 
   // Faqat owner uchun: davr yopish va tozalash
   if(CUR_USER && CUR_USER.role === 'owner'){
