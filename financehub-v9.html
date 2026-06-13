@@ -520,6 +520,22 @@ try {
 
 
 
+function exSyncFromSupabase(){
+  if(!SB) return;
+  SB.from('ex_txns').select('*').order('date',{ascending:true}).limit(1000)
+    .then(function(res){
+      if(res.error || !res.data || !res.data.length) return;
+      var sbIds = res.data.map(function(t){return t.id;});
+      var localOnly = EX_TXNS.filter(function(t){return sbIds.indexOf(t.id)<0;});
+      var merged = localOnly.concat(res.data);
+      merged.sort(function(a,b){return (a.date||'').localeCompare(b.date||'');});
+      EX_TXNS = merged;
+      exSave();
+      // Agar hozir Exchange dashboardda bo'lsa — yangilash
+      if(ACTV==='exchange' && ACTV_SUB==='dashboard') renderExchangeDash();
+    }).catch(function(){});
+}
+
 function showDash(profile) {
 
 
@@ -615,8 +631,7 @@ function showDash(profile) {
 
       window.ALLOWED_NAVS = [{id: d, lbl: DIR_ICO[d] + " " + DIR_LBL[d]}];
       buildNav();
-
-
+      exSyncFromSupabase();
       renderL2(d);
 
 
@@ -661,12 +676,9 @@ function showDash(profile) {
 
       ACTV = "l1";
 
-
       buildNav();
-
-
+      exSyncFromSupabase();
       renderL1();
-
 
     }
 
@@ -20782,21 +20794,6 @@ var EX_TYPE_META = {
 function renderExchangeDash(){
   var el=document.getElementById('pg-l1'); el.classList.add('on');
   setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:'💱 Exchange',fn:"goNav('exchange')"},{lbl:'Dashboard',fn:''}]);
-
-  // Supabase dan yangi txn larni yuklab olish
-  if(SB){
-    SB.from('ex_txns').select('*').order('date', {ascending:false}).limit(500)
-      .then(function(res){
-        if(res.data && res.data.length){
-          // Mavjud local txn lar bilan birlashtirish (id bo'yicha dedup)
-          var sbIds = res.data.map(function(t){return t.id;});
-          var localOnly = EX_TXNS.filter(function(t){return sbIds.indexOf(t.id)<0;});
-          EX_TXNS = localOnly.concat(res.data);
-          exSave();
-          renderExchangeDash();
-        }
-      }).catch(function(){});
-  }
 
   var bal = exCalcBalance();
   var totalCommUSD = bal.comm_total_usd + bal.comm_total_cny/EX_FX_RATE;
