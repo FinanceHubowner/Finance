@@ -12192,6 +12192,7 @@ window.saveNewTask = function(dirId, parentId, isSubtask){
     result: '', is_recurring: !!recur, recurring_type: recur,
     is_finance_linked: finLink, is_kpi_linked: kpiLink,
     subtasks: [],
+    history: [{action:'created', detail:'Yaratildi → '+assigneeName, by:'Admin', ts:now}],
     created_at: now, updated_at: now,
   };
   TASKS.push(task);
@@ -12332,6 +12333,47 @@ window.openTaskDetail = function(taskId){
   });
   h += '</div>';
 
+  // ── Dependency section ──
+  h += '<div style="margin-bottom:12px">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">';
+  h += '<div style="font-size:10px;color:var(--t3);font-weight:600">🔗 Bog\'liqlik (Dependency)</div>';
+  h += '<button onclick="openDependencyModal(\''+taskId+'\')" style="padding:4px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;color:var(--t2);cursor:pointer;font-size:10px">Sozlash</button>';
+  h += '</div>';
+  if(t.blocked_by){
+    var depTask = getTask(t.blocked_by);
+    var depCol  = depTask && depTask.status==='Bajarildi' ? '#17B374' : '#FF4D6A';
+    h += '<div style="padding:8px 12px;background:'+depCol+'11;border:1px solid '+depCol+'33;border-radius:8px">';
+    h += '<div style="font-size:10px;color:'+depCol+';font-weight:600;margin-bottom:2px">';
+    h += depTask&&depTask.status==='Bajarildi' ? '✅ Bloklash tugadi' : '🔒 Bloklangan';
+    h += '</div>';
+    h += '<div style="font-size:11px;color:var(--t1)">'+escHtml((depTask||{}).title||t.blocked_by)+'</div>';
+    if(depTask) h += '<div style="font-size:10px;color:var(--t3)">Status: '+escHtml(depTask.status)+'</div>';
+    h += '</div>';
+  } else {
+    h += '<div style="font-size:11px;color:var(--t3);padding:4px 0">Bloqlash yo\'q — mustaqil vazifa</div>';
+  }
+  h += '</div>';
+
+  // ── Task history ──
+  var hist = t.history || [];
+  h += '<div style="margin-bottom:12px">';
+  h += '<div style="font-size:10px;color:var(--t3);font-weight:600;margin-bottom:8px">📜 Tarix ('+hist.length+')</div>';
+  if(hist.length){
+    var actionIcons = {status_change:'🔄',returned:'↩',comment:'💬',result:'📝',dependency:'🔗',created:'✨'};
+    hist.slice(0,10).forEach(function(h_item){
+      h += '<div style="display:flex;gap:8px;padding:5px 0;border-bottom:1px solid var(--b1)">';
+      h += '<span style="font-size:14px;flex-shrink:0">'+(actionIcons[h_item.action]||'📌')+'</span>';
+      h += '<div style="flex:1">';
+      h += '<div style="font-size:11px;color:var(--t1)">'+escHtml(h_item.detail||h_item.action)+'</div>';
+      h += '<div style="font-size:10px;color:var(--t3)">'+escHtml(h_item.by||'')+ ' · '+escHtml((h_item.ts||'').slice(0,16).replace('T',' '))+'</div>';
+      h += '</div></div>';
+    });
+    if(hist.length>10) h += '<div style="font-size:10px;color:var(--t3);padding:4px 0">...va yana '+(hist.length-10)+' ta yozuv</div>';
+  } else {
+    h += '<div style="font-size:11px;color:var(--t3);padding:4px 0">Hozircha tarix yo\'q</div>';
+  }
+  h += '</div>';
+
   // Action buttons
   h += '<div style="display:flex;gap:8px;padding-top:10px;border-top:1px solid var(--b1)">';
   if(t.status==='Tekshiruvda'){
@@ -12340,6 +12382,7 @@ window.openTaskDetail = function(taskId){
   } else if(t.status!=='Bajarildi' && t.status!=='Bekor qilindi'){
     h += '<button onclick="changeTaskStatus(\''+taskId+'\',\'Tekshiruvda\')" style="flex:1;padding:9px;background:#00D4FF;border:none;border-radius:8px;color:#000;cursor:pointer;font-size:12px;font-weight:600">📋 Tekshiruvga Yuborish</button>';
   }
+  h += '<button onclick="openDependencyModal(\''+taskId+'\')" style="padding:9px 14px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:12px">🔗</button>';
   h += '</div>';
 
   h += '</div></div>';
@@ -12349,11 +12392,15 @@ window.openTaskDetail = function(taskId){
 
 window.changeTaskStatus = function(taskId, newStatus){
   var t = getTask(taskId); if(!t) return;
+  if(isTaskBlocked(t) && newStatus==='Bajarildi'){
+    alert('Bu vazifa bloklangan! Avval bog\'liq vazifani bajaring: '+(getBlockingTask(t)||{}).title);
+    return;
+  }
+  addTaskHistory(t, 'status_change', t.status+' → '+newStatus);
   t.status = newStatus;
   t.updated_at = new Date().toISOString();
   taskSave();
   addNotif('Vazifa statusi o\'zgartirildi: '+t.title+' → '+newStatus, taskId);
-  // refresh
   var ex = document.getElementById('_taskDetailOv'); if(ex) ex.remove();
   openTaskDetail(taskId);
 };
@@ -12368,11 +12415,11 @@ window.toggleCheck = function(taskId, idx, done){
 window.saveTaskResult = function(taskId){
   var t = getTask(taskId); if(!t) return;
   var val = (document.getElementById('_td_result_'+taskId)||{}).value||'';
+  addTaskHistory(t, 'result', val.slice(0,80));
   t.result = val;
   t.updated_at = new Date().toISOString();
-  taskSave();
-  // auto-move to Tekshiruvda if result filled and status is Jarayonda/Yangi
   if(val.trim() && (t.status==='Yangi'||t.status==='Jarayonda')){
+    addTaskHistory(t, 'status_change', t.status+' → Tekshiruvda');
     t.status = 'Tekshiruvda';
     addNotif('Natija kiritildi, tekshiruvga yuborildi: '+t.title, taskId);
   }
@@ -12387,6 +12434,7 @@ window.addComment = function(taskId){
   var txt = inp.value.trim(); if(!txt) return;
   if(!t.comments) t.comments = [];
   t.comments.push({text:txt, author:'Siz', ts:new Date().toISOString()});
+  addTaskHistory(t, 'comment', txt.slice(0,60));
   t.updated_at = new Date().toISOString();
   taskSave();
   addNotif('Yangi izoh: '+t.title, taskId);
@@ -12422,6 +12470,7 @@ window.confirmReturn = function(taskId){
   var note = (document.getElementById('_returnNote')||{}).value||'';
   if(!note.trim()){ alert('Qaytarish sababini kiriting'); return; }
   var t = getTask(taskId); if(!t) return;
+  addTaskHistory(t, 'returned', note.slice(0,80));
   t.status = 'Jarayonda';
   if(!t.comments) t.comments = [];
   t.comments.push({text:'↩ Qaytarildi: '+note, author:'Qabul qiluvchi', ts:new Date().toISOString()});
@@ -12430,6 +12479,67 @@ window.confirmReturn = function(taskId){
   addNotif('Vazifa qayta ishlashga qaytarildi: '+t.title, taskId);
   document.getElementById('_taskReturnOv').remove();
   var ex = document.getElementById('_taskDetailOv'); if(ex) ex.remove();
+  openTaskDetail(taskId);
+};
+
+// ── DEPENDENCY MANAGEMENT ─────────────────────────────────────────────────────
+window.openDependencyModal = function(taskId){
+  var t = getTask(taskId); if(!t) return;
+  var ex = document.getElementById('_depOv'); if(ex) ex.remove();
+  var ov = document.createElement('div');
+  ov.id = '_depOv';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.onclick = function(e){ if(e.target===ov) ov.remove(); };
+  var others = TASKS.filter(function(x){ return x.id!==taskId; });
+  var h = '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:20px;width:440px;max-width:95vw;max-height:80vh;overflow-y:auto">';
+  h += '<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:4px">🔗 Vazifa Bog\'liqligi</div>';
+  h += '<div style="font-size:11px;color:var(--t3);margin-bottom:14px">Bu vazifa qaysi vazifa bajarilgandan keyin boshlanadi?</div>';
+  if(t.blocked_by){
+    var cur = getTask(t.blocked_by);
+    h += '<div style="padding:8px 12px;background:rgba(255,77,106,0.08);border:1px solid rgba(255,77,106,0.3);border-radius:8px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">';
+    h += '<div><div style="font-size:11px;color:#FF4D6A;font-weight:600">Hozirgi bloklash:</div>';
+    h += '<div style="font-size:12px;color:var(--t1)">'+escHtml((cur||{}).title||t.blocked_by)+'</div></div>';
+    h += '<button onclick="removeDependency(\''+taskId+'\')" style="padding:4px 10px;background:rgba(255,77,106,0.1);border:1px solid rgba(255,77,106,0.3);border-radius:6px;color:#FF4D6A;cursor:pointer;font-size:10px">Olib tashlash</button>';
+    h += '</div>';
+  }
+  h += '<div style="max-height:300px;overflow-y:auto">';
+  others.forEach(function(x){
+    var sc = TASK_STATUS_COLORS[x.status]||'#888';
+    var isCur = t.blocked_by===x.id;
+    h += '<div onclick="setDependency(\''+taskId+'\',\''+x.id+'\')" style="padding:8px 10px;background:var(--s2);border:1px solid '+(isCur?'#6C8EFF':'var(--b1)')+';border-radius:8px;margin-bottom:5px;cursor:pointer;display:flex;align-items:center;gap:10px">';
+    h += '<span style="font-size:9px;padding:2px 6px;border-radius:10px;background:'+sc+'22;color:'+sc+'">'+x.status+'</span>';
+    h += '<div style="flex:1"><div style="font-size:11px;color:var(--t1)">'+escHtml(x.title)+'</div>';
+    h += '<div style="font-size:10px;color:var(--t3)">'+escHtml(x.id)+' · '+escHtml(x.deadline||'')+'</div></div>';
+    if(isCur) h += '<span style="color:#6C8EFF;font-size:13px">✓</span>';
+    h += '</div>';
+  });
+  if(!others.length) h += '<div style="text-align:center;color:var(--t3);font-size:11px;padding:16px">Boshqa vazifalar yo\'q</div>';
+  h += '</div>';
+  h += '<button onclick="document.getElementById(\'_depOv\').remove()" style="width:100%;margin-top:12px;padding:9px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:12px">Yopish</button>';
+  h += '</div>';
+  ov.innerHTML = h;
+  document.body.appendChild(ov);
+};
+
+window.setDependency = function(taskId, depId){
+  var t = getTask(taskId); if(!t) return;
+  t.blocked_by = depId;
+  addTaskHistory(t, 'dependency', 'Bloklandi: '+depId);
+  t.updated_at = new Date().toISOString();
+  taskSave();
+  document.getElementById('_depOv').remove();
+  var ex = document.getElementById('_taskDetailOv'); if(ex) ex.remove();
+  openTaskDetail(taskId);
+};
+
+window.removeDependency = function(taskId){
+  var t = getTask(taskId); if(!t) return;
+  addTaskHistory(t, 'dependency', 'Bloklash olib tashlandi');
+  delete t.blocked_by;
+  t.updated_at = new Date().toISOString();
+  taskSave();
+  var ex = document.getElementById('_depOv'); if(ex) ex.remove();
+  var ex2 = document.getElementById('_taskDetailOv'); if(ex2) ex2.remove();
   openTaskDetail(taskId);
 };
 
@@ -12477,15 +12587,17 @@ window.markAllNotifRead = function(){
 // ── EXCEL EXPORT ─────────────────────────────────────────────────────────────
 window.exportTasksExcel = function(dirId){
   var tasks = (!dirId||dirId==='all') ? TASKS : tasksByDir(dirId);
-  var rows  = [['ID','Nomi','Tavsif','Yo\'nalish','Bo\'lim','Mas\'ul','Qabul qiluvchi','Status','Deadline','Ball','Ustuvorlik','KPI','Natija','Yaratilgan']];
+  var rows  = [['ID','Nomi','Tavsif','Yo\'nalish','Bo\'lim','Mas\'ul','Qabul qiluvchi','Status','Deadline','Ball','Ustuvorlik','KPI','Natija','Yaratilgan','Kechikdi']];
   tasks.forEach(function(t){
     var dObj = DIRS.find(function(d){return d.id===t.direction;})||{name:t.direction||''};
+    var today = new Date().toISOString().slice(0,10);
+    var isLate = t.deadline && t.deadline < today && t.status!=='Bajarildi' && t.status!=='Bekor qilindi';
     rows.push([
-      t.id, t.title, t.description, dObj.name, t.space||'',
+      t.id, t.title, t.description||'', dObj.name, t.space||'',
       t.assignee_name||'', t.receiver_name||'', t.status,
       t.deadline||'', t.score||'', t.priority||'',
-      t.is_kpi_linked?'Ha':'Yo\'q', t.result||'',
-      (t.created_at||'').slice(0,10),
+      t.is_kpi_linked?'Ha':"Yo'q", t.result||'',
+      (t.created_at||'').slice(0,10), isLate?'Ha':"Yo'q",
     ]);
   });
   var csv = rows.map(function(r){return r.map(function(c){return '"'+(String(c||'').replace(/"/g,'""'))+'"';}).join(',');}).join('\n');
@@ -12494,6 +12606,598 @@ window.exportTasksExcel = function(dirId){
   a.href = URL.createObjectURL(blob);
   a.download = 'tasks_'+(dirId||'all')+'_'+new Date().toISOString().slice(0,10)+'.csv';
   a.click();
+};
+
+// ══════════════════════════════════════════════════════════════════
+// TASK MANAGEMENT — STAGE 2 & 3 EXTENSIONS
+// ══════════════════════════════════════════════════════════════════
+
+// ── Global view state ────────────────────────────────────────────
+window._TASK_VIEW = window._TASK_VIEW || 'list';
+
+// ── TASK TEMPLATES ───────────────────────────────────────────────
+var TASK_TEMPLATES = [
+  {id:'hire',      name:'Yangi xodim qabul qilish',   space:'HR',         priority:"O'rta",  score:3, recurring_type:'',
+   checklist:['Hujjatlarni qabul qilish','Mehnat shartnomasi','Buyruq chiqarish','Ish joyini tayyorlash','Korporativ pochta','Adaptatsiya rejasi']},
+  {id:'monthly_report', name:'Oylik moliya hisoboti', space:'Moliya',      priority:'Yuqori', score:3, recurring_type:'monthly',
+   checklist:['P&L tayyorlash','Cash Flow solishtiruv','Balans tekshiruv','KPI hisoblash','Rahbariyatga taqdimot']},
+  {id:'payroll',   name:'Oylik maosh hisoblash',       space:'HR',         priority:'Yuqori', score:2, recurring_type:'monthly',
+   checklist:['Davomat tekshiruv','Soatlar hisoblash','Maosh jadvalini tayyorlash','To\'lov o\'tkazish']},
+  {id:'kpi_review',name:'KPI ko\'rib chiqish',         space:'HR',         priority:"O'rta",  score:2, recurring_type:'monthly',
+   checklist:['Ma\'lumotlar yig\'ish','Formulalar tekshiruv','Natijalar kiritish','Rahbar tasdig\'i']},
+  {id:'tax',       name:'Soliq hisoboti topshirish',   space:'Moliya',     priority:'Shoshilinch', score:4, recurring_type:'monthly',
+   checklist:['Daromad hisoblash','Soliq summasi','Deklaratsiya to\'ldirish','Topshirish']},
+  {id:'cargo_order',name:'Yuk jo\'natish',             space:'Logistika',  priority:"O'rta",  score:3, recurring_type:'',
+   checklist:['Hujjatlar tayyorlash','Transport tanlash','Yo\'nalish muvofiqlash','Kuzatish','Yetkazib berish tasdig\'i']},
+  {id:'audit',     name:'Ichki audit',                 space:'Moliya',     priority:'Yuqori', score:5, recurring_type:'quarterly',
+   checklist:['Hisob-kitoblar tekshiruv','Hujjatlar audit','Xatolar aniqlash','Tuzatish tavsiyalari','Hisobot']},
+  {id:'meeting',   name:'Haftalik yig\'ilish',         space:'Rahbariyat', priority:'Past',   score:1, recurring_type:'weekly',
+   checklist:['Kun tartibi tuzish','Qatnashchilarni xabardor qilish','Yig\'ilish o\'tkazish','Bayonnoma yozish']},
+];
+var TASK_TMPL_KEYS = (function(){ var s=lsLoad('task_templates_custom'); return s||[]; })();
+
+window.openTemplateModal = function(dirId){
+  var ex = document.getElementById('_tmplOv'); if(ex) ex.remove();
+  var ov = document.createElement('div');
+  ov.id = '_tmplOv';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.onclick = function(e){ if(e.target===ov) ov.remove(); };
+  var h = '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:24px;width:500px;max-width:95vw;max-height:85vh;overflow-y:auto">';
+  h += '<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:14px">📋 Vazifa Shablonlari</div>';
+  h += '<div style="display:grid;gap:8px">';
+  TASK_TEMPLATES.forEach(function(t){
+    h += '<div style="padding:10px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:space-between" onclick="applyTemplate(\''+t.id+'\',\''+dirId+'\')">';
+    h += '<div><div style="font-size:12px;font-weight:600;color:var(--t1)">'+escHtml(t.name)+'</div>';
+    h += '<div style="font-size:10px;color:var(--t3);margin-top:2px">📁 '+escHtml(t.space)+' · ⭐ '+t.score+' ball · '+t.checklist.length+' checklist'+(t.recurring_type?' · 🔄 '+t.recurring_type:'')+'</div></div>';
+    var priCol=TASK_PRIORITY_COLORS[t.priority]||'#888';
+    h += '<span style="padding:2px 8px;border-radius:20px;background:'+priCol+'22;color:'+priCol+';font-size:10px;font-weight:600">'+t.priority+'</span>';
+    h += '</div>';
+  });
+  h += '</div>';
+  h += '<button onclick="document.getElementById(\'_tmplOv\').remove()" style="width:100%;margin-top:14px;padding:9px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:12px">Yopish</button>';
+  h += '</div>';
+  ov.innerHTML = h;
+  document.body.appendChild(ov);
+};
+
+window.applyTemplate = function(tmplId, dirId){
+  var tmpl = TASK_TEMPLATES.find(function(t){return t.id===tmplId;});
+  if(!tmpl) return;
+  document.getElementById('_tmplOv').remove();
+  openTaskModal(dirId);
+  setTimeout(function(){
+    var el;
+    el = document.getElementById('_ti_title');    if(el) el.value = tmpl.name;
+    el = document.getElementById('_ti_space');    if(el) el.value = tmpl.space;
+    el = document.getElementById('_ti_priority'); if(el) el.value = tmpl.priority;
+    el = document.getElementById('_ti_score');    if(el) el.value = tmpl.score;
+    el = document.getElementById('_ti_recur');    if(el && tmpl.recurring_type) el.value = tmpl.recurring_type;
+    // Add checklist items
+    var cont = document.getElementById('_ti_checks'); if(!cont) return;
+    tmpl.checklist.forEach(function(c){
+      addCheckItem();
+      var inputs = cont.querySelectorAll('[data-chk]');
+      var last = inputs[inputs.length-1];
+      if(last) last.value = c;
+    });
+  }, 50);
+};
+
+// ── TASK HISTORY / AUDIT LOG ─────────────────────────────────────
+function addTaskHistory(task, action, detail){
+  if(!task.history) task.history = [];
+  task.history.unshift({
+    action: action,
+    detail: detail||'',
+    by: 'Admin',
+    ts: new Date().toISOString(),
+  });
+  if(task.history.length > 50) task.history.length = 50;
+}
+
+// ── DEPENDENCY CHECK ─────────────────────────────────────────────
+function isTaskBlocked(task){
+  if(!task.blocked_by) return false;
+  var dep = getTask(task.blocked_by);
+  if(!dep) return false;
+  return dep.status !== 'Bajarildi';
+}
+function getBlockingTask(task){
+  if(!task.blocked_by) return null;
+  return getTask(task.blocked_by);
+}
+
+// ── KPI FORMULA ──────────────────────────────────────────────────
+function calcEmployeeTaskKPI(empId, fromDate, toDate){
+  var myTasks = TASKS.filter(function(t){
+    return t.assignee_id === empId &&
+      t.status !== 'Bekor qilindi' &&
+      (!fromDate || (t.created_at||'').slice(0,10) >= fromDate) &&
+      (!toDate   || (t.created_at||'').slice(0,10) <= toDate);
+  });
+  var total=0, completed=0, onTime=0, late=0, returned=0, totalScore=0, earnedScore=0;
+  myTasks.forEach(function(t){
+    total++;
+    totalScore += (t.score||0);
+    if(t.status==='Bajarildi'){
+      completed++;
+      earnedScore += (t.score||0);
+      var finDate = (t.updated_at||'').slice(0,10);
+      if(t.deadline && finDate <= t.deadline) onTime++;
+      else late++;
+    } else if(t.status==='Kechikdi'){
+      late++;
+    }
+    var retCount = (t.history||[]).filter(function(h){ return h.action==='returned'; }).length;
+    returned += retCount;
+  });
+  var lateRatio    = total>0 ? late/total : 0;
+  var completeRate = total>0 ? completed/total : 0;
+  // Samaradorlik = (earned * (1 - lateRatio*0.4) - returned*1) / max(totalScore,1) * 100
+  var rawScore = earnedScore * (1 - lateRatio * 0.4) - returned * 1;
+  var efficiency = totalScore > 0 ? Math.min(100, Math.max(0, Math.round(rawScore / totalScore * 100))) : 0;
+  return {
+    total: total, completed: completed, onTime: onTime, late: late, returned: returned,
+    totalScore: totalScore, earnedScore: earnedScore,
+    completeRate: Math.round(completeRate*100),
+    efficiency: efficiency,
+  };
+}
+
+// ── WORKLOAD ──────────────────────────────────────────────────────
+function getEmployeeWorkload(empId){
+  return TASKS.filter(function(t){
+    return t.assignee_id===empId && t.status!=='Bajarildi' && t.status!=='Bekor qilindi';
+  }).length;
+}
+
+// ── KANBAN BOARD ─────────────────────────────────────────────────
+function renderTasksKanban(tasks, dirId){
+  var h = '<div style="overflow-x:auto;padding-bottom:8px">';
+  h += '<div style="display:flex;gap:12px;min-width:900px">';
+  TASK_STATUSES.forEach(function(status){
+    var col   = TASK_STATUS_COLORS[status]||'#888';
+    var group = tasks.filter(function(t){ return t.status===status; });
+    var priOrder={'Shoshilinch':0,'Yuqori':1,"O'rta":2,'Past':3};
+    group.sort(function(a,b){ return (priOrder[a.priority]||9)-(priOrder[b.priority]||9); });
+
+    h += '<div style="flex:1;min-width:170px">';
+    h += '<div style="display:flex;align-items:center;gap:6px;padding:8px 10px;background:'+col+'22;border:1px solid '+col+'44;border-radius:8px;margin-bottom:8px">';
+    h += '<span style="width:8px;height:8px;border-radius:50%;background:'+col+';display:inline-block"></span>';
+    h += '<span style="font-size:11px;font-weight:600;color:'+col+'">'+status+'</span>';
+    h += '<span style="margin-left:auto;font-size:10px;color:var(--t3)">'+group.length+'</span>';
+    h += '</div>';
+
+    group.forEach(function(t){
+      var priCol = TASK_PRIORITY_COLORS[t.priority]||'#888';
+      var today  = new Date().toISOString().slice(0,10);
+      var isLate = t.deadline && t.deadline<today && t.status!=='Bajarildi' && t.status!=='Bekor qilindi';
+      var blocked= isTaskBlocked(t);
+      h += '<div onclick="openTaskDetail(\''+t.id+'\')" style="background:var(--s1);border:1px solid var(--b1);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer;transition:border-color .15s" onmouseover="this.style.borderColor=\''+col+'\'" onmouseout="this.style.borderColor=\'var(--b1)\'">';
+      if(blocked) h += '<div style="font-size:10px;color:#FF4D6A;margin-bottom:4px">🔒 Bloklangan</div>';
+      h += '<div style="font-size:11px;font-weight:600;color:var(--t1);margin-bottom:6px;line-height:1.4">'+escHtml(t.title||'')+'</div>';
+      h += '<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:6px">';
+      h += '<span style="padding:1px 6px;border-radius:10px;background:'+priCol+'22;color:'+priCol+';font-size:9px;font-weight:600">'+escHtml(t.priority)+'</span>';
+      h += '<span style="padding:1px 6px;border-radius:10px;background:#6C8EFF22;color:#6C8EFF;font-size:9px">'+t.score+'⭐</span>';
+      h += '</div>';
+      if(t.checklist&&t.checklist.length){
+        var done=t.checklist.filter(function(c){return c.done;}).length;
+        h += '<div style="margin-bottom:5px"><div style="height:3px;background:var(--b1);border-radius:2px"><div style="height:3px;background:#17B374;border-radius:2px;width:'+Math.round(done/t.checklist.length*100)+'%"></div></div>';
+        h += '<div style="font-size:9px;color:var(--t3);margin-top:2px">'+done+'/'+t.checklist.length+' checklist</div></div>';
+      }
+      h += '<div style="display:flex;justify-content:space-between;align-items:center">';
+      h += '<span style="font-size:10px;color:var(--t3)">👤 '+escHtml(t.assignee_name||'—')+'</span>';
+      h += '<span style="font-size:10px;color:'+(isLate?'#FF4D6A':'var(--t3)')+'">'+(isLate?'⚠️ ':'')+escHtml(t.deadline||'')+'</span>';
+      h += '</div>';
+      // Quick status change
+      h += '<div style="display:flex;gap:3px;margin-top:7px;flex-wrap:wrap">';
+      TASK_STATUSES.filter(function(s){return s!==status;}).slice(0,3).forEach(function(s){
+        var sc=TASK_STATUS_COLORS[s]||'#888';
+        h += '<button onclick="event.stopPropagation();quickStatusChange(\''+t.id+'\',\''+s+'\',\''+dirId+'\')" title="'+s+'" style="padding:2px 5px;background:'+sc+'22;border:1px solid '+sc+'44;border-radius:4px;color:'+sc+';cursor:pointer;font-size:9px">→ '+s+'</button>';
+      });
+      h += '</div>';
+      h += '</div>';
+    });
+
+    // Add button per column
+    var _colDir = (!dirId||dirId==='all') ? '' : dirId;
+    h += '<div onclick="openTaskModal(\''+_colDir+'\')" style="border:1px dashed var(--b1);border-radius:8px;padding:10px;text-align:center;cursor:pointer;color:var(--t3);font-size:11px;margin-top:4px" onmouseover="this.style.borderColor=\'#6C8EFF\'" onmouseout="this.style.borderColor=\'var(--b1)\'">';
+    h += '+ Qo\'shish</div>';
+    h += '</div>'; // column
+  });
+  h += '</div></div>';
+  return h;
+}
+
+window.quickStatusChange = function(taskId, newStatus, dirId){
+  var t = getTask(taskId); if(!t) return;
+  addTaskHistory(t, 'status_change', t.status+' → '+newStatus);
+  t.status = newStatus;
+  t.updated_at = new Date().toISOString();
+  taskSave();
+  addNotif('Status o\'zgardi: '+t.title+' → '+newStatus, taskId);
+  renderTasksPage(dirId);
+  window._TASK_VIEW = 'kanban';
+};
+
+// ── CALENDAR VIEW ────────────────────────────────────────────────
+function renderTasksCalendar(tasks, dirId){
+  var now   = new Date();
+  var year  = now.getFullYear();
+  var month = now.getMonth();
+  var key   = '_taskCalMonth_'+dirId;
+  if(window[key] !== undefined){ month = window[key] % 12; year = now.getFullYear() + Math.floor(window[key]/12 - Math.floor(now.getMonth()/12)); }
+  // actually just use stored offset
+  var offset = window._taskCalOffset || 0;
+  var d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+  year  = d.getFullYear();
+  month = d.getMonth();
+
+  var monthNames = ['Yanvar','Fevral','Mart','Aprel','May','Iyun','Iyul','Avgust','Sentabr','Oktabr','Noyabr','Dekabr'];
+  var dayNames   = ['Du','Se','Ch','Pa','Ju','Sh','Ya'];
+
+  var firstDay = new Date(year, month, 1).getDay(); // 0=Sun
+  firstDay = (firstDay + 6) % 7; // Monday-first
+  var daysInMonth = new Date(year, month+1, 0).getDate();
+
+  // Build task map by date
+  var taskByDate = {};
+  tasks.forEach(function(t){
+    if(!t.deadline) return;
+    var dp = t.deadline.slice(0,7);
+    if(dp !== year+'-'+String(month+1).padStart(2,'0')) return;
+    if(!taskByDate[t.deadline]) taskByDate[t.deadline] = [];
+    taskByDate[t.deadline].push(t);
+  });
+
+  var h = '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;overflow:hidden">';
+  // Calendar header
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--b1)">';
+  h += '<button onclick="window._taskCalOffset=(window._taskCalOffset||0)-1;renderTasksPage(\''+dirId+'\')" style="padding:5px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:12px">← Oldingi</button>';
+  h += '<span style="font-size:13px;font-weight:700;color:var(--t1)">'+monthNames[month]+' '+year+'</span>';
+  h += '<button onclick="window._taskCalOffset=(window._taskCalOffset||0)+1;renderTasksPage(\''+dirId+'\')" style="padding:5px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:12px">Keyingi →</button>';
+  h += '</div>';
+  // Day names
+  h += '<div style="display:grid;grid-template-columns:repeat(7,1fr);border-bottom:1px solid var(--b1)">';
+  dayNames.forEach(function(d){ h += '<div style="padding:6px;text-align:center;font-size:10px;font-weight:600;color:var(--t3)">'+d+'</div>'; });
+  h += '</div>';
+  // Days grid
+  h += '<div style="display:grid;grid-template-columns:repeat(7,1fr)">';
+  var today = new Date().toISOString().slice(0,10);
+  // Empty cells before first day
+  for(var i=0;i<firstDay;i++){
+    h += '<div style="min-height:80px;padding:4px;border-right:1px solid var(--b1);border-bottom:1px solid var(--b1)"></div>';
+  }
+  for(var day=1;day<=daysInMonth;day++){
+    var dateStr = year+'-'+String(month+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+    var dayTasks = taskByDate[dateStr]||[];
+    var isToday  = dateStr === today;
+    var col      = (firstDay + day - 1) % 7;
+    h += '<div style="min-height:80px;padding:4px;border-right:1px solid var(--b1);border-bottom:1px solid var(--b1);vertical-align:top;background:'+(isToday?'rgba(108,142,255,0.08)':'transparent')+'">';
+    h += '<div style="font-size:11px;font-weight:'+(isToday?'700':'400')+';color:'+(isToday?'#6C8EFF':'var(--t3)')+';margin-bottom:3px">'+day+'</div>';
+    dayTasks.slice(0,3).forEach(function(t){
+      var sc = TASK_STATUS_COLORS[t.status]||'#888';
+      h += '<div onclick="openTaskDetail(\''+t.id+'\')" style="font-size:9px;padding:2px 5px;border-radius:4px;background:'+sc+'22;color:'+sc+';margin-bottom:2px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+escHtml(t.title)+'">'+escHtml(t.title)+'</div>';
+    });
+    if(dayTasks.length>3) h += '<div style="font-size:9px;color:var(--t3)">+'+( dayTasks.length-3)+' ta</div>';
+    h += '</div>';
+  }
+  // Trailing empty
+  var total = firstDay + daysInMonth;
+  var rem = total % 7;
+  if(rem>0){ for(var j=rem;j<7;j++) h += '<div style="min-height:80px;padding:4px;border-right:1px solid var(--b1);border-bottom:1px solid var(--b1)"></div>'; }
+  h += '</div></div>';
+  return h;
+}
+
+// ── ANALYTICS DASHBOARD ──────────────────────────────────────────
+function renderTasksAnalytics(dirId, tasks){
+  var today = new Date().toISOString().slice(0,10);
+  var h = '';
+
+  // ─ Summary KPI cards ─
+  var total    = tasks.length;
+  var done     = tasks.filter(function(t){return t.status==='Bajarildi';}).length;
+  var late     = tasks.filter(function(t){return t.status==='Kechikdi'||(t.deadline&&t.deadline<today&&t.status!=='Bajarildi'&&t.status!=='Bekor qilindi');}).length;
+  var openTasks= tasks.filter(function(t){return t.status!=='Bajarildi'&&t.status!=='Bekor qilindi';}).length;
+  var doneRate = total>0?Math.round(done/total*100):0;
+  var lateRate = total>0?Math.round(late/total*100):0;
+  var totalBall= tasks.reduce(function(s,t){return s+(t.score||0);},0);
+  var earnBall = tasks.filter(function(t){return t.status==='Bajarildi';}).reduce(function(s,t){return s+(t.score||0);},0);
+
+  h += '<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:16px">';
+  var kpiCards = [
+    {lbl:'Jami Vazifa',    val:total,    col:'#6C8EFF'},
+    {lbl:'Bajarildi',      val:done,     col:'#17B374'},
+    {lbl:'Ochiq',          val:openTasks,col:'#FFB830'},
+    {lbl:'Kechikdi',       val:late,     col:'#FF4D6A'},
+    {lbl:'Bajarish %',     val:doneRate+'%', col:'#17B374'},
+    {lbl:'Jami Ball',      val:earnBall+'/'+totalBall, col:'#6C8EFF'},
+  ];
+  kpiCards.forEach(function(c){
+    h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:12px;text-align:center">';
+    h += '<div style="font-size:20px;font-weight:700;color:'+c.col+'">'+c.val+'</div>';
+    h += '<div style="font-size:10px;color:var(--t3);margin-top:2px">'+c.lbl+'</div></div>';
+  });
+  h += '</div>';
+
+  // ─ Status distribution bar ─
+  h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:14px;margin-bottom:14px">';
+  h += '<div style="font-size:11px;font-weight:700;color:var(--t1);margin-bottom:10px">📊 Status taqsimoti</div>';
+  TASK_STATUSES.forEach(function(s){
+    var cnt = tasks.filter(function(t){return t.status===s;}).length;
+    var pct = total>0?Math.round(cnt/total*100):0;
+    var col = TASK_STATUS_COLORS[s]||'#888';
+    h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">';
+    h += '<span style="width:80px;font-size:10px;color:var(--t2);text-align:right;flex-shrink:0">'+s+'</span>';
+    h += '<div style="flex:1;height:16px;background:var(--s2);border-radius:4px;overflow:hidden">';
+    h += '<div style="height:100%;background:'+col+';border-radius:4px;width:'+pct+'%;transition:width .3s"></div></div>';
+    h += '<span style="width:36px;font-size:10px;color:var(--t3);font-family:var(--mono)">'+cnt+' ('+pct+'%)</span>';
+    h += '</div>';
+  });
+  h += '</div>';
+
+  // ─ Priority distribution ─
+  h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:14px;margin-bottom:14px">';
+  h += '<div style="font-size:11px;font-weight:700;color:var(--t1);margin-bottom:10px">🔥 Ustuvorlik taqsimoti</div>';
+  h += '<div style="display:flex;gap:8px;flex-wrap:wrap">';
+  TASK_PRIORITIES.forEach(function(p){
+    var cnt = tasks.filter(function(t){return t.priority===p;}).length;
+    var col = TASK_PRIORITY_COLORS[p]||'#888';
+    h += '<div style="background:'+col+'22;border:1px solid '+col+'44;border-radius:8px;padding:8px 16px;text-align:center">';
+    h += '<div style="font-size:18px;font-weight:700;color:'+col+'">'+cnt+'</div>';
+    h += '<div style="font-size:10px;color:var(--t3)">'+p+'</div></div>';
+  });
+  h += '</div></div>';
+
+  // ─ Direction breakdown (only in 'all' view) ─
+  if(!dirId||dirId==='all'){
+    h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:14px;margin-bottom:14px">';
+    h += '<div style="font-size:11px;font-weight:700;color:var(--t1);margin-bottom:10px">🏢 Yo\'nalishlar tahlili</div>';
+    h += '<table style="width:100%;border-collapse:collapse;font-size:11px">';
+    h += '<thead><tr style="color:var(--t3);border-bottom:1px solid var(--b1)">';
+    ['Yo\'nalish','Jami','Bajarildi','Kechikdi','Bajarish %','Jami Ball'].forEach(function(c){
+      h += '<th style="padding:6px 8px;text-align:left;font-weight:600">'+c+'</th>';
+    });
+    h += '</tr></thead><tbody>';
+    DIRS.forEach(function(d){
+      var dt = tasks.filter(function(t){return t.direction===d.id;});
+      if(!dt.length) return;
+      var dc = dt.filter(function(t){return t.status==='Bajarildi';}).length;
+      var dl = dt.filter(function(t){return t.status==='Kechikdi';}).length;
+      var dr = dt.length>0?Math.round(dc/dt.length*100):0;
+      var db = dt.reduce(function(s,t){return s+(t.score||0);},0);
+      h += '<tr style="border-bottom:1px solid var(--b1)">';
+      h += '<td style="padding:8px">'+escHtml(d.icon||'')+ ' <span style="font-weight:600;color:var(--t1)">'+escHtml(d.name)+'</span></td>';
+      h += '<td style="padding:8px;font-family:var(--mono)">'+dt.length+'</td>';
+      h += '<td style="padding:8px;color:#17B374;font-family:var(--mono)">'+dc+'</td>';
+      h += '<td style="padding:8px;color:#FF4D6A;font-family:var(--mono)">'+dl+'</td>';
+      h += '<td style="padding:8px"><div style="display:flex;align-items:center;gap:6px">';
+      h += '<div style="width:60px;height:6px;background:var(--s2);border-radius:3px"><div style="height:6px;background:'+( dr>70?'#17B374':dr>40?'#FFB830':'#FF4D6A')+';border-radius:3px;width:'+dr+'%"></div></div>';
+      h += '<span style="font-family:var(--mono);font-size:10px">'+dr+'%</span></div></td>';
+      h += '<td style="padding:8px;font-family:var(--mono)">'+db+'</td>';
+      h += '</tr>';
+    });
+    h += '</tbody></table></div>';
+  }
+
+  // ─ Employee performance ranking ─
+  h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:14px;margin-bottom:14px">';
+  h += '<div style="font-size:11px;font-weight:700;color:var(--t1);margin-bottom:12px">🏆 Xodimlar Reytingi (Task KPI)</div>';
+  h += '<table style="width:100%;border-collapse:collapse;font-size:11px">';
+  h += '<thead><tr style="color:var(--t3);border-bottom:1px solid var(--b1)">';
+  ['#','Xodim','Jami','Bajarildi','Kechikdi','Qaytarildi','Ball','Samaradorlik'].forEach(function(c){
+    h += '<th style="padding:6px 8px;text-align:left;font-weight:600">'+c+'</th>';
+  });
+  h += '</tr></thead><tbody>';
+
+  // Collect unique assignees from tasks
+  var empMap = {};
+  tasks.forEach(function(t){
+    if(t.assignee_id) empMap[t.assignee_id] = t.assignee_name||String(t.assignee_id);
+  });
+  var rankings = Object.keys(empMap).map(function(eid){
+    var kpi = calcEmployeeTaskKPI(parseInt(eid)||eid);
+    return {id:eid, name:empMap[eid], kpi:kpi};
+  }).sort(function(a,b){ return b.kpi.efficiency - a.kpi.efficiency; });
+
+  rankings.forEach(function(r, idx){
+    var kpi = r.kpi;
+    var medal = idx===0?'🥇':idx===1?'🥈':idx===2?'🥉':'';
+    var effCol = kpi.efficiency>=80?'#17B374':kpi.efficiency>=50?'#FFB830':'#FF4D6A';
+    var wl = getEmployeeWorkload(parseInt(r.id)||r.id);
+    h += '<tr style="border-bottom:1px solid var(--b1)">';
+    h += '<td style="padding:8px;font-weight:700;color:var(--t3)">'+(idx+1)+' '+medal+'</td>';
+    h += '<td style="padding:8px"><div style="font-weight:600;color:var(--t1)">'+escHtml(r.name)+'</div>';
+    h += '<div style="font-size:9px;color:var(--t3)">'+wl+' ochiq vazifa</div></td>';
+    h += '<td style="padding:8px;font-family:var(--mono)">'+kpi.total+'</td>';
+    h += '<td style="padding:8px;color:#17B374;font-family:var(--mono)">'+kpi.completed+'</td>';
+    h += '<td style="padding:8px;color:#FF4D6A;font-family:var(--mono)">'+kpi.late+'</td>';
+    h += '<td style="padding:8px;color:#FFB830;font-family:var(--mono)">'+kpi.returned+'</td>';
+    h += '<td style="padding:8px;font-family:var(--mono)">'+kpi.earnedScore+'/'+kpi.totalScore+'</td>';
+    h += '<td style="padding:8px"><div style="display:flex;align-items:center;gap:6px">';
+    h += '<div style="width:60px;height:8px;background:var(--s2);border-radius:4px"><div style="height:8px;background:'+effCol+';border-radius:4px;width:'+kpi.efficiency+'%"></div></div>';
+    h += '<span style="font-weight:700;color:'+effCol+';font-family:var(--mono)">'+kpi.efficiency+'%</span>';
+    h += '</div></td>';
+    h += '</tr>';
+  });
+  if(!rankings.length) h += '<tr><td colspan="8" style="padding:16px;text-align:center;color:var(--t3)">Ma\'lumot yo\'q</td></tr>';
+  h += '</tbody></table></div>';
+
+  // ─ Workload view ─
+  h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:14px">';
+  h += '<div style="font-size:11px;font-weight:700;color:var(--t1);margin-bottom:10px">⚖️ Xodim Yuklamasi (Ochiq vazifalar)</div>';
+  h += '<div style="display:flex;flex-direction:column;gap:6px">';
+  rankings.forEach(function(r){
+    var wl = getEmployeeWorkload(parseInt(r.id)||r.id);
+    var col = wl>10?'#FF4D6A':wl>5?'#FFB830':'#17B374';
+    var pct = Math.min(100, wl * 8);
+    h += '<div style="display:flex;align-items:center;gap:8px">';
+    h += '<span style="width:120px;font-size:11px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(r.name)+'</span>';
+    h += '<div style="flex:1;height:16px;background:var(--s2);border-radius:4px;overflow:hidden">';
+    h += '<div style="height:100%;background:'+col+';border-radius:4px;width:'+pct+'%"></div></div>';
+    h += '<span style="width:30px;font-size:11px;font-family:var(--mono);color:'+col+';text-align:right">'+wl+'</span>';
+    h += '</div>';
+  });
+  if(!rankings.length) h += '<div style="text-align:center;color:var(--t3);font-size:11px;padding:10px">Ma\'lumot yo\'q</div>';
+  h += '</div></div>';
+
+  return h;
+}
+
+// ── PATCH renderTasksPage to support view toggle ──────────────────
+var _origRenderTasksPage = renderTasksPage;
+renderTasksPage = function(dirId){
+  var MC = document.getElementById('mainContent'); if(!MC) return;
+  tasksCheckDeadlines();
+
+  var isAll  = (!dirId || dirId==='all');
+  var tasks  = isAll ? TASKS.slice() : tasksByDir(dirId);
+  var dirObj = DIRS.find(function(d){return d.id===dirId;}) || {name:"Barcha Yo'nalishlar",icon:'🏢'};
+  var today  = new Date().toISOString().slice(0,10);
+
+  // Capture filter values BEFORE replacing innerHTML
+  var fltStatus = (document.getElementById('_taskFltStatus')||{}).value||'';
+  var fltPri    = (document.getElementById('_taskFltPri')||{}).value||'';
+  var fltDir    = (document.getElementById('_taskFltDir')||{}).value||'';
+  var fltSearch = ((document.getElementById('_taskFltSearch')||{}).value||'').toLowerCase();
+
+  // Stats
+  var stats = {total:tasks.length,yangi:0,jarayonda:0,tekshiruvda:0,bajarildi:0,kechikdi:0,bekor:0};
+  tasks.forEach(function(t){
+    if(t.status==='Yangi') stats.yangi++;
+    else if(t.status==='Jarayonda') stats.jarayonda++;
+    else if(t.status==='Tekshiruvda') stats.tekshiruvda++;
+    else if(t.status==='Bajarildi') stats.bajarildi++;
+    else if(t.status==='Kechikdi') stats.kechikdi++;
+    else if(t.status==='Bekor qilindi') stats.bekor++;
+  });
+
+  var view = window._TASK_VIEW || 'list';
+
+  var h = '<div style="padding:20px;max-width:1200px;margin:0 auto">';
+
+  // Header
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">';
+  h += '<div style="display:flex;align-items:center;gap:12px">';
+  h += '<div style="width:40px;height:40px;border-radius:10px;background:rgba(108,142,255,0.15);display:flex;align-items:center;justify-content:center;font-size:20px">✅</div>';
+  h += '<div><div style="font-size:18px;font-weight:700;color:var(--t1)">'+(isAll?'Barcha Vazifalar':(dirObj.icon||'')+' '+dirObj.name+' — Vazifalar')+'</div>';
+  h += '<div style="font-size:11px;color:var(--t3)">Task Management · Stage 1-2-3</div></div></div>';
+  h += '<div style="display:flex;gap:6px;flex-wrap:wrap">';
+  h += '<button onclick="openTemplateModal(\''+(!isAll?dirId:'')+'\' )" style="padding:7px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:11px">📋 Shablon</button>';
+  h += '<button onclick="openTaskModal(\''+(!isAll?dirId:'')+'\' )" style="padding:7px 14px;background:#6C8EFF;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">+ Vazifa</button>';
+  h += '<button onclick="openNotifPanel()" style="position:relative;padding:7px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:13px">🔔<span id="_taskNotifBadge" style="position:absolute;top:-4px;right:-4px;background:#FF4D6A;color:#fff;font-size:9px;font-weight:700;border-radius:10px;padding:1px 4px;display:none"></span></button>';
+  h += '</div></div>';
+
+  // Stats row
+  h += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:12px">';
+  [{lbl:'Jami',val:stats.total,col:'#6C8EFF'},{lbl:'Yangi',val:stats.yangi,col:'#6C8EFF'},{lbl:'Jarayonda',val:stats.jarayonda,col:'#FFB830'},{lbl:'Tekshiruvda',val:stats.tekshiruvda,col:'#00D4FF'},{lbl:'Bajarildi',val:stats.bajarildi,col:'#17B374'},{lbl:'Kechikdi',val:stats.kechikdi,col:'#FF4D6A'},{lbl:'Bekor',val:stats.bekor,col:'#888'}].forEach(function(s){
+    h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:10px;text-align:center"><div style="font-size:20px;font-weight:700;color:'+s.col+'">'+s.val+'</div><div style="font-size:10px;color:var(--t3);margin-top:2px">'+s.lbl+'</div></div>';
+  });
+  h += '</div>';
+
+  // View toggle + filter bar
+  h += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">';
+  // View buttons
+  var views = [{id:'list',icon:'☰ Ro\'yxat'},{id:'kanban',icon:'🗂 Kanban'},{id:'calendar',icon:'📅 Kalendar'},{id:'analytics',icon:'📊 Tahlil'}];
+  views.forEach(function(v){
+    var on = view===v.id;
+    h += '<button onclick="window._TASK_VIEW=\''+v.id+'\';renderTasksPage(\''+dirId+'\')" style="padding:6px 12px;border-radius:8px;font-size:11px;cursor:pointer;border:1px solid '+(on?'#6C8EFF':'var(--b1)')+';background:'+(on?'#6C8EFF':'var(--s2)')+';color:'+(on?'#fff':'var(--t2)')+'">'+v.icon+'</button>';
+  });
+  h += '<div style="flex:1"></div>';
+  // Filters (only for list/kanban)
+  if(view!=='analytics'){
+    h += '<select id="_taskFltStatus" onchange="renderTasksPage(\''+dirId+'\')" style="padding:6px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:11px"><option value="">Barcha status</option>';
+    TASK_STATUSES.forEach(function(s){ h+='<option value="'+s+'">'+s+'</option>'; });
+    h += '</select>';
+    h += '<select id="_taskFltPri" onchange="renderTasksPage(\''+dirId+'\')" style="padding:6px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:11px"><option value="">Barcha ustuvorlik</option>';
+    TASK_PRIORITIES.forEach(function(p){ h+='<option value="'+p+'">'+p+'</option>'; });
+    h += '</select>';
+    if(isAll){
+      h += '<select id="_taskFltDir" onchange="renderTasksPage(\'all\')" style="padding:6px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:11px"><option value="">Barcha yo\'nalish</option>';
+      DIRS.forEach(function(d){ h+='<option value="'+d.id+'">'+escHtml(d.name)+'</option>'; });
+      h += '</select>';
+    }
+    h += '<input id="_taskFltSearch" oninput="renderTasksPage(\''+dirId+'\')" placeholder="🔍 Qidirish..." style="padding:6px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:11px;min-width:120px">';
+  }
+  h += '<button onclick="exportTasksExcel(\''+dirId+'\')" style="padding:6px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:11px">📊 Excel</button>';
+  h += '</div>';
+
+  // Apply filters
+  var visible = tasks.filter(function(t){
+    if(fltStatus && t.status!==fltStatus) return false;
+    if(fltPri && t.priority!==fltPri) return false;
+    if(fltDir && t.direction!==fltDir) return false;
+    if(fltSearch && !(t.title||'').toLowerCase().includes(fltSearch) && !(t.description||'').toLowerCase().includes(fltSearch)) return false;
+    return true;
+  });
+  var priOrder={'Shoshilinch':0,'Yuqori':1,"O'rta":2,'Past':3};
+  visible.sort(function(a,b){
+    var pa=priOrder[a.priority]||9, pb=priOrder[b.priority]||9;
+    if(pa!==pb) return pa-pb;
+    return (a.deadline||'9999')>(b.deadline||'9999')?1:-1;
+  });
+
+  // ─ Render selected view ─
+  if(view==='kanban'){
+    h += renderTasksKanban(visible, dirId);
+  } else if(view==='calendar'){
+    h += renderTasksCalendar(visible, dirId);
+  } else if(view==='analytics'){
+    h += renderTasksAnalytics(dirId, tasks);
+  } else {
+    // Default: list
+    if(!visible.length){
+      h += '<div style="text-align:center;padding:40px;background:var(--s1);border:1px solid var(--b1);border-radius:12px;color:var(--t3);font-size:13px">📭 Vazifalar topilmadi</div>';
+    } else {
+      h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;overflow:hidden">';
+      h += '<table style="width:100%;border-collapse:collapse;font-size:11px">';
+      h += '<thead><tr style="background:var(--s2);color:var(--t3);font-size:10px;font-weight:600">';
+      ['ID','Nomi','Yo\'nalish','Mas\'ul','Deadline','Ball','Ustuvorlik','Status',''].forEach(function(c){ h += '<th style="padding:8px 10px;text-align:left;white-space:nowrap">'+c+'</th>'; });
+      h += '</tr></thead><tbody>';
+      visible.forEach(function(t){
+        var stCol  = TASK_STATUS_COLORS[t.status]||'#888';
+        var priCol = TASK_PRIORITY_COLORS[t.priority]||'#888';
+        var isLate = t.deadline && t.deadline<today && t.status!=='Bajarildi' && t.status!=='Bekor qilindi';
+        var blocked= isTaskBlocked(t);
+        var dLbl   = t.deadline||'—';
+        var subtaskCount=(t.subtasks||[]).length;
+        var checkDone=(t.checklist||[]).filter(function(c){return c.done;}).length;
+        var checkTotal=(t.checklist||[]).length;
+        h += '<tr style="border-bottom:1px solid var(--b1);cursor:pointer'+(blocked?';opacity:.7':'')+'" onclick="openTaskDetail(\''+t.id+'\')">';
+        h += '<td style="padding:9px 10px;font-family:var(--mono);color:var(--t3);white-space:nowrap">'+escHtml(t.id)+'</td>';
+        h += '<td style="padding:9px 10px;max-width:220px">';
+        h += '<div style="font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(t.title||'')+'</div>';
+        if(blocked) h += '<div style="font-size:9px;color:#FF4D6A">🔒 Bloklangan: '+escHtml((getBlockingTask(t)||{}).title||'')+'</div>';
+        if(t.space) h += '<div style="font-size:9px;color:var(--t3)">📁 '+escHtml(t.space)+'</div>';
+        if(subtaskCount) h += '<div style="font-size:9px;color:var(--t3)">🔗 '+subtaskCount+' subtask</div>';
+        if(checkTotal) h += '<div style="font-size:9px;color:var(--t3)">☑ '+checkDone+'/'+checkTotal+'</div>';
+        if(t.is_recurring) h += '<div style="font-size:9px;color:#A78BFF">🔄 '+escHtml(t.recurring_type||'')+'</div>';
+        h += '</td>';
+        var dObj=DIRS.find(function(d){return d.id===t.direction;})||{name:t.direction||'—',icon:''};
+        h += '<td style="padding:9px 10px;white-space:nowrap;color:var(--t2)"><span style="font-size:13px">'+(dObj.icon||'')+'</span> '+escHtml(dObj.name||'')+'</td>';
+        h += '<td style="padding:9px 10px;color:var(--t2);white-space:nowrap">'+escHtml(t.assignee_name||'—')+'</td>';
+        h += '<td style="padding:9px 10px;font-family:var(--mono);color:'+(isLate?'#FF4D6A':'var(--t2)')+';white-space:nowrap">'+(isLate?'⚠️ ':'')+escHtml(dLbl)+'</td>';
+        h += '<td style="padding:9px 10px;text-align:center"><span style="display:inline-block;width:24px;height:24px;border-radius:50%;background:#6C8EFF22;color:#6C8EFF;font-weight:700;line-height:24px;text-align:center;font-size:11px">'+(t.score||'—')+'</span></td>';
+        h += '<td style="padding:9px 10px"><span style="padding:2px 8px;border-radius:20px;background:'+priCol+'22;color:'+priCol+';font-size:10px;font-weight:600">'+escHtml(t.priority||'—')+'</span></td>';
+        h += '<td style="padding:9px 10px"><span style="padding:2px 8px;border-radius:20px;background:'+stCol+'22;color:'+stCol+';font-size:10px;font-weight:600">'+escHtml(t.status||'—')+'</span></td>';
+        h += '<td style="padding:9px 10px;white-space:nowrap">';
+        h += '<button onclick="event.stopPropagation();openTaskDetail(\''+t.id+'\')" style="padding:3px 8px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;color:var(--t2);cursor:pointer;font-size:10px;margin-right:4px">Ko\'rish</button>';
+        h += '<button onclick="event.stopPropagation();deleteTask(\''+t.id+'\')" style="padding:3px 8px;background:rgba(255,77,106,0.1);border:1px solid rgba(255,77,106,0.3);border-radius:6px;color:#FF4D6A;cursor:pointer;font-size:10px">🗑</button>';
+        h += '</td></tr>';
+      });
+      h += '</tbody></table></div>';
+    }
+  }
+
+  h += '</div>';
+  MC.innerHTML = h;
+  // Restore filter values
+  if(fltStatus){ var e1=document.getElementById('_taskFltStatus'); if(e1) e1.value=fltStatus; }
+  if(fltPri)   { var e2=document.getElementById('_taskFltPri');    if(e2) e2.value=fltPri; }
+  if(fltDir)   { var e3=document.getElementById('_taskFltDir');    if(e3) e3.value=fltDir; }
+  if(fltSearch){ var e4=document.getElementById('_taskFltSearch'); if(e4) e4.value=fltSearch; }
+  updateNotifBadge();
 };
 
 
