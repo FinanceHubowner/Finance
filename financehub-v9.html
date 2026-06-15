@@ -11065,10 +11065,13 @@ function buildNav(){
 
 
   subEl.innerHTML = h;
-
-
   subEl.style.display = 'block';
 
+  // Active tab ko'rinishini ta'minlash (scroll into view)
+  setTimeout(function(){
+    var activeBtn = subEl.querySelector('.snbtn.on');
+    if(activeBtn) activeBtn.scrollIntoView({block:'nearest',inline:'center'});
+  }, 50);
 
 }
 
@@ -11630,7 +11633,9 @@ function toast(msg){
 
 // ── TA'SISCHIGA HISOBOT (Holding 3-Statement) ─────────────────────────────
 function renderHolding3S(){
-  var MC = document.getElementById('mainContent'); if(!MC) return;
+  var MC = document.getElementById('pg-l1'); if(!MC) return;
+  MC.classList.add('on');
+  setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:"🏛️ Ta'sischiga Hisobot",fn:''}]);
 
   // ── helpers ──
   var nonH = DIRS.filter(function(d){ return d.id!=='holding'; });
@@ -11883,7 +11888,9 @@ function fmtM(v){ return fS(Math.round(v||0)); }
 
 // ── TASK MANAGEMENT RENDER ────────────────────────────────────────────────────
 function renderTasksPage(dirId){
-  var MC = document.getElementById('mainContent'); if(!MC) return;
+  var isAllCtx = (!dirId || dirId==='all');
+  var MC = document.getElementById(isAllCtx ? 'pg-l1' : 'pg-l2'); if(!MC) return;
+  MC.classList.add('on');
   tasksCheckDeadlines();
 
   var isAll = (!dirId || dirId==='all');
@@ -13048,13 +13055,22 @@ function renderTasksAnalytics(dirId, tasks){
 // ── PATCH renderTasksPage to support view toggle ──────────────────
 var _origRenderTasksPage = renderTasksPage;
 renderTasksPage = function(dirId){
-  var MC = document.getElementById('mainContent'); if(!MC) return;
+  var isAllCtx = (!dirId || dirId==='all');
+  var MC = document.getElementById(isAllCtx ? 'pg-l1' : 'pg-l2'); if(!MC) return;
+  MC.classList.add('on');
   tasksCheckDeadlines();
 
-  var isAll  = (!dirId || dirId==='all');
+  var isAll  = isAllCtx;
   var tasks  = isAll ? TASKS.slice() : tasksByDir(dirId);
   var dirObj = DIRS.find(function(d){return d.id===dirId;}) || {name:"Barcha Yo'nalishlar",icon:'🏢'};
   var today  = new Date().toISOString().slice(0,10);
+
+  // Breadcrumb
+  if(isAll){
+    setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:'✅ Vazifalar',fn:''}]);
+  } else {
+    setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:(dirObj.icon||'')+' '+(dirObj.name||dirId),fn:"goNav('"+dirId+"')"},{lbl:'✅ Vazifalar',fn:''}]);
+  }
 
   // Capture filter values BEFORE replacing innerHTML
   var fltStatus = (document.getElementById('_taskFltStatus')||{}).value||'';
