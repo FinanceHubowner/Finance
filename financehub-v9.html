@@ -2395,7 +2395,7 @@ const COA={
   // ── 💰 DAROMAD ──────────────────────────────────────────────
 
 
-  income: {lbl:'💰 Daromad', col:'#17B374', pl:'revenue', group:'Метод начисления', subs:[
+  income: {lbl:'💰 Daromad', col:'#17B374', pl:'revenue', group:'Метод начисления', cf:'cfo', subs:[
 
 
     // Asosiy operatsion daromad
@@ -2476,7 +2476,7 @@ const COA={
   // ── 📦 COGS — TANNARX ───────────────────────────────────────
 
 
-  cogs: {lbl:'📦 COGS (Tannarx)', col:'#E8652A', pl:'cogs', group:'Метод начисления', subs:[
+  cogs: {lbl:'📦 COGS (Tannarx)', col:'#E8652A', pl:'cogs', group:'Метод начисления', cf:'cfo', subs:[
 
 
     // Kargo/Logistics
@@ -2557,7 +2557,7 @@ const COA={
   // ── ⚙️ OPEX — OPERATSION XARAJAT ────────────────────────────
 
 
-  opex: {lbl:'⚙️ OpEx', col:'#FF4D6A', pl:'opex', group:'Метод начисления', subs:[
+  opex: {lbl:'⚙️ OpEx', col:'#FF4D6A', pl:'opex', group:'Метод начисления', cf:'cfo', subs:[
 
 
     // Xodimlar
@@ -2713,7 +2713,7 @@ const COA={
   // ── 🏗️ CAPEX — AKTIV XARIDLARI ─────────────────────────────
 
 
-  capex: {lbl:'🏗️ CapEx (Aktivlar)', col:'#FFB830', pl:'capex', group:'Основные_средства', subs:[
+  capex: {lbl:'🏗️ CapEx (Aktivlar)', col:'#FFB830', pl:'capex', group:'Основные_средства', cf:'cfi', subs:[
 
 
     // Moddiy asosiy vositalar (IAS 16)
@@ -2788,7 +2788,7 @@ const COA={
   // ── 💸 SOLIQ VA YIG'IMLAR ────────────────────────────────────
 
 
-  tax: {lbl:'🏛️ Soliq va Yig\'imlar', col:'#FF6B35', pl:'opex', group:'Метод начисления', subs:[
+  tax: {lbl:'🏛️ Soliq va Yig\'imlar', col:'#FF6B35', pl:'opex', group:'Метод начисления', cf:'cfo', subs:[
 
 
     {code:'51', name:'Korporativ daromad solig\'i (CIT 12%)'},
@@ -2833,7 +2833,7 @@ const COA={
   // ── ⚠️ JARIMA VA ZARARLAR ───────────────────────────────────
 
 
-  penalty: {lbl:'⚠️ Jarima / Zararlar', col:'#FF4500', pl:'opex', group:'Метод начисления', subs:[
+  penalty: {lbl:'⚠️ Jarima / Zararlar', col:'#FF4500', pl:'opex', group:'Метод начисления', cf:'cfo', subs:[
 
 
     {code:'61', name:'Soliq jarimasi (Tax Fine)'},
@@ -2875,7 +2875,7 @@ const COA={
   // ── 🛡️ SUG'URTA ─────────────────────────────────────────────
 
 
-  insurance: {lbl:'🛡️ Sug\'urta', col:'#4A90D9', pl:'opex', group:'Метод начисления', subs:[
+  insurance: {lbl:'🛡️ Sug\'urta', col:'#4A90D9', pl:'opex', group:'Метод начисления', cf:'cfo', subs:[
 
 
     {code:'43', name:'Yuk sug\'urtasi (Cargo Insurance)'},
@@ -2905,7 +2905,7 @@ const COA={
   // ── 💵 AVANS VA DEPOZITLAR (Balance Sheet — Joriy Aktiv) ────
 
 
-  advance: {lbl:'💵 Avans / Depozit', col:'#00BCD4', pl:'advance', group:'Авансы / Депозиты', subs:[
+  advance: {lbl:'💵 Avans / Depozit', col:'#00BCD4', pl:'advance', group:'Авансы / Депозиты', cf:'cfo', subs:[
 
 
     {code:'71', name:'Yetkazib beruvchiga avans (Supplier Advance)'},
@@ -2935,7 +2935,7 @@ const COA={
   // ── 🔙 QAYTARISHLAR VA CHEGIRMALAR ──────────────────────────
 
 
-  refund: {lbl:'🔙 Qaytarish / Chegirma', col:'#9C27B0', pl:'revenue', group:'Метод начисления', subs:[
+  refund: {lbl:'🔙 Qaytarish / Chegirma', col:'#9C27B0', pl:'revenue', group:'Метод начисления', cf:'cfo', subs:[
 
 
     {code:'81', name:'Mijozdan tovar qaytarish (Customer Return)'},
@@ -2968,7 +2968,7 @@ const COA={
   // ── 📊 ZAXIRA VA TA'MINOTLAR (Non-Cash, IAS 37) ─────────────
 
 
-  provision: {lbl:'📊 Zaxira / Ta\'minot', col:'#607D8B', pl:'opex', group:'Резервы', subs:[
+  provision: {lbl:'📊 Zaxira / Ta\'minot', col:'#607D8B', pl:'opex', group:'Резервы', cf:'cfo', subs:[
 
 
     {code:'64', name:'Debitor zaxirasi (Allowance for Bad Debt)'},
@@ -2998,7 +2998,7 @@ const COA={
   // ── 🏦 MOLIYAVIY XARAJAT ────────────────────────────────────
 
 
-  finance: {lbl:'🏦 Moliyaviy Xarajat', col:'#A78BFF', pl:'finance', group:'Кредит', subs:[
+  finance: {lbl:'🏦 Moliyaviy Xarajat', col:'#A78BFF', pl:'finance', group:'Кредит', cf:'cff', subs:[
 
 
     {code:'41', name:'Bank krediti foizi (Bank Interest)'},
@@ -3037,7 +3037,7 @@ const COA={
   // ── 🏦 QARZ OLISH ───────────────────────────────────────────
 
 
-  loan_in: {lbl:'🏦 Qarz Olish', col:'#00D4FF', pl:'income', group:'Кредит', subs:[
+  loan_in: {lbl:'🏦 Qarz Olish', col:'#00D4FF', pl:'income', group:'Кредит', cf:'cff', subs:[
 
 
     {code:'31', name:'Bank kreditidan tushum (Bank Loan)'},
@@ -3070,7 +3070,7 @@ const COA={
   // ── 🔄 O'TKAZMA ─────────────────────────────────────────────
 
 
-  transfer: {lbl:'🔄 O\'tkazma', col:'#00D4FF', pl:'transfer', group:'Кредит', subs:[
+  transfer: {lbl:'🔄 O\'tkazma', col:'#00D4FF', pl:'transfer', group:'Кредит', cf:'cff', subs:[
 
 
     {code:'31', name:'Holding → Yo\'nalishga qarz'},
@@ -3109,7 +3109,7 @@ const COA={
   // Yetkazilganda 'inventory_release' → COGS ga o'tadi.
 
 
-  inventory: {lbl:'📦 Inventar (IAS 2)', col:'#FFB830', pl:'inventory', group:'Запасы', subs:[
+  inventory: {lbl:'📦 Inventar (IAS 2)', col:'#FFB830', pl:'inventory', group:'Запасы', cf:'cfo', subs:[
 
 
     // Cargo & Logistics
@@ -3163,7 +3163,7 @@ const COA={
   // Yuk yetkazildi / tovar sotildi → Inventardan COGS ga o'tadi
 
 
-  inventory_release: {lbl:'✅ COGS Chiqimi (Yetkazildi)', col:'#17B374', pl:'cogs_release', group:'Запасы', subs:[
+  inventory_release: {lbl:'✅ COGS Chiqimi (Yetkazildi)', col:'#17B374', pl:'cogs_release', group:'Запасы', cf:'cfo', subs:[
 
 
     {code:'20r', name:'Yuk yetkazildi — COGS release (Cargo)'},
@@ -3202,7 +3202,7 @@ const COA={
 const COA_HOLDING={
 
 
-  income: {lbl:'💰 Daromad / Dividend', col:'#17B374', pl:'revenue', group:'Метод начисления', subs:[
+  income: {lbl:'💰 Daromad / Dividend', col:'#17B374', pl:'revenue', group:'Метод начисления', cf:'cfo', subs:[
 
 
     {code:'11', name:'Yo\'nalishdan dividend (Dividend Income)'},
@@ -3226,7 +3226,7 @@ const COA_HOLDING={
   ]},
 
 
-  opex: {lbl:'🏢 Boshqaruv Xarajati', col:'#FF4D6A', pl:'opex', group:'Метод начисления', subs:[
+  opex: {lbl:'🏢 Boshqaruv Xarajati', col:'#FF4D6A', pl:'opex', group:'Метод начисления', cf:'cfo', subs:[
 
 
     {code:'12', name:'Boshqaruv maoshi (C-Level Salary)'},
@@ -3271,7 +3271,7 @@ const COA_HOLDING={
   ]},
 
 
-  tax: {lbl:'🏛️ Soliq va Yig\'imlar', col:'#FF6B35', pl:'opex', group:'Метод начисления', subs:[
+  tax: {lbl:'🏛️ Soliq va Yig\'imlar', col:'#FF6B35', pl:'opex', group:'Метод начисления', cf:'cfo', subs:[
 
 
     {code:'51', name:'Korporativ daromad solig\'i (CIT 12%)'},
@@ -3292,7 +3292,7 @@ const COA_HOLDING={
   ]},
 
 
-  capex: {lbl:'🏗️ CapEx (Aktivlar)', col:'#FFB830', pl:'capex', group:'Основные_средства', subs:[
+  capex: {lbl:'🏗️ CapEx (Aktivlar)', col:'#FFB830', pl:'capex', group:'Основные_средства', cf:'cfi', subs:[
 
 
     {code:'21', name:'Bino xaridi — holding'},
@@ -3316,7 +3316,7 @@ const COA_HOLDING={
   ]},
 
 
-  finance: {lbl:'🏦 Moliyaviy Xarajat', col:'#A78BFF', pl:'finance', group:'Кредит', subs:[
+  finance: {lbl:'🏦 Moliyaviy Xarajat', col:'#A78BFF', pl:'finance', group:'Кредит', cf:'cff', subs:[
 
 
     {code:'41', name:'Bank krediti foizi'},
@@ -3337,7 +3337,7 @@ const COA_HOLDING={
   ]},
 
 
-  loan_in: {lbl:'🏦 Qarz Olish', col:'#00D4FF', pl:'income', group:'Кредит', subs:[
+  loan_in: {lbl:'🏦 Qarz Olish', col:'#00D4FF', pl:'income', group:'Кредит', cf:'cff', subs:[
 
 
     {code:'31', name:'Bank kreditidan tushum'},
@@ -3355,7 +3355,7 @@ const COA_HOLDING={
   ]},
 
 
-  transfer: {lbl:'🔄 Yo\'nalishga O\'tkazma', col:'#00D4FF', pl:'transfer', group:'Кредит', subs:[
+  transfer: {lbl:'🔄 Yo\'nalishga O\'tkazma', col:'#00D4FF', pl:'transfer', group:'Кредит', cf:'cff', subs:[
 
 
     {code:'31', name:'Yo\'nalishga qarz berish'},
@@ -4677,7 +4677,7 @@ function buildDataFromTXNS(){
 
 
 
-    var income=0, cogs_=0, opex_=0, finance_=0, transfer_=0, capex_=0, loan_in_=0;
+    var income=0, cogs_=0, opex_=0, tax_=0, finance_=0, transfer_=0, capex_=0, loan_in_=0;
 
 
     txns.forEach(function(t){
@@ -4731,10 +4731,8 @@ function buildDataFromTXNS(){
       else if(t.type==='opex')                        opex_     += a;
 
 
-      // ✅ Tax, penalty, insurance, provision → OpEx ga boriladi (P&L)
-
-
-      else if(t.type==='tax')                         opex_     += a;
+      // ✅ Tax → alohida satr (IAS 1: OpEx dan pastda), penalty/insurance/provision → OpEx
+      else if(t.type==='tax')                         tax_      += a;
 
 
       else if(t.type==='penalty')                     opex_     += a;
@@ -4761,7 +4759,7 @@ function buildDataFromTXNS(){
     var nt = txns[0].purpose || txns[0].note || '';
 
 
-    var margin_ = income - cogs_ - opex_ - finance_;
+    var margin_ = income - cogs_ - opex_ - finance_ - tax_;
 
 
 
@@ -4770,19 +4768,19 @@ function buildDataFromTXNS(){
     if(d==='cargo' || d==='logistics'){
 
 
-      DATA[d].push({date:date, client:cp, sku:'', revenue:income, cogs:cogs_, expense:opex_, margin:margin_, note:nt});
+      DATA[d].push({date:date, client:cp, sku:'', revenue:income, cogs:cogs_, expense:opex_, tax_paid:tax_, margin:margin_, note:nt});
 
 
     } else if(d==='exchange'){
 
 
-      DATA[d].push({date:date, spread:income, expense:opex_, net:income-opex_, note:nt});
+      DATA[d].push({date:date, spread:income, expense:opex_, tax_paid:tax_, net:income-opex_-tax_, note:nt});
 
 
     } else if(d==='procurement'){
 
 
-      DATA[d].push({date:date, client:cp, sku:'', commission:income, expense:opex_, net:income-opex_, note:nt});
+      DATA[d].push({date:date, client:cp, sku:'', commission:income, expense:opex_, tax_paid:tax_, net:income-opex_-tax_, note:nt});
 
 
     } else { // holding — intercompany div_in alohida ajratiladi
@@ -13420,6 +13418,9 @@ function renderPL(focusDir){
 
 
 
+  // Non-holding yo'nalishlar soni (D&A taqsimlash uchun dinamik)
+  const _nonHoldingCount = DIRS.filter(function(d){ return d.id !== 'holding'; }).length || 4;
+
   const plData = dirs.map(d=>{
 
 
@@ -13501,7 +13502,7 @@ function renderPL(focusDir){
     // D&A: yo'nalish ulushi (rev bo'yicha)
 
 
-    const da = d.id !== 'holding' ? Math.round(totalDA_period * 0.25) : 0;
+    const da = d.id !== 'holding' ? Math.round(totalDA_period / _nonHoldingCount) : 0;
 
 
 
@@ -13528,7 +13529,9 @@ function renderPL(focusDir){
     const ebt = ebit - interest;
 
 
-    const tax = d.id === 'holding' ? 0 : Math.max(0, Math.round(ebt * TAX_RATE));
+    // Haqiqiy to'langan soliq (type='tax' tranzaksiyalar); yo'q bo'lsa EBT×12% taxmin
+    const _taxPaid = sk(rows,'tax_paid') || 0;
+    const tax = d.id === 'holding' ? 0 : (_taxPaid > 0 ? _taxPaid : Math.max(0, Math.round(ebt * TAX_RATE)));
 
 
     const netIncome = ebt - tax;
@@ -13676,7 +13679,7 @@ function renderPL(focusDir){
     {lbl:'📋 EBT (Soliqqa tortiluvchi)', key:'ebt', c:'#94A3C4', bold:true},
 
 
-    {lbl:'🏛️ Minus: Soliq (12%)', key:'tax', c:'#FF4D6A', neg:true},
+    {lbl:'🏛️ Minus: Daromad Solig\'i (CIT)', key:'tax', c:'#FF4D6A', neg:true},
 
 
     {lbl:'✅ Net Income (Sof foyda)', key:'netIncome', c:'var(--grn)', bold:true, pct:'netPct'},
@@ -15529,7 +15532,7 @@ function renderCashflow(focusDir){
   const inv_loans_given = -sk(h,'tr_out');
 
 
-  const inv_loan_rcv = Math.round(sk(h,'loan_in')*0.3);
+  const inv_loan_rcv = 0; // IAS 7: qarz tushumi — Moliyaviy faoliyat (CFF), Investing EMAS
 
 
   const cfi = inv_capex+inv_loans_given+inv_loan_rcv;
@@ -15541,10 +15544,12 @@ function renderCashflow(focusDir){
   // III. FINANCING ACTIVITIES
 
 
-  const fin_loans_in  = sk(h,'loan_in') - Math.round(sk(h,'loan_in')*0.3);
+  const fin_loans_in  = sk(h,'loan_in'); // IAS 7: 100% Moliyaviy faoliyat (CFF)
 
 
-  const fin_div_paid  = -Math.round(sk(h,'div_in')*0.6);
+  const fin_div_paid  = -TXNS.filter(function(t){
+    return t.type==='finance' && t.status!=='Bekor' && (t.subcat||'').indexOf('Dividendlar')>=0;
+  }).reduce(function(s,t){return s+Math.abs(+(t.amount)||0);},0);
 
 
   const fin_exp       = -sk(h,'exp_out');
@@ -15561,7 +15566,7 @@ function renderCashflow(focusDir){
 
   // ✅ Boshlanish kassasi — haqiqiy KASSA_DATA dan
   const _kassaTotCF=(function(){var tot=0;ensureKassaData();DIRS.forEach(function(d){var kas=KASSA_DATA[d.id]||{};KTYPES.forEach(function(tp){tot+=(kas['USD_'+tp]||{}).balance||0;tot+=((kas['RMB_'+tp]||{}).balance||0)/(OB.fx_rate_rmb||7.1);tot+=((kas['UZS_'+tp]||{}).balance||0)/(OB.fx_rate_uzs||12700);});});return Math.round(tot);})();
-  const begin_cash = _kassaTotCF > 0 ? _kassaTotCF : Math.round(Math.abs(net_change)*1.8+12000);
+  const begin_cash = Math.max(0, _kassaTotCF); // Haqiqiy kassa — ixtiro qilinmaydi
   const end_cash   = begin_cash+net_change;
 
 
@@ -16748,7 +16753,9 @@ function renderBalance(focusDir){
 
 
 
-  const ca_prepaid   = Math.round(rev*0.015); // kichik qoldiq
+  const ca_prepaid   = Math.round(TXNS.filter(function(t){
+    return t.type==='advance' && t.status!=='Bekor';
+  }).reduce(function(s,t){return s+Math.abs(+(t.amount)||0);},0)); // haqiqiy avanslar
 
 
   const total_ca     = ca_cash+ca_ar+ca_inventory+ca_prepaid;
@@ -16790,7 +16797,9 @@ function renderBalance(focusDir){
   const nca_intang   = OB.intangibles_net + capexIntang;         // OB + nomoddiy (22)
 
 
-  const nca_invest   = OB.lt_investments + sk(h,'tr_out'); // Uzoq muddatli inv.
+  const nca_invest   = OB.lt_investments + TXNS.filter(function(t){
+    return t.type==='capex' && (t.coa_code==='25'||+(t.coa_code)===25) && t.status!=='Bekor';
+  }).reduce(function(s,t){return s+Math.abs(+(t.amount)||0);},0); // faqat moliyaviy aktiv (kodi 25)
 
 
   const nca_other    = 0;
@@ -16835,10 +16844,10 @@ function renderBalance(focusDir){
 
 
 
-  // ✅ CFO: Tax = netIncome × 12% (Soliq majburiyati)
-
-
-  const cl_tax       = Math.max(0, Math.round(netIncome*0.12));
+  // ✅ Tax payable = hali to'lanmagan soliq tranzaksiyalar (netIncome×12% emas — ikki marta hisoblanadi)
+  const cl_tax       = Math.round(TXNS.filter(function(t){
+    return t.type==='tax' && t.status!=='Bekor' && t.status!=="To'langan";
+  }).reduce(function(s,t){return s+Math.abs(+(t.amount)||0);},0));
 
 
   const total_cl     = cl_ap+cl_loans_st+cl_accrued+cl_tax;
@@ -17261,36 +17270,22 @@ function renderBalance(focusDir){
     ${(function(){
 
 
+      var _kpiEbitda = rev
+        - (sk(c,'cogs')+sk(l,'cogs'))
+        - (sk(c,'expense')+sk(l,'expense')+sk(e,'expense')+sk(p,'expense'));
+      var _kpiInterest = TXNS.filter(function(t){
+        return t.type==='finance' && t.status!=='Bekor';
+      }).reduce(function(s,t){return s+Math.abs(+(t.amount)||0);},0);
       var kpis = calcFinancialKPIs({
-
-
-        ca: total_ca, cl: total_cl,
-
-
-        inventory: ca_inventory, ar: ca_ar, ap: cl_ap,
-
-
-        equity: total_equity, debt: total_liab,
-
-
+        total_ca: total_ca, total_cl: total_cl,
+        ca_inventory: ca_inventory, ca_ar: ca_ar, cl_ap: cl_ap,
+        total_equity: total_equity, total_liab: total_liab,
         total_assets: total_assets,
-
-
-        ebitda: rev>0 ? Math.round((rev-sk(c,'cogs')-sk(l,'cogs'))*0.6) : 0,
-
-
-        interest: Math.round(OB.lt_loans_payable * 0.08),
-
-
-        revenue: rev, net_income: netIncome,
-
-
-        days_in_period: (function(){var s=new Date(PER.from),e=new Date(PER.to);return Math.max(1,Math.round((e-s)/86400000));})(),
-
-
+        ebitda: Math.round(_kpiEbitda),
+        interest_total: Math.round(_kpiInterest),
+        rev: rev, net_income: netIncome,
+        period_days: (function(){var s=new Date(PER.from),e=new Date(PER.to);return Math.max(1,Math.round((e-s)/86400000));})(),
         cogs: sk(c,'cogs')+sk(l,'cogs'),
-
-
       });
 
 
@@ -19401,6 +19396,21 @@ function renderEntry(focusDir){
     if(grp==='Кредит') h+='<span style="font-size:10px;color:var(--tel);margin-left:auto">🏦 Qarz/kredit — CF Moliyaviy faoliyat</span>';
 
 
+    h+='</div>';
+
+
+    // CF section badge
+    var cfType = (getCOA(entDir)[entType]||{}).cf || 'cfo';
+    var cfMap = {
+      cfo: {lbl:'⚙️ Operating faoliyat (CFO)', col:'#17B374', desc:'Asosiy biznes operatsiyalari'},
+      cfi: {lbl:'🏗️ Investitsiya faoliyat (CFI)', col:'#FFB830', desc:'Aktiv xarid / investitsiyalar'},
+      cff: {lbl:'🏦 Moliyaviy faoliyat (CFF)', col:'#00D4FF', desc:'Qarz olish / qaytarish / dividend'},
+    };
+    var cfInfo = cfMap[cfType] || cfMap.cfo;
+    h+='<div style="display:flex;align-items:center;gap:8px;padding:7px 12px;background:'+cfInfo.col+'11;border:1px solid '+cfInfo.col+'44;border-radius:8px;margin-bottom:10px">';
+    h+='<span style="font-size:10px;color:var(--t3)">💹 CF bo\'lim:</span>';
+    h+='<span style="font-size:12px;font-weight:700;color:'+cfInfo.col+'">'+cfInfo.lbl+'</span>';
+    h+='<span style="font-size:10px;color:var(--t3);margin-left:auto">'+cfInfo.desc+'</span>';
     h+='</div>';
 
 
