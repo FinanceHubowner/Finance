@@ -20,6 +20,7 @@
 
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
 
 <style>
@@ -10670,6 +10671,11 @@ function buildNav(){
 
   });
 
+  // Excel export tugmasi — o'ng tomonda
+  h += '<div style="margin-left:auto">'
+     + '<button class="snbtn" onclick="exportToExcel()" title="Excel ga yuklash" '
+     + 'style="background:rgba(33,150,83,0.15);color:#21a653;border:1px solid #21a65340">'
+     + '📥 Excel</button></div>';
 
   h += '</div>';
 
@@ -20788,6 +20794,110 @@ var EX_CLIENTS_DATA = [];
 function exSave()   { lsSave('ex_txns', EX_TXNS); }
 function exFxSave() { lsSave('ex_fx_rate', EX_FX_RATE); }
 function exClientSave() { lsSave('ex_clients', EX_CLIENTS_DATA); }
+
+// ── Universal Excel Export ─────────────────────────────────────────────
+function exportToExcel(){
+  if(typeof XLSX === 'undefined'){ alert('XLSX kutubxona yuklanmagan'); return; }
+  var wb = XLSX.utils.book_new();
+  var dir = ACTV; // cargo, logistics, exchange, procurement, l1
+  var sub = ACTV_SUB;
+  var fileName = 'FinanceHub';
+
+  // Exchange transaksiyalar
+  if(dir === 'exchange' && (sub === 'dashboard' || sub === 'entry')){
+    var rows = EX_TXNS.map(function(t){
+      return {
+        'Sana': t.date||'', 'Tur': t.type||'', 'Mijoz': t.client||'',
+        'USD': +(t.usd||0), 'CNY': +(t.cny||0), 'Kurs': +(t.fx_rate||0),
+        'Komissiya': +(t.commission||0), 'Komissiya %': +(t.comm_rate||0),
+        'Izoh': t.note||'', 'Holat': t.approval_status||'',
+        'Kirituvchi': t.created_by||''
+      };
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Transaksiyalar');
+    fileName = 'Exchange_Transaksiyalar';
+
+  // Payroll
+  } else if(sub === 'payroll'){
+    var prRows = PAYROLL
+      .filter(function(e){ return !dir || dir==='l1' || e.dir===dir; })
+      .map(function(e){
+        return {
+          'Ism': e.name||'', "Bo'lim": e.dept||'', "Yo'nalish": e.dir||'',
+          'Lavozim': e.position||'', 'Maosh': +(e.salary||0),
+          'Bonus': +(e.bonus||0), 'Jami': +(e.salary||0)+(+(e.bonus||0)),
+          'Sana': e.date||''
+        };
+      });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(prRows), 'Payroll');
+    fileName = (dir==='l1'?'Holding':dir)+'_Payroll';
+
+  // P&L / Kiritishlar (TXNS)
+  } else if(sub === 'pl' || sub === 'entry' || sub === 'dashboard'){
+    var txnRows = TXNS
+      .filter(function(t){ return !dir || dir==='l1' || t.dir===dir; })
+      .map(function(t){
+        return {
+          'Sana': t.date||'', "Yo'nalish": t.dir||'', "Tur": t.type||'',
+          'Kategoriya': t.cat||'', 'Miqdor': +(t.amount||0),
+          'Valyuta': t.currency||'UZS', 'Kontragent': t.cpty||'',
+          'Izoh': t.note||''
+        };
+      });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(txnRows), 'Tranzaksiyalar');
+    fileName = (dir==='l1'?'Holding':dir)+'_PL';
+
+  // Kassa
+  } else if(sub === 'kassa'){
+    var kassaRows = [];
+    (KASSA_DATA||[]).forEach(function(k){
+      if(dir && dir!=='l1' && k.dir && k.dir!==dir) return;
+      (k.entries||[]).forEach(function(e){
+        kassaRows.push({
+          'Kassa': k.name||'', "Yo'nalish": k.dir||'',
+          'Sana': e.date||'', 'Tur': e.type||'',
+          'Miqdor': +(e.amount||0), 'Valyuta': e.currency||'UZS',
+          'Izoh': e.note||''
+        });
+      });
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(kassaRows.length?kassaRows:[{}]), 'Kassa');
+    fileName = (dir==='l1'?'Holding':dir)+'_Kassa';
+
+  // CRM / Mijozlar
+  } else if(sub === 'crm'){
+    var crmRows = (KONTRAGENTS[dir]||[]).map(function(c){
+      return {
+        'Nomi': c.company||c.name||'', 'Tur': c.type||'',
+        'Tel': c.phone||'', 'Email': c.email||'',
+        'Izoh': c.note||''
+      };
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(crmRows.length?crmRows:[{}]), 'Mijozlar');
+    fileName = (dir==='l1'?'Holding':dir)+'_Mijozlar';
+
+  // Pipeline
+  } else if(sub === 'pipeline'){
+    var pipeRows = PIPELINE_DATA
+      .filter(function(d){ return !dir || dir==='l1' || d.dir===dir; })
+      .map(function(d){
+        return {
+          'Nomi': d.name||'', 'Bosqich': d.stage||'', 'Miqdor': +(d.amount||0),
+          "Yo'nalish": d.dir||'', 'Mijoz': d.client||'',
+          'Sana': d.date||'', 'Izoh': d.note||''
+        };
+      });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pipeRows.length?pipeRows:[{}]), 'Pipeline');
+    fileName = (dir==='l1'?'Holding':dir)+'_Pipeline';
+
+  } else {
+    alert("Bu sahifadan Excel yuklash hali qo'shilmagan");
+    return;
+  }
+
+  var today = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, fileName+'_'+today+'.xlsx');
+}
 
 // ── Balance calculator ────────────────────────────────────────────────
 // Returns {bank_usd, bank_cny, client_usd, client_cny, co_usd, co_cny,
