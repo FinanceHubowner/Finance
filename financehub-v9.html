@@ -21447,8 +21447,9 @@ function exSaveTxn(type){
   if(txn.client) kontragentsAdd('exchange', txn.client, 'client');
   // Supabase ga saqlash
   if(SB){
-    SB.from('ex_txns').upsert([txn]).then(function(res){
+    SB.from('ex_txns').upsert([exTxnToRow(txn)], {onConflict:'id'}).then(function(res){
       if(res.error) console.warn('ex_txns Supabase xato:', res.error.message);
+      else console.log('ex_txns Supabase ga saqlandi:', txn.id);
     });
   }
   // Close any open overlays
