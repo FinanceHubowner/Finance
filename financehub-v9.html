@@ -10877,9 +10877,10 @@ const SUBNAV_DEFS = {
     {id:'crm',       lbl:'Mijozlar',         icon:'👥'},
     {id:'pipeline',  lbl:'Pipeline',         icon:'📈'},
     {id:'payroll',   lbl:'Payroll',          icon:'👨‍💼'},
-    {id:'tasks',     lbl:'Vazifalar',        icon:'✅'},
-    {id:'requests',  lbl:"So’rovlar",       icon:'📝'},
-    {id:'entry',     lbl:'Kiritish',         icon:'✏️'},
+    {id:’tasks’,     lbl:’Vazifalar’,        icon:’✅’},
+    {id:’requests’,  lbl:"So’rovlar",       icon:’📝’},
+    {id:’actfact’,   lbl:’Actual vs Fact’,  icon:’📊’},
+    {id:’entry’,     lbl:’Kiritish’,         icon:’✏️’},
   ],
   logistics: [
     {id:'dashboard', lbl:'Dashboard',        icon:'📊'},
@@ -10892,9 +10893,10 @@ const SUBNAV_DEFS = {
     {id:'crm',       lbl:'Mijozlar',         icon:'👥'},
     {id:'pipeline',  lbl:'Pipeline',         icon:'📈'},
     {id:'payroll',   lbl:'Payroll',          icon:'👨‍💼'},
-    {id:'tasks',     lbl:'Vazifalar',        icon:'✅'},
-    {id:'requests',  lbl:"So’rovlar",       icon:'📝'},
-    {id:'entry',     lbl:'Kiritish',         icon:'✏️'},
+    {id:’tasks’,     lbl:’Vazifalar’,        icon:’✅’},
+    {id:’requests’,  lbl:"So’rovlar",       icon:’📝’},
+    {id:’actfact’,   lbl:’Actual vs Fact’,  icon:’📊’},
+    {id:’entry’,     lbl:’Kiritish’,         icon:’✏️’},
   ],
   exchange: [
     {id:'dashboard', lbl:'Dashboard',        icon:'📊'},
@@ -10905,9 +10907,10 @@ const SUBNAV_DEFS = {
     {id:'crm',       lbl:'Mijozlar',         icon:'👥'},
     {id:'pipeline',  lbl:'Pipeline',         icon:'📈'},
     {id:'payroll',   lbl:'Payroll',          icon:'👨‍💼'},
-    {id:'tasks',     lbl:'Vazifalar',        icon:'✅'},
-    {id:'requests',  lbl:"So’rovlar",       icon:'📝'},
-    {id:'entry',     lbl:'Kiritish',         icon:'✏️'},
+    {id:’tasks’,     lbl:’Vazifalar’,        icon:’✅’},
+    {id:’requests’,  lbl:"So’rovlar",       icon:’📝’},
+    {id:’actfact’,   lbl:’Actual vs Fact’,  icon:’📊’},
+    {id:’entry’,     lbl:’Kiritish’,         icon:’✏️’},
   ],
   procurement: [
     {id:'dashboard', lbl:'Dashboard',        icon:'📊'},
@@ -10920,9 +10923,10 @@ const SUBNAV_DEFS = {
     {id:'crm',       lbl:'Mijozlar',         icon:'👥'},
     {id:'pipeline',  lbl:'Pipeline',         icon:'📈'},
     {id:'payroll',   lbl:'Payroll',          icon:'👨‍💼'},
-    {id:'tasks',     lbl:'Vazifalar',        icon:'✅'},
-    {id:'requests',  lbl:"So’rovlar",       icon:'📝'},
-    {id:'entry',     lbl:'Kiritish',         icon:'✏️'},
+    {id:’tasks’,     lbl:’Vazifalar’,        icon:’✅’},
+    {id:’requests’,  lbl:"So’rovlar",       icon:’📝’},
+    {id:’actfact’,   lbl:’Actual vs Fact’,  icon:’📊’},
+    {id:’entry’,     lbl:’Kiritish’,         icon:’✏️’},
   ],
 };
 
@@ -11404,6 +11408,10 @@ function goNav(id){
   } else if(subId==='requests'){
 
     renderRequestsPage(dirId);
+
+  } else if(subId==='actfact'){
+
+    renderActualFact(dirId);
 
   } else {
 
@@ -12481,7 +12489,11 @@ function renderActualFact(dirId){
   var MC = document.getElementById(isAll?'pg-l1':'pg-l2'); if(!MC) return;
   MC.classList.add('on');
   var dirObj = DIRS.find(function(d){return d.id===dirId;})||{name:"Barcha Yo'nalishlar",icon:'🏢'};
-  setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:'📊 Actual vs Fact',fn:''}]);
+  if(isAll){
+    setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:'📊 Actual vs Fact',fn:''}]);
+  } else {
+    setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:(dirObj.icon||'')+' '+(dirObj.name||dirId),fn:"goNav('"+dirId+"')"},{lbl:'📊 Actual vs Fact',fn:''}]);
+  }
 
   // Approved requests = planned (budget) spending
   var approved = REQUESTS.filter(function(r){
@@ -12526,8 +12538,8 @@ function renderActualFact(dirId){
 
   var h='<div style="padding:20px;max-width:1300px;margin:0 auto">';
   h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">';
-  h+='<div><div style="font-size:18px;font-weight:700;color:var(--t1)">📊 Actual vs Fact (CFP)</div>';
-  h+='<div style="font-size:11px;color:var(--t3)">Tasdiqlangan sorovlar (Byudjet) vs Haqiqiy harajatlar</div></div>';
+  h+='<div><div style="font-size:18px;font-weight:700;color:var(--t1)">📊 '+(isAll?'Holding — Actual vs Fact (CFP)':(dirObj.icon||'')+' '+(dirObj.name||dirId)+' — Actual vs Fact')+'</div>';
+  h+='<div style="font-size:11px;color:var(--t3)">'+(isAll?'Barcha yo\'nalishlar bo\'yicha':'Yo\'nalish bo\'yicha')+' tasdiqlangan so\'rovlar (Byudjet) vs haqiqiy harajatlar</div></div>';
   h+='<button onclick="openNewReqModal(\'\',\'expense\')" style="padding:7px 14px;background:#FFB830;border:none;border-radius:8px;color:#000;cursor:pointer;font-size:12px;font-weight:600">+ So’rov</button>';
   h+='</div>';
 
