@@ -568,24 +568,41 @@ function exPushToSupabase(){
     });
 }
 function exSyncFromSupabase(){
-  // Faqat Supabase dan yuklaydi, hech qachon localdan o'chirmaydi
   if(!SB) return;
   SB.from('ex_txns').select('*').order('date',{ascending:true}).limit(2000)
     .then(function(res){
       if(res.error){ console.warn('exSync error:', res.error.message); return; }
       if(!res.data || !res.data.length){ console.log('exSync: Supabase bo\'sh'); return; }
-      // Lokaldan o'chirmasdan faqat yangilarini qo'shish
-      var localIds = EX_TXNS.map(function(t){return t.id;});
-      var newFromSB = res.data.filter(function(t){return localIds.indexOf(t.id)<0;});
-      if(newFromSB.length > 0){
-        EX_TXNS = EX_TXNS.concat(newFromSB);
+
+      var changed = false;
+      var localMap = {};
+      EX_TXNS.forEach(function(t){ localMap[t.id] = t; });
+
+      res.data.forEach(function(sbTxn){
+        var local = localMap[sbTxn.id];
+        if(!local){
+          // Yangi — qo'shish
+          EX_TXNS.push(sbTxn);
+          changed = true;
+        } else {
+          // Mavjud — updated_at bilan taqqoslash (server yangiroq bo'lsa overwrite)
+          var sbTime  = new Date(sbTxn.updated_at  || sbTxn.created_at || 0).getTime();
+          var locTime = new Date(local.updated_at   || local.created_at  || 0).getTime();
+          if(sbTime > locTime){
+            // Server versiyasi yangiroq — localni yangilash
+            Object.assign(local, sbTxn);
+            changed = true;
+            console.log('exSync: updated from server:', sbTxn.id, '(server newer)');
+          }
+        }
+      });
+
+      if(changed){
         EX_TXNS.sort(function(a,b){return (a.date||'').localeCompare(b.date||'');});
         exSave();
-        console.log('exSync: added', newFromSB.length, 'new rows from Supabase');
         if(ACTV==='exchange' && ACTV_SUB==='dashboard') renderExchangeDash();
-      } else {
-        console.log('exSync: hamma narsa yangi, qo\'shildi 0');
       }
+      console.log('exSync: done, changed='+changed);
     }).catch(function(e){ console.warn('exSync catch:', e); });
 }
 
@@ -593,7 +610,8 @@ function showDash(profile) {
 
 
   CUR_USER = profile;
-
+  _resetActivity();
+  _startSessionTimer();
 
   document.getElementById("LGN").style.display = "none";
 
@@ -619,10 +637,10 @@ function showDash(profile) {
       el.innerHTML =
 
 
-        "<span style='color:#94A3C4;font-size:11px'>" + (profile.full_name || profile.email) + "</span> " +
+        "<span style='color:#94A3C4;font-size:11px'>" + escHtml(profile.full_name || profile.email) + "</span> " +
 
 
-        "<span style='background:rgba(108,142,255,0.1);color:" + (rc[role]||"#6C8EFF") + ";font-size:10px;padding:2px 8px;border-radius:999px'>" + role + "</span> " +
+        "<span style='background:rgba(108,142,255,0.1);color:" + (rc[role]||"#6C8EFF") + ";font-size:10px;padding:2px 8px;border-radius:999px'>" + escHtml(role) + "</span> " +
 
 
         "<button onclick='LGOUT()' style='padding:4px 10px;border-radius:5px;border:1px solid rgba(108,142,255,0.2);background:transparent;color:#506080;cursor:pointer;font-size:11px'>Chiqish</button>";
@@ -851,8 +869,36 @@ async function LGOG() {
   if(res.error){ if(err) err.textContent = res.error.message; }
 }
 
-async function LGOUT() {
+// Session timeout — 30 daqiqa harakatsizlik
+var _lastActivity = Date.now();
+var _SESSION_TIMEOUT = 30 * 60 * 1000;
+var _sessionTimer = null;
 
+function _resetActivity(){
+  _lastActivity = Date.now();
+}
+
+function _startSessionTimer(){
+  if(_sessionTimer) clearInterval(_sessionTimer);
+  _sessionTimer = setInterval(function(){
+    if(CUR_USER && Date.now() - _lastActivity > _SESSION_TIMEOUT){
+      clearInterval(_sessionTimer);
+      _sessionTimer = null;
+      LGOUT();
+      setTimeout(function(){
+        var le2 = document.getElementById('LE2');
+        if(le2) le2.textContent = '⏱ Sessiya muddati tugadi. Qayta kiring.';
+      }, 300);
+    }
+  }, 60000);
+}
+
+['mousemove','keydown','click','touchstart','scroll'].forEach(function(ev){
+  document.addEventListener(ev, _resetActivity, {passive:true});
+});
+
+async function LGOUT() {
+  if(_sessionTimer){ clearInterval(_sessionTimer); _sessionTimer = null; }
 
   await SB.auth.signOut();
 
@@ -1221,6 +1267,17 @@ function lsSave(key,val){try{localStorage.setItem('fh_'+key,JSON.stringify(val))
 
 function lsLoad(key){try{var v=localStorage.getItem('fh_'+key);return v?JSON.parse(v):null;}catch(e){return null;}}
 
+// XSS himoyasi — barcha innerHTML ga user input kiritishdan oldin ishlatish
+function escHtml(s){
+  if(s===null||s===undefined) return '';
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#039;');
+}
+
 function clearAllData(){
   var keys=['txns','payroll','crm_clients','pipeline','kassas2','ex_txns','pipeline_d','ehson','ob_settings'];
   keys.forEach(function(k){try{localStorage.removeItem('fh_'+k);}catch(e){}});
@@ -1270,6 +1327,80 @@ function dataImport(){
 }
 
 // ════════════════════════════════════════════
+// RECONCILIATION — Yo'nalishlar orasidagi muvofiqlik tekshiruvi
+// ════════════════════════════════════════════
+function runReconciliation(){
+  var results = [];
+
+  // 1. Intercompany: Holding div_in vs Subsidiary div_out
+  var holdingDivIn = TXNS.filter(function(t){
+    return t.direction==='holding' && t.type==='income' && isIntercoTxn(t);
+  }).reduce(function(s,t){return s+Math.abs(+(t.amount)||0);},0);
+
+  var subsDivOut = TXNS.filter(function(t){
+    return t.direction!=='holding' && t.type==='expense' && isIntercoTxn(t);
+  }).reduce(function(s,t){return s+Math.abs(+(t.amount)||0);},0);
+
+  var intercoGap = Math.abs(holdingDivIn - subsDivOut);
+  results.push({
+    check: 'Intercompany Elimination',
+    a: 'Holding div_in: $' + holdingDivIn.toLocaleString(),
+    b: 'Subsidiary div_out: $' + subsDivOut.toLocaleString(),
+    gap: intercoGap,
+    ok: intercoGap < 1
+  });
+
+  // 2. Kassa balansi vs Tranzaksiyalar yig'indisi (har yo'nalish)
+  ['cargo','logistics','exchange','procurement'].forEach(function(dir){
+    var txnSum = TXNS.filter(function(t){
+      return t.direction===dir && t.status!=='Bekor';
+    }).reduce(function(s,t){
+      return s + (t.type==='income' ? +(t.amount)||0 : -(+(t.amount)||0));
+    }, 0);
+
+    var kassaSum = 0;
+    (KASSA_DATA||[]).forEach(function(k){
+      if(k.dir===dir)(k.entries||[]).forEach(function(e){
+        kassaSum += e.type==='income' ? +(e.amount)||0 : -(+(e.amount)||0);
+      });
+    });
+
+    var gap = Math.abs(txnSum - kassaSum);
+    results.push({
+      check: dir.charAt(0).toUpperCase()+dir.slice(1)+' P&L vs Kassa',
+      a: 'P&L net: $' + Math.round(txnSum).toLocaleString(),
+      b: 'Kassa net: $' + Math.round(kassaSum).toLocaleString(),
+      gap: gap,
+      ok: gap < 10
+    });
+  });
+
+  // Natijani ko'rsatish
+  var h = '<div style="padding:16px;max-width:600px">';
+  h += '<div style="font-size:14px;font-weight:700;margin-bottom:12px">🔍 Reconciliation Natijasi</div>';
+  results.forEach(function(r){
+    var color = r.ok ? '#00E5A0' : '#FF4D6A';
+    var icon  = r.ok ? '✅' : '⚠️';
+    h += '<div style="border:1px solid '+(r.ok?'#00E5A022':'#FF4D6A33')+';border-radius:8px;padding:10px 14px;margin-bottom:8px;background:'+(r.ok?'#00E5A008':'#FF4D6A08')+'">';
+    h += '<div style="font-size:12px;font-weight:700;color:'+color+'">'+icon+' '+escHtml(r.check)+'</div>';
+    h += '<div style="font-size:11px;color:var(--t3);margin-top:4px">'+escHtml(r.a)+' | '+escHtml(r.b)+'</div>';
+    if(!r.ok) h += '<div style="font-size:11px;color:#FF4D6A;margin-top:2px">Farq: $'+Math.round(r.gap).toLocaleString()+'</div>';
+    h += '</div>';
+  });
+  h += '<button onclick="this.parentElement.parentElement.remove()" style="margin-top:8px;padding:8px 20px;border-radius:6px;border:1px solid var(--b2);background:var(--s2);color:var(--t2);cursor:pointer;font-size:12px">Yopish</button>';
+  h += '</div>';
+
+  var overlay = document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:9999';
+  var box = document.createElement('div');
+  box.style.cssText='background:var(--bg);border-radius:12px;border:1px solid var(--b2);max-height:80vh;overflow-y:auto';
+  box.innerHTML=h;
+  overlay.appendChild(box);
+  overlay.addEventListener('click',function(e){if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+}
+
+// ════════════════════════════════════════════
 // PERIOD CLOSE — Davr yopish tizimi
 // ════════════════════════════════════════════
 var CLOSED_PERIODS = (function(){ return lsLoad('closed_periods') || []; })();
@@ -1289,16 +1420,35 @@ function isPeriodClosed(dateStr){
 }
 
 // ════════════════════════════════════════════
+// ── Audit Log ─────────────────────────────────────────────────────────
+function auditLog(action, tableName, recordId, oldVal, newVal){
+  if(!SB || !CUR_USER) return;
+  var entry = {
+    action: action,
+    table_name: tableName,
+    record_id: String(recordId),
+    old_value: oldVal ? JSON.stringify(oldVal) : null,
+    new_value: newVal ? JSON.stringify(newVal) : null,
+    user_email: CUR_USER.email || CUR_USER.full_name || 'unknown',
+    ts: new Date().toISOString()
+  };
+  SB.from('audit_log').insert([entry]).then(function(res){
+    if(res.error) console.warn('audit_log xato:', res.error.message);
+  });
+}
+
 // APPROVAL WORKFLOW
 // ════════════════════════════════════════════
 function approveTxn(id){
   var t = TXNS.find(function(x){return x.id===id;});
   if(!t) return;
   if(CUR_USER && (CUR_USER.role==='owner'||CUR_USER.role==='manager')){
+    var oldStatus = t.approval_status;
     t.approval_status = 'approved';
     t.approved_by = CUR_USER.full_name || CUR_USER.email;
     t.approved_at = new Date().toISOString();
     txnsSave();
+    auditLog('approve','txns', id, {approval_status:oldStatus}, {approval_status:'approved', approved_by:t.approved_by});
     toast('✅ Tasdiqlandi: ' + (t.purpose||t.note||t.id));
     renderL2(t.direction||'logistics');
   }
@@ -1307,10 +1457,12 @@ function rejectTxn(id){
   var t = TXNS.find(function(x){return x.id===id;});
   if(!t) return;
   if(CUR_USER && (CUR_USER.role==='owner'||CUR_USER.role==='manager')){
+    var oldStatus = t.approval_status;
     t.approval_status = 'rejected';
     t.approved_by = CUR_USER.full_name || CUR_USER.email;
     t.approved_at = new Date().toISOString();
     txnsSave();
+    auditLog('reject','txns', id, {approval_status:oldStatus}, {approval_status:'rejected', approved_by:t.approved_by});
     toast('❌ Rad etildi: ' + (t.purpose||t.note||t.id));
     renderL2(t.direction||'logistics');
   }
@@ -1325,10 +1477,10 @@ function pendingTxnsHTML(dir){
   pending.slice(0,10).forEach(function(t){
     var canApprove = CUR_USER && (CUR_USER.role==='owner'||CUR_USER.role==='manager');
     h += '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:.5px solid var(--b1);font-size:12px">';
-    h += '<span style="color:var(--t3)">' + (t.date||'') + '</span>';
-    h += '<span style="color:var(--t2);flex:1">' + (t.purpose||t.note||'—') + '</span>';
+    h += '<span style="color:var(--t3)">' + escHtml(t.date||'') + '</span>';
+    h += '<span style="color:var(--t2);flex:1">' + escHtml(t.purpose||t.note||'—') + '</span>';
     h += '<span style="color:var(--amb);font-family:var(--mono)">$' + (+(t.amount)||0).toLocaleString() + '</span>';
-    h += '<span style="color:var(--t3);font-size:10px">' + (t.created_by||'') + '</span>';
+    h += '<span style="color:var(--t3);font-size:10px">' + escHtml(t.created_by||'') + '</span>';
     if(canApprove){
       h += '<button onclick="approveTxn(\'' + t.id + '\')" style="padding:3px 10px;border-radius:5px;border:none;background:var(--grn);color:#000;cursor:pointer;font-size:10px;font-weight:600">✓</button>';
       h += '<button onclick="rejectTxn(\'' + t.id + '\')" style="padding:3px 10px;border-radius:5px;border:none;background:var(--red);color:#fff;cursor:pointer;font-size:10px;font-weight:600">✗</button>';
@@ -1916,7 +2068,7 @@ function calcFXGainLoss(){
         var txnRates = TXNS.filter(function(t){
 
 
-          return t.direction===d.id && t.currency===cur && t.type==='income' && t.status!=='Bekor';
+          return t.direction===d.id && t.currency===cur && (t.type==='income'||t.type==='expense') && t.status!=='Bekor';
 
 
         }).map(function(t){return +t.fx_rate||rate;});
@@ -5272,13 +5424,13 @@ function buildCRMCards() {
     h += '<div style="width:40px;height:40px;border-radius:10px;background:'+sc+'22;border:1px solid '+sc+'44;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:'+sc+';font-family:var(--mono);flex-shrink:0">'+initials+'</div>';
 
 
-    h += '<div style="min-width:0"><div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+c.company+'</div>';
+    h += '<div style="min-width:0"><div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(c.company)+'</div>';
 
 
-    h += '<div style="font-size:11px;color:var(--t3)">'+c.contact+' · '+c.city+'</div></div>';
+    h += '<div style="font-size:11px;color:var(--t3)">'+escHtml(c.contact)+' · '+escHtml(c.city)+'</div></div>';
 
 
-    h += '<span style="margin-left:auto;padding:2px 9px;border-radius:999px;font-size:10px;font-family:var(--mono);background:'+sc+'18;color:'+sc+';border:1px solid '+sc+'33;flex-shrink:0">'+c.status+'</span>';
+    h += '<span style="margin-left:auto;padding:2px 9px;border-radius:999px;font-size:10px;font-family:var(--mono);background:'+sc+'18;color:'+sc+';border:1px solid '+sc+'33;flex-shrink:0">'+escHtml(c.status)+'</span>';
 
 
     h += '</div>';
@@ -6879,13 +7031,13 @@ function showClientDetail(id) {
   html += '<div style="width:48px;height:48px;border-radius:12px;background:'+sc+'22;border:2px solid '+sc+'44;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:'+sc+';font-family:var(--mono)">'+initials+'</div>';
 
 
-  html += '<div><div style="font-size:17px;font-weight:700">'+c.company+'</div>';
+  html += '<div><div style="font-size:17px;font-weight:700">'+escHtml(c.company)+'</div>';
 
 
-  html += '<div style="font-size:11px;color:var(--t3)">'+c.city+' · '+c.direction+' · Manba: '+c.source+'</div></div>';
+  html += '<div style="font-size:11px;color:var(--t3)">'+escHtml(c.city)+' · '+escHtml(c.direction)+' · Manba: '+escHtml(c.source)+'</div></div>';
 
 
-  html += '<span style="margin-left:auto;padding:4px 14px;border-radius:999px;font-size:12px;font-family:var(--mono);background:'+sc+'18;color:'+sc+';border:1px solid '+sc+'33">'+c.status+'</span>';
+  html += '<span style="margin-left:auto;padding:4px 14px;border-radius:999px;font-size:12px;font-family:var(--mono);background:'+sc+'18;color:'+sc+';border:1px solid '+sc+'33">'+escHtml(c.status)+'</span>';
 
 
   html += '</div>';
@@ -13403,13 +13555,17 @@ function renderPL(focusDir){
   // Holding's interco div_in subtracted from consolidated revenue
 
 
-  const intercoElim = PL_INTERCO ? TXNS.filter(function(t){
-
-
+  // Holding interco div_in
+  const intercoElimIn = PL_INTERCO ? TXNS.filter(function(t){
     return t.direction==='holding' && t.type==='income' && isIntercoTxn(t);
-
-
   }).reduce(function(s,t){return s+Math.abs(+(t.amount)||0);},0) : 0;
+
+  // Subsidiary interco div_out (expense) — ham eliminate qilinadi
+  const intercoElimOut = PL_INTERCO ? TXNS.filter(function(t){
+    return t.direction!=='holding' && t.type==='expense' && isIntercoTxn(t);
+  }).reduce(function(s,t){return s+Math.abs(+(t.amount)||0);},0) : 0;
+
+  const intercoElim = intercoElimIn + intercoElimOut;
 
 
 
@@ -20628,6 +20784,13 @@ function renderOBSettings(){
   h += '<button onclick="dataImport()" style="padding:9px 18px;border-radius:7px;border:1px solid var(--acc);background:rgba(108,142,255,0.1);color:var(--acc);cursor:pointer;font-size:12px;font-weight:600">📥 Import (joylashtirish)</button>';
   h += '</div></div>';
 
+  // Reconciliation
+  h += '<div class="card" style="margin-top:20px;border-color:#6C8EFF">';
+  h += '<div style="font-size:12px;font-weight:600;color:#6C8EFF;margin-bottom:8px">🔍 Reconciliation — Muvofiqlik tekshiruvi</div>';
+  h += '<div style="font-size:11px;color:var(--t3);margin-bottom:12px">Yo\'nalishlar orasidagi intercompany va kassa balanslarini avtomatik tekshiradi.</div>';
+  h += '<button onclick="runReconciliation()" style="padding:9px 18px;border-radius:7px;border:1px solid #6C8EFF;background:rgba(108,142,255,0.1);color:#6C8EFF;cursor:pointer;font-size:12px;font-weight:600">🔍 Tekshirishni boshlash</button>';
+  h += '</div>';
+
   // Faqat owner uchun: davr yopish va tozalash
   if(CUR_USER && CUR_USER.role === 'owner'){
     h += '<div class="card" style="margin-top:20px;border-color:var(--tel)">';
@@ -20913,17 +21076,20 @@ function exCalcBalance(txns){
       b.bank_usd+=u; b.bank_cny+=c;
       b.client_usd+=u; b.client_cny+=c;
     } else if(tp==='break'){
-      // Pul maydalash: USD → CNY (Mijoz 1)
+      // Pul maydalash: USD → CNY. Komissiya USD dan olinib CNY ga aylantiriladi
       var cny_gross = u * fx;
-      var comm_cny  = u * +(t.comm_rate||0.02);
+      var comm_usd_b = u * +(t.comm_rate||0.02);
+      var comm_cny  = comm_usd_b * fx;
       b.bank_usd -= u; b.bank_cny += cny_gross;
       b.client_usd -= u; b.client_cny += (cny_gross - comm_cny);
       b.co_cny += comm_cny;
       b.comm_total_cny += comm_cny;
       b.vol_usd += u;
     } else if(tp==='send_cny'){
-      // Ta'minotchiga CNY o'tkazma
+      // Ta'minotchiga CNY o'tkazma + transfer komissiyasi
+      var comm_send = c * +(t.comm_rate||0.005);
       b.bank_cny -= c; b.client_cny -= c;
+      b.co_cny += comm_send; b.comm_total_cny += comm_send;
     } else if(tp==='send_usd'){
       // Ta'minotchiga USD o'tkazma + 0.02/USD komissiya
       var comm_u = u * +(t.comm_rate||0.0002);
@@ -21067,13 +21233,13 @@ function renderExchangeDash(){
       var meta = EX_TYPE_META[t.type]||{lbl:t.type,color:'#6b7280'};
       var comm = +(t.commission||0);
       h += '<tr style="border-bottom:1px solid var(--b2);" onmouseover="this.style.background=\'var(--s3)\'" onmouseout="this.style.background=\'\'">';
-      h += '<td style="padding:7px 10px;">'+t.date+'</td>';
-      h += '<td style="padding:7px 10px;"><span style="background:'+meta.color+'22;color:'+meta.color+';padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700;">'+meta.lbl+'</span></td>';
-      h += '<td style="padding:7px 10px;font-weight:500;">'+( t.client||'—')+'</td>';
+      h += '<td style="padding:7px 10px;">'+escHtml(t.date)+'</td>';
+      h += '<td style="padding:7px 10px;"><span style="background:'+meta.color+'22;color:'+meta.color+';padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700;">'+escHtml(meta.lbl)+'</span></td>';
+      h += '<td style="padding:7px 10px;font-weight:500;">'+escHtml(t.client||'—')+'</td>';
       h += '<td style="padding:7px 10px;color:var(--t2);">'+(t.usd?exFmt(t.usd):'—')+'</td>';
       h += '<td style="padding:7px 10px;color:#6C8EFF;">'+(t.cny?exFmtCny(t.cny):'—')+'</td>';
       h += '<td style="padding:7px 10px;color:var(--grn);font-weight:600;">'+(comm?exFmt(comm):'—')+'</td>';
-      h += '<td style="padding:7px 10px;color:var(--t3);font-size:11px;">'+(t.note||'')+'</td>';
+      h += '<td style="padding:7px 10px;color:var(--t3);font-size:11px;">'+escHtml(t.note||'')+'</td>';
       h += '</tr>';
     });
     h += '</tbody></table>';
@@ -21224,7 +21390,7 @@ function exFxModal(){
     +'<div style="font-size:12px;color:var(--t3);margin-bottom:8px;">1 USD = ? CNY</div>'
     +'<input id="exFxInput" type="number" step="0.01" value="'+EX_FX_RATE+'" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--t1);font-size:16px;margin-bottom:16px;">'
     +'<div style="display:flex;gap:8px;">'
-    +'<button onclick="var v=parseFloat(document.getElementById(\'exFxInput\').value);if(v>0){EX_FX_RATE=v;exFxSave();this.closest(\'div\').parentElement.remove();renderExchangeDash();toast(\'✅ FX kurs yangilandi: 1 USD = \'+v+\' CNY\');}" '
+    +'<button onclick="var v=parseFloat(document.getElementById(\'exFxInput\').value);if(!v||v<6.0||v>8.5){toast(\'⚠️ Kurs noto\\\'g\\\'ri! RMB kursi 6.0–8.5 oralig\\\'ida bo\\\'lishi kerak\');return;}EX_FX_RATE=v;exFxSave();this.closest(\'div\').parentElement.remove();renderExchangeDash();toast(\'✅ FX kurs yangilandi: 1 USD = \'+v+\' CNY\');" '
     +'style="flex:1;padding:10px;border-radius:8px;border:none;background:#D48C0A;color:#fff;cursor:pointer;font-weight:700;">Saqlash</button>'
     +'<button onclick="this.closest(\'div\').parentElement.remove()" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--t2);cursor:pointer;">Bekor</button>'
     +'</div></div>';
@@ -21549,20 +21715,27 @@ function exSaveTxn(type){
     txn.cny=parseFloat(g('exF_cny'))||0;
   }
 
+  // FX kurs validatsiya
+  if(txn.fx_rate && (txn.fx_rate < 6.0 || txn.fx_rate > 8.5)){
+    if(!confirm('⚠️ FX kurs '+ txn.fx_rate +' — odatiy 6.0–8.5 oralig\'idan tashqari. Davom etasizmi?')) return;
+  }
+
   // ✅ Audit trail
   txn.created_by = CUR_USER ? (CUR_USER.full_name || CUR_USER.email || 'unknown') : 'unknown';
   txn.created_at = new Date().toISOString();
+  txn.updated_at = txn.created_at;
   txn.approval_status = (CUR_USER && CUR_USER.role === 'owner') ? 'approved' : 'pending';
   EX_TXNS.push(txn);
   exSave();
   // Exchange mijozini Kontragentlar bazasiga qo'shish
   if(txn.client) kontragentsAdd('exchange', txn.client, 'client');
-  // Supabase ga saqlash
+  // Supabase ga saqlash + audit log
   if(SB){
     SB.from('ex_txns').upsert([exTxnToRow(txn)], {onConflict:'id'}).then(function(res){
       if(res.error) console.warn('ex_txns Supabase xato:', res.error.message);
       else console.log('ex_txns Supabase ga saqlandi:', txn.id);
     });
+    auditLog('create', 'ex_txns', txn.id, null, {type:txn.type, usd:txn.usd, cny:txn.cny, client:txn.client});
   }
   // Close any open overlays
   document.querySelectorAll('[id^="exOv"], .ex-overlay').forEach(function(el){el.remove();});
