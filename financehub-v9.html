@@ -10856,6 +10856,8 @@ const SUBNAV_DEFS = {
     {id:'debcred',   lbl:'Debitor/Kreditor', icon:'📋'},
     {id:'holding3s', lbl:"Ta'sischiga Hisobot", icon:'🏛️'},
     {id:'tasks',     lbl:'Vazifalar',           icon:'✅'},
+    {id:'requests',  lbl:'Zayavkalar',          icon:'📝'},
+    {id:'actfact',   lbl:'Actual vs Fact',      icon:'📊'},
   ],
   cargo: [
     {id:'dashboard', lbl:'Dashboard',        icon:'📊'},
@@ -10869,6 +10871,7 @@ const SUBNAV_DEFS = {
     {id:'pipeline',  lbl:'Pipeline',         icon:'📈'},
     {id:'payroll',   lbl:'Payroll',          icon:'👨‍💼'},
     {id:'tasks',     lbl:'Vazifalar',        icon:'✅'},
+    {id:'requests',  lbl:'Zayavkalar',       icon:'📝'},
     {id:'entry',     lbl:'Kiritish',         icon:'✏️'},
   ],
   logistics: [
@@ -10883,6 +10886,7 @@ const SUBNAV_DEFS = {
     {id:'pipeline',  lbl:'Pipeline',         icon:'📈'},
     {id:'payroll',   lbl:'Payroll',          icon:'👨‍💼'},
     {id:'tasks',     lbl:'Vazifalar',        icon:'✅'},
+    {id:'requests',  lbl:'Zayavkalar',       icon:'📝'},
     {id:'entry',     lbl:'Kiritish',         icon:'✏️'},
   ],
   exchange: [
@@ -10895,6 +10899,7 @@ const SUBNAV_DEFS = {
     {id:'pipeline',  lbl:'Pipeline',         icon:'📈'},
     {id:'payroll',   lbl:'Payroll',          icon:'👨‍💼'},
     {id:'tasks',     lbl:'Vazifalar',        icon:'✅'},
+    {id:'requests',  lbl:'Zayavkalar',       icon:'📝'},
     {id:'entry',     lbl:'Kiritish',         icon:'✏️'},
   ],
   procurement: [
@@ -10909,6 +10914,7 @@ const SUBNAV_DEFS = {
     {id:'pipeline',  lbl:'Pipeline',         icon:'📈'},
     {id:'payroll',   lbl:'Payroll',          icon:'👨‍💼'},
     {id:'tasks',     lbl:'Vazifalar',        icon:'✅'},
+    {id:'requests',  lbl:'Zayavkalar',       icon:'📝'},
     {id:'entry',     lbl:'Kiritish',         icon:'✏️'},
   ],
 };
@@ -10916,6 +10922,87 @@ const SUBNAV_DEFS = {
 
 
 
+
+// ══════════════════════════════════════════════════════════════
+// ── ZAYAVKA (REQUEST/APPROVAL) SYSTEM ─────────────────────────
+// ══════════════════════════════════════════════════════════════
+var REQUESTS = (function(){ var s=lsLoad('requests'); return s||[]; })();
+function reqSave(){ lsSave('requests', REQUESTS); }
+function reqNextId(){
+  var mx=REQUESTS.reduce(function(m,x){ var n=parseInt((x.id||'').replace(/\D/g,''),10)||0; return Math.max(m,n); },0);
+  return 'REQ-'+String(mx+1).padStart(4,'0');
+}
+
+var REQ_APPROVAL_CHAIN = [
+  {key:'dept_head',       lbl:"Bo'lim rahbari"},
+  {key:'dir_finance',     lbl:"Yo'nalish moliyachisi"},
+  {key:'dir_head',        lbl:"Yo'nalish rahbari"},
+  {key:'holding_finance', lbl:'Holding moliyachisi'},
+  {key:'holding_head',    lbl:'Holding rahbari'},
+];
+
+var REQ_STATUS_META = {
+  draft:                  {lbl:'Qoralama',            col:'#888'},
+  pending_dept_head:      {lbl:"Bo'lim rahbari kutilmoqda",    col:'#FFB830'},
+  pending_dir_finance:    {lbl:"Yo'nalish moliyasi kutilmoqda",col:'#00D4FF'},
+  pending_dir_head:       {lbl:"Yo'nalish rahbari kutilmoqda", col:'#A78BFF'},
+  pending_holding_finance:{lbl:'Holding moliyasi kutilmoqda',  col:'#FF9500'},
+  pending_holding_head:   {lbl:'Holding rahbari kutilmoqda',   col:'#6C8EFF'},
+  approved:               {lbl:'Tasdiqlandi ✓',                col:'#17B374'},
+  rejected:               {lbl:'Rad etildi ✗',                 col:'#FF4D6A'},
+};
+
+var REQ_TYPES = [
+  {id:'expense', lbl:'Kunlik Harajat', icon:'💸'},
+  {id:'capex',   lbl:'CapEx Xarid',    icon:'🏗️'},
+];
+
+var REQ_EXPENSE_CATS = ["Yoqilg'i","Transport","Ofis xarajatlari","Xodimlar harajati","Kommunal","Reklama va marketing","Texnik xizmat","Ijara","Boshqa"];
+var REQ_CAPEX_CATS   = ["Avtopark","Asbob-uskunalar","IT jihozlar","Ko'chmas mulk","Mebel va jihozlash","Qurilish","Boshqa"];
+
+function reqNextStatus(status){
+  var order=['draft','pending_dept_head','pending_dir_finance','pending_dir_head','pending_holding_finance','pending_holding_head','approved'];
+  var i=order.indexOf(status);
+  return i>=0&&i<order.length-1 ? order[i+1] : null;
+}
+
+function canUserApprove(req){
+  if(!CUR_USER) return false;
+  if(CUR_USER.role==='owner') return req.status && req.status.startsWith('pending');
+  var roleMap={
+    dept_head:'pending_dept_head', dir_finance:'pending_dir_finance',
+    dir_head:'pending_dir_head', holding_finance:'pending_holding_finance',
+    holding_head:'pending_holding_head'
+  };
+  return req.status === roleMap[CUR_USER.role];
+}
+
+function reqApprove(reqId, comment){
+  var r=REQUESTS.find(function(x){return x.id===reqId;}); if(!r) return;
+  var next=reqNextStatus(r.status); if(!next) return;
+  if(!r.approvals) r.approvals=[];
+  r.approvals.push({stage:r.status,action:'approved',by:(CUR_USER||{}).name||'Admin',at:new Date().toISOString(),comment:comment||''});
+  r.status=next;
+  if(next==='approved') r.approved_at=new Date().toISOString();
+  reqSave();
+}
+
+function reqReject(reqId, reason){
+  var r=REQUESTS.find(function(x){return x.id===reqId;}); if(!r) return;
+  if(!r.approvals) r.approvals=[];
+  r.approvals.push({stage:r.status,action:'rejected',by:(CUR_USER||{}).name||'Admin',at:new Date().toISOString(),comment:reason||''});
+  r.status='rejected'; r.rejection_reason=reason||'';
+  reqSave();
+}
+
+function reqSubmit(reqId){
+  var r=REQUESTS.find(function(x){return x.id===reqId;}); if(!r) return;
+  if(r.status==='draft'){ r.status='pending_dept_head'; reqSave(); }
+}
+
+function getPendingReqCount(){
+  return REQUESTS.filter(function(r){ return r.status&&r.status.startsWith('pending')&&canUserApprove(r); }).length;
+}
 
 // Active sub-nav state
 
@@ -11204,6 +11291,8 @@ function goNav(id){
     else if(subId==='debcred')  renderDebCred();
     else if(subId==='holding3s') renderHolding3S();
     else if(subId==='tasks')     renderTasksPage('all');
+    else if(subId==='requests')  renderRequestsPage('all');
+    else if(subId==='actfact')   renderActualFact('all');
 
     // payroll direction-level only
 
@@ -11304,6 +11393,10 @@ function goNav(id){
   } else if(subId==='tasks'){
 
     renderTasksPage(dirId);
+
+  } else if(subId==='requests'){
+
+    renderRequestsPage(dirId);
 
   } else {
 
@@ -11885,6 +11978,520 @@ function renderHolding3S(){
 
 // helper: fmtM — alias to fS for holding3s
 function fmtM(v){ return fS(Math.round(v||0)); }
+
+// ══════════════════════════════════════════════════════════════
+// ── ZAYAVKALAR (REQUEST/APPROVAL) RENDER ──────────────────────
+// ══════════════════════════════════════════════════════════════
+
+function renderRequestsPage(dirId){
+  var isAll = (!dirId || dirId==='all');
+  var MC = document.getElementById(isAll ? 'pg-l1' : 'pg-l2'); if(!MC) return;
+  MC.classList.add('on');
+  var dirObj = DIRS.find(function(d){return d.id===dirId;})||{name:"Barcha Yo'nalishlar",icon:'🏢'};
+  if(isAll){
+    setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:'📝 Zayavkalar',fn:''}]);
+  } else {
+    setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:(dirObj.icon||'')+' '+(dirObj.name||dirId),fn:"goNav('"+dirId+"')"},{lbl:'📝 Zayavkalar',fn:''}]);
+  }
+
+  var reqs = isAll ? REQUESTS.slice() : REQUESTS.filter(function(r){return r.direction===dirId;});
+  var fltStatus = (document.getElementById('_reqFltStatus')||{}).value||'';
+  var fltType   = (document.getElementById('_reqFltType')||{}).value||'';
+  var fltDir2   = (document.getElementById('_reqFltDir')||{}).value||'';
+  if(fltStatus) reqs = reqs.filter(function(r){return r.status===fltStatus;});
+  if(fltType)   reqs = reqs.filter(function(r){return r.type===fltType;});
+  if(fltDir2)   reqs = reqs.filter(function(r){return r.direction===fltDir2;});
+  reqs.sort(function(a,b){return (b.created_at||'')>(a.created_at||'')?1:-1;});
+
+  // Stats
+  var stats={total:reqs.length,pending:0,approved:0,rejected:0,draft:0,totalAmt:0,approvedAmt:0};
+  reqs.forEach(function(r){
+    if(r.status==='approved'){stats.approved++;stats.approvedAmt+=(r.amount||0);}
+    else if(r.status==='rejected') stats.rejected++;
+    else if(r.status==='draft') stats.draft++;
+    else if(r.status&&r.status.startsWith('pending')) stats.pending++;
+    stats.totalAmt+=(r.amount||0);
+  });
+  var pendingCnt = getPendingReqCount();
+
+  var h = '<div style="padding:20px;max-width:1300px;margin:0 auto">';
+
+  // Header
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">';
+  h += '<div style="display:flex;align-items:center;gap:12px">';
+  h += '<div style="width:40px;height:40px;border-radius:10px;background:rgba(255,185,48,0.15);display:flex;align-items:center;justify-content:center;font-size:20px">📝</div>';
+  h += '<div><div style="font-size:18px;font-weight:700;color:var(--t1)">'+(isAll?'Barcha Zayavkalar':(dirObj.icon||'')+' '+(dirObj.name||dirId)+' — Zayavkalar')+'</div>';
+  h += '<div style="font-size:11px;color:var(--t3)">Harajat & CapEx Tasdiqlash Tizimi</div></div></div>';
+  h += '<div style="display:flex;gap:8px">';
+  if(pendingCnt>0) h += '<div style="padding:6px 14px;background:rgba(255,185,48,0.15);border:1px solid #FFB83040;border-radius:8px;color:#FFB830;font-size:12px;font-weight:600">⏳ '+pendingCnt+' ta tasdiqlash kutilmoqda</div>';
+  h += '<button onclick="openNewReqModal(\''+(!isAll?dirId:'')+'\',\'expense\')" style="padding:7px 14px;background:#FFB830;border:none;border-radius:8px;color:#000;cursor:pointer;font-size:12px;font-weight:600">💸 Harajat Zayavka</button>';
+  h += '<button onclick="openNewReqModal(\''+(!isAll?dirId:'')+'\',\'capex\')" style="padding:7px 14px;background:#6C8EFF;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">🏗️ CapEx Zayavka</button>';
+  h += '</div></div>';
+
+  // Stats cards
+  h += '<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:14px">';
+  [{lbl:'Jami',val:stats.total,col:'#6C8EFF'},{lbl:'Qoralama',val:stats.draft,col:'#888'},{lbl:'Kutilmoqda',val:stats.pending,col:'#FFB830'},{lbl:'Tasdiqlandi',val:stats.approved,col:'#17B374'},{lbl:'Rad etildi',val:stats.rejected,col:'#FF4D6A'},{lbl:"Tasdiqlangan $",val:'$'+fS(Math.round(stats.approvedAmt)),col:'#17B374'}].forEach(function(s){
+    h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:700;color:'+s.col+'">'+s.val+'</div><div style="font-size:10px;color:var(--t3);margin-top:2px">'+s.lbl+'</div></div>';
+  });
+  h += '</div>';
+
+  // Filters
+  h += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">';
+  h += '<select id="_reqFltStatus" onchange="renderRequestsPage(\''+dirId+'\')" style="padding:6px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:11px"><option value="">Barcha status</option>';
+  Object.keys(REQ_STATUS_META).forEach(function(k){ h+='<option value="'+k+'">'+REQ_STATUS_META[k].lbl+'</option>'; });
+  h += '</select>';
+  h += '<select id="_reqFltType" onchange="renderRequestsPage(\''+dirId+'\')" style="padding:6px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:11px"><option value="">Barcha tur</option>';
+  REQ_TYPES.forEach(function(t){ h+='<option value="'+t.id+'">'+t.icon+' '+t.lbl+'</option>'; });
+  h += '</select>';
+  if(isAll){
+    h += '<select id="_reqFltDir" onchange="renderRequestsPage(\'all\')" style="padding:6px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:11px"><option value="">Barcha yo\'nalish</option>';
+    DIRS.forEach(function(d){ h+='<option value="'+d.id+'">'+escHtml(d.name)+'</option>'; });
+    h += '</select>';
+  }
+  h += '<div style="flex:1"></div>';
+  h += '<button onclick="exportReqsExcel(\''+dirId+'\')" style="padding:6px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:11px">📊 Excel</button>';
+  h += '</div>';
+
+  // Table
+  if(!reqs.length){
+    h += '<div style="text-align:center;padding:50px;background:var(--s1);border:1px solid var(--b1);border-radius:12px;color:var(--t3);font-size:13px">📭 Zayavkalar topilmadi<br><span style="font-size:11px;margin-top:8px;display:block">Yangi zayavka yaratish uchun yuqoridagi tugmalarni bosing</span></div>';
+  } else {
+    h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;overflow:hidden">';
+    h += '<table style="width:100%;border-collapse:collapse;font-size:11px">';
+    h += '<thead><tr style="background:var(--s2);color:var(--t3);font-size:10px;font-weight:600">';
+    ['ID','Tur','Yo\'nalish','Sarlavha','Miqdor','Kategoriya','So\'rovchi','Deadline','Status','Tasdiqlash bosqichi',''].forEach(function(c){
+      h += '<th style="padding:8px 10px;text-align:left;white-space:nowrap">'+c+'</th>';
+    });
+    h += '</tr></thead><tbody>';
+    reqs.forEach(function(r){
+      var stMeta = REQ_STATUS_META[r.status]||{lbl:r.status,col:'#888'};
+      var typMeta = REQ_TYPES.find(function(t){return t.id===r.type;})||{icon:'📄',lbl:r.type};
+      var dObj = DIRS.find(function(d){return d.id===r.direction;})||{name:r.direction||'—',icon:''};
+      var canApprove = canUserApprove(r);
+      var chainIdx = ['pending_dept_head','pending_dir_finance','pending_dir_head','pending_holding_finance','pending_holding_head'].indexOf(r.status);
+      var chainPct = r.status==='approved' ? 100 : r.status==='rejected' ? 0 : Math.round((chainIdx+1)/5*100);
+      h += '<tr style="border-bottom:1px solid var(--b1);cursor:pointer'+(canApprove?';background:rgba(255,185,48,0.04)':'')+'" onclick="openReqDetail(\''+r.id+'\')">';
+      h += '<td style="padding:9px 10px;font-family:var(--mono);color:var(--t3);white-space:nowrap">'+escHtml(r.id)+'</td>';
+      h += '<td style="padding:9px 10px;white-space:nowrap">'+typMeta.icon+' <span style="font-size:10px;color:var(--t2)">'+typMeta.lbl+'</span></td>';
+      h += '<td style="padding:9px 10px;white-space:nowrap"><span style="font-size:12px">'+(dObj.icon||'')+'</span> <span style="color:var(--t2);font-size:10px">'+escHtml(dObj.name||'')+'</span></td>';
+      h += '<td style="padding:9px 10px;max-width:200px"><div style="font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(r.title||'')+'</div>';
+      if(r.description) h += '<div style="font-size:9px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(r.description||'')+'</div>';
+      h += '</td>';
+      h += '<td style="padding:9px 10px;font-weight:700;color:var(--t1);white-space:nowrap">$'+fmt(r.amount||0)+'</td>';
+      h += '<td style="padding:9px 10px;color:var(--t2);white-space:nowrap">'+escHtml(r.category||'—')+'</td>';
+      h += '<td style="padding:9px 10px;color:var(--t2);white-space:nowrap">'+escHtml(r.requested_by||'—')+'</td>';
+      h += '<td style="padding:9px 10px;font-family:var(--mono);color:var(--t2);white-space:nowrap">'+escHtml(r.deadline||'—')+'</td>';
+      h += '<td style="padding:9px 10px"><span style="padding:3px 8px;border-radius:20px;background:'+stMeta.col+'22;color:'+stMeta.col+';font-size:10px;font-weight:600;white-space:nowrap">'+stMeta.lbl+'</span></td>';
+      // Progress bar for approval chain
+      h += '<td style="padding:9px 10px;min-width:120px">';
+      if(r.status!=='draft'&&r.status!=='rejected'){
+        h += '<div style="height:4px;background:var(--b2);border-radius:2px;margin-bottom:3px"><div style="height:4px;background:'+(r.status==='approved'?'#17B374':'#FFB830')+';border-radius:2px;width:'+chainPct+'%"></div></div>';
+        h += '<div style="font-size:9px;color:var(--t3)">'+chainPct+'% — '+(r.status==='approved'?'Tugadi':REQ_STATUS_META[r.status]?REQ_STATUS_META[r.status].lbl:'')+'</div>';
+      } else if(r.status==='rejected'){
+        h += '<div style="font-size:9px;color:#FF4D6A">✗ Rad: '+escHtml((r.rejection_reason||'').slice(0,30))+'</div>';
+      }
+      h += '</td>';
+      h += '<td style="padding:9px 10px;white-space:nowrap">';
+      if(canApprove){
+        h += '<button onclick="event.stopPropagation();openReqDetail(\''+r.id+'\')" style="padding:3px 10px;background:#17B374;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:10px;font-weight:600">✓ Ko\'rish</button>';
+      } else {
+        h += '<button onclick="event.stopPropagation();openReqDetail(\''+r.id+'\')" style="padding:3px 8px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;color:var(--t2);cursor:pointer;font-size:10px">Ko\'rish</button>';
+      }
+      h += '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+  }
+  h += '</div>';
+  MC.innerHTML = h;
+  if(fltStatus){ var e1=document.getElementById('_reqFltStatus'); if(e1) e1.value=fltStatus; }
+  if(fltType){   var e2=document.getElementById('_reqFltType');   if(e2) e2.value=fltType; }
+  if(fltDir2){   var e3=document.getElementById('_reqFltDir');    if(e3) e3.value=fltDir2; }
+}
+
+// ── New Request Modal ──────────────────────────────────────────
+window.openNewReqModal = function(dirId, type){
+  var old=document.getElementById('_reqModalOv'); if(old) old.remove();
+  var empList = (PAYROLL||[]).filter(function(e){ return !dirId || e.direction===dirId; });
+  var cats = type==='capex' ? REQ_CAPEX_CATS : REQ_EXPENSE_CATS;
+  var typMeta = REQ_TYPES.find(function(t){return t.id===type;})||{icon:'📝',lbl:'Zayavka'};
+
+  var ov = document.createElement('div');
+  ov.id='_reqModalOv';
+  ov.style.cssText='position:fixed;inset:0;background:#0009;z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML = `
+  <div style="background:var(--s1);border:1px solid var(--b1);border-radius:16px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;padding:28px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div style="font-size:16px;font-weight:700;color:var(--t1)">${typMeta.icon} Yangi ${typMeta.lbl} Zayavkasi</div>
+      <button onclick="document.getElementById('_reqModalOv').remove()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px">✕</button>
+    </div>
+    <div style="display:grid;gap:14px">
+      <div>
+        <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">Sarlavha *</label>
+        <input id="_reqTitle" placeholder="Zayavka sarlavhasi..." style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">Yo'nalish *</label>
+          <select id="_reqDir" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px">
+            ${DIRS.map(function(d){ return '<option value="'+d.id+'"'+(d.id===dirId?' selected':'')+'>'+escHtml(d.name)+'</option>'; }).join('')}
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">Bo'lim</label>
+          <select id="_reqDept" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px">
+            ${['HR','Moliya','Logistika','Sotuv','Marketing','IT','Ombor','Rahbariyat','Boshqa'].map(function(d){ return '<option>'+d+'</option>'; }).join('')}
+          </select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">Kategoriya *</label>
+          <select id="_reqCat" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px">
+            ${cats.map(function(c){ return '<option>'+c+'</option>'; }).join('')}
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">Miqdor (USD) *</label>
+          <input id="_reqAmount" type="number" min="0" placeholder="0" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">So'rovchi</label>
+          <input id="_reqBy" placeholder="Ism Familiya" value="${escHtml((CUR_USER||{}).name||'')}" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">Kerak bo'lish sanasi</label>
+          <input id="_reqDeadline" type="date" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box">
+        </div>
+      </div>
+      <div>
+        <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">Yetkazib beruvchi / Vendor</label>
+        <input id="_reqVendor" placeholder="Kompaniya yoki xizmat nomi..." style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box">
+      </div>
+      <div>
+        <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">Izoh / Asoslash</label>
+        <textarea id="_reqDesc" rows="3" placeholder="Zayavka sababi va asoslanishi..." style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;resize:vertical;box-sizing:border-box"></textarea>
+      </div>
+      <!-- Approval chain preview -->
+      <div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:14px">
+        <div style="font-size:11px;font-weight:600;color:var(--t2);margin-bottom:10px">📋 Tasdiqlash ketma-ketligi</div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          ${REQ_APPROVAL_CHAIN.map(function(s,i){
+            return '<div style="display:flex;align-items:center;gap:4px">'
+              +(i>0?'<span style="color:var(--t3);font-size:10px">→</span>':'')
+              +'<div style="padding:4px 10px;background:var(--s3);border:1px solid var(--b2);border-radius:20px;font-size:10px;color:var(--t2)">'+s.lbl+'</div>'
+              +'</div>';
+          }).join('')}
+          <span style="color:var(--t3);font-size:10px">→</span>
+          <div style="padding:4px 10px;background:#17B37422;border:1px solid #17B37440;border-radius:20px;font-size:10px;color:#17B374;font-weight:600">✓ Tasdiqlandi</div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end">
+      <button onclick="saveNewReq('${type}','draft')" style="padding:9px 18px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:12px">💾 Qoralama saqlash</button>
+      <button onclick="saveNewReq('${type}','submit')" style="padding:9px 18px;background:#FFB830;border:none;border-radius:8px;color:#000;cursor:pointer;font-size:12px;font-weight:600">📤 Yuborish (Tasdiqqa)</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  ov.addEventListener('click', function(e){ if(e.target===ov) ov.remove(); });
+};
+
+window.saveNewReq = function(type, action){
+  var title   = (document.getElementById('_reqTitle')||{}).value||'';
+  var dirId   = (document.getElementById('_reqDir')||{}).value||'';
+  var dept    = (document.getElementById('_reqDept')||{}).value||'';
+  var cat     = (document.getElementById('_reqCat')||{}).value||'';
+  var amount  = parseFloat((document.getElementById('_reqAmount')||{}).value||0)||0;
+  var byName  = (document.getElementById('_reqBy')||{}).value||'';
+  var deadline= (document.getElementById('_reqDeadline')||{}).value||'';
+  var vendor  = (document.getElementById('_reqVendor')||{}).value||'';
+  var desc    = (document.getElementById('_reqDesc')||{}).value||'';
+  if(!title){ alert('Sarlavha kiritilishi shart!'); return; }
+  if(!amount){ alert('Miqdor kiritilishi shart!'); return; }
+
+  var r={
+    id: reqNextId(), type: type, direction: dirId, dept: dept,
+    title: title, description: desc, category: cat, amount: amount,
+    vendor: vendor, requested_by: byName,
+    deadline: deadline, created_at: new Date().toISOString(),
+    status: action==='submit' ? 'pending_dept_head' : 'draft',
+    approvals: [],
+  };
+  REQUESTS.push(r);
+  reqSave();
+  var ov=document.getElementById('_reqModalOv'); if(ov) ov.remove();
+  renderRequestsPage(dirId||'all');
+};
+
+// ── Request Detail & Approval Modal ───────────────────────────
+window.openReqDetail = function(reqId){
+  var r = REQUESTS.find(function(x){return x.id===reqId;}); if(!r) return;
+  var old=document.getElementById('_reqDetailOv'); if(old) old.remove();
+  var stMeta = REQ_STATUS_META[r.status]||{lbl:r.status,col:'#888'};
+  var typMeta = REQ_TYPES.find(function(t){return t.id===r.type;})||{icon:'📄',lbl:r.type||''};
+  var dObj = DIRS.find(function(d){return d.id===r.direction;})||{name:r.direction||'—',icon:''};
+  var canApprove = canUserApprove(r);
+  var canSubmit  = r.status==='draft';
+
+  // Build approval chain timeline
+  var chainKeys=['pending_dept_head','pending_dir_finance','pending_dir_head','pending_holding_finance','pending_holding_head','approved'];
+  var approvedMap={};
+  (r.approvals||[]).forEach(function(a){ approvedMap[a.stage]=a; });
+
+  var chainHtml='<div style="margin-top:16px"><div style="font-size:11px;font-weight:600;color:var(--t2);margin-bottom:10px">📋 Tasdiqlash ketma-ketligi</div><div style="display:flex;flex-direction:column;gap:6px">';
+  REQ_APPROVAL_CHAIN.forEach(function(step, i){
+    var appr = approvedMap['pending_'+step.key];
+    var isCurrent = r.status==='pending_'+step.key;
+    var isDone = appr && appr.action==='approved';
+    var isRejected = appr && appr.action==='rejected';
+    var icon = isDone?'✅':isRejected?'❌':isCurrent?'⏳':'⭕';
+    var col = isDone?'#17B374':isRejected?'#FF4D6A':isCurrent?'#FFB830':'var(--t3)';
+    chainHtml += '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 12px;background:var(--s2);border:1px solid '+(isCurrent?'#FFB83060':'var(--b1)')+';border-radius:8px">';
+    chainHtml += '<span style="font-size:14px;flex-shrink:0">'+icon+'</span>';
+    chainHtml += '<div style="flex:1"><div style="font-size:11px;font-weight:600;color:'+col+'">'+escHtml(step.lbl)+'</div>';
+    if(appr){
+      chainHtml += '<div style="font-size:10px;color:var(--t3);margin-top:2px">'+escHtml(appr.by)+' · '+(appr.at||'').slice(0,16).replace('T',' ')+'</div>';
+      if(appr.comment) chainHtml += '<div style="font-size:10px;color:var(--t2);margin-top:2px;font-style:italic">"'+escHtml(appr.comment)+'"</div>';
+    } else if(isCurrent){
+      chainHtml += '<div style="font-size:10px;color:#FFB830;margin-top:2px">Tasdiqlash kutilmoqda...</div>';
+    }
+    chainHtml += '</div></div>';
+  });
+  chainHtml += '</div></div>';
+
+  // Action buttons
+  var actHtml='';
+  if(canSubmit){
+    actHtml += '<button onclick="reqSubmit(\''+reqId+'\');openReqDetail(\''+reqId+'\')" style="padding:9px 18px;background:#FFB830;border:none;border-radius:8px;color:#000;cursor:pointer;font-size:12px;font-weight:600">📤 Tasdiqqa yuborish</button>';
+  }
+  if(canApprove){
+    actHtml += '<button onclick="showApproveForm(\''+reqId+'\')" style="padding:9px 18px;background:#17B374;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">✓ Tasdiqlash</button>';
+    actHtml += '<button onclick="showRejectForm(\''+reqId+'\')" style="padding:9px 18px;background:rgba(255,77,106,0.15);border:1px solid rgba(255,77,106,0.4);border-radius:8px;color:#FF4D6A;cursor:pointer;font-size:12px;font-weight:600">✗ Rad etish</button>';
+  }
+  if(r.status==='draft'){
+    actHtml += '<button onclick="if(confirm(\'O\'chirilasinmi?\'))deleteReq(\''+reqId+'\')" style="padding:9px 14px;background:rgba(255,77,106,0.1);border:1px solid rgba(255,77,106,0.3);border-radius:8px;color:#FF4D6A;cursor:pointer;font-size:12px">🗑 O\'chirish</button>';
+  }
+
+  var ov=document.createElement('div');
+  ov.id='_reqDetailOv';
+  ov.style.cssText='position:fixed;inset:0;background:#0009;z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML=`
+  <div style="background:var(--s1);border:1px solid var(--b1);border-radius:16px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;padding:28px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <div style="font-family:var(--mono);font-size:12px;color:var(--t3)">${escHtml(r.id)}</div>
+      <button onclick="document.getElementById('_reqDetailOv').remove()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px">✕</button>
+    </div>
+    <div style="font-size:17px;font-weight:700;color:var(--t1);margin-bottom:16px">${typMeta.icon} ${escHtml(r.title||'')}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      ${[
+        ['Tur', typMeta.icon+' '+typMeta.lbl],
+        ['Yo\'nalish', (dObj.icon||'')+' '+escHtml(dObj.name||'')],
+        ['Bo\'lim', escHtml(r.dept||'—')],
+        ['Kategoriya', escHtml(r.category||'—')],
+        ['Miqdor', '<span style="font-weight:700;color:#17B374;font-size:14px">$'+fmt(r.amount||0)+'</span>'],
+        ['Vendor', escHtml(r.vendor||'—')],
+        ['So\'rovchi', escHtml(r.requested_by||'—')],
+        ['Deadline', escHtml(r.deadline||'—')],
+        ['Yaratilgan', (r.created_at||'').slice(0,10)],
+        ['Status', '<span style="padding:3px 10px;border-radius:20px;background:'+stMeta.col+'22;color:'+stMeta.col+';font-size:11px;font-weight:600">'+stMeta.lbl+'</span>'],
+      ].map(function(f){ return '<div style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:10px"><div style="font-size:10px;color:var(--t3);margin-bottom:3px">'+f[0]+'</div><div style="font-size:12px;color:var(--t1)">'+f[1]+'</div></div>'; }).join('')}
+    </div>
+    ${r.description?'<div style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:12px;margin-bottom:12px"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">Izoh</div><div style="font-size:12px;color:var(--t1)">'+escHtml(r.description)+'</div></div>':''}
+    ${chainHtml}
+    <div id="_reqActionArea" style="display:flex;gap:8px;margin-top:20px;flex-wrap:wrap">
+      ${actHtml}
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  ov.addEventListener('click',function(e){if(e.target===ov) ov.remove();});
+};
+
+window.showApproveForm = function(reqId){
+  var area=document.getElementById('_reqActionArea'); if(!area) return;
+  area.innerHTML='<div style="width:100%;display:flex;flex-direction:column;gap:8px">'
+    +'<textarea id="_approveComment" rows="2" placeholder="Izoh (ixtiyoriy)..." style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;resize:none;box-sizing:border-box"></textarea>'
+    +'<div style="display:flex;gap:8px">'
+    +'<button onclick="doApproveReq(\''+reqId+'\')" style="padding:9px 18px;background:#17B374;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">✓ Tasdiqlashni tasdiqlang</button>'
+    +'<button onclick="openReqDetail(\''+reqId+'\')" style="padding:9px 14px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:12px">Bekor</button>'
+    +'</div></div>';
+};
+
+window.showRejectForm = function(reqId){
+  var area=document.getElementById('_reqActionArea'); if(!area) return;
+  area.innerHTML='<div style="width:100%;display:flex;flex-direction:column;gap:8px">'
+    +'<textarea id="_rejectReason" rows="2" placeholder="Rad etish sababi (majburiy)..." style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid rgba(255,77,106,0.4);border-radius:8px;color:var(--t1);font-size:12px;resize:none;box-sizing:border-box"></textarea>'
+    +'<div style="display:flex;gap:8px">'
+    +'<button onclick="doRejectReq(\''+reqId+'\')" style="padding:9px 18px;background:#FF4D6A;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">✗ Rad etishni tasdiqlang</button>'
+    +'<button onclick="openReqDetail(\''+reqId+'\')" style="padding:9px 14px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:12px">Bekor</button>'
+    +'</div></div>';
+};
+
+window.doApproveReq = function(reqId){
+  var comment=(document.getElementById('_approveComment')||{}).value||'';
+  reqApprove(reqId,comment);
+  var ov=document.getElementById('_reqDetailOv'); if(ov) ov.remove();
+  renderRequestsPage(ACTV==='l1'?'all':ACTV);
+};
+
+window.doRejectReq = function(reqId){
+  var reason=(document.getElementById('_rejectReason')||{}).value||'';
+  if(!reason){ alert('Rad etish sababi kiritilishi shart!'); return; }
+  reqReject(reqId,reason);
+  var ov=document.getElementById('_reqDetailOv'); if(ov) ov.remove();
+  renderRequestsPage(ACTV==='l1'?'all':ACTV);
+};
+
+window.deleteReq = function(reqId){
+  REQUESTS.splice(REQUESTS.findIndex(function(r){return r.id===reqId;}),1);
+  reqSave();
+  var ov=document.getElementById('_reqDetailOv'); if(ov) ov.remove();
+  renderRequestsPage(ACTV==='l1'?'all':ACTV);
+};
+
+window.exportReqsExcel = function(dirId){
+  var reqs = (!dirId||dirId==='all') ? REQUESTS.slice() : REQUESTS.filter(function(r){return r.direction===dirId;});
+  var rows=[['ID','Tur','Yo\'nalish','Bo\'lim','Sarlavha','Miqdor','Kategoriya','Vendor','So\'rovchi','Deadline','Status','Yaratilgan']];
+  reqs.forEach(function(r){
+    var dObj=DIRS.find(function(d){return d.id===r.direction;})||{name:r.direction||''};
+    var stMeta=REQ_STATUS_META[r.status]||{lbl:r.status||''};
+    rows.push([r.id,r.type,dObj.name,r.dept||'',r.title||'',r.amount||0,r.category||'',r.vendor||'',r.requested_by||'',r.deadline||'',stMeta.lbl,(r.created_at||'').slice(0,10)]);
+  });
+  var csv=rows.map(function(r){return r.map(function(c){return '"'+(c+'').replace(/"/g,'""')+'"';}).join(',');}).join('\n');
+  var a=document.createElement('a'); a.href='data:text/csv;charset=utf-8,﻿'+encodeURIComponent(csv); a.download='zayavkalar.csv'; a.click();
+};
+
+// ══════════════════════════════════════════════════════════════
+// ── ACTUAL vs FACT (CFP) REPORT ───────────────────────────────
+// ══════════════════════════════════════════════════════════════
+function renderActualFact(dirId){
+  var isAll = (!dirId||dirId==='all');
+  var MC = document.getElementById(isAll?'pg-l1':'pg-l2'); if(!MC) return;
+  MC.classList.add('on');
+  var dirObj = DIRS.find(function(d){return d.id===dirId;})||{name:"Barcha Yo'nalishlar",icon:'🏢'};
+  setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:'📊 Actual vs Fact',fn:''}]);
+
+  // Approved requests = planned (budget) spending
+  var approved = REQUESTS.filter(function(r){
+    return r.status==='approved' && (!dirId||isAll||r.direction===dirId);
+  });
+  // Transactions marked as expense/capex = actual
+  var allTxns = TXNS || [];
+  var actualTxns = allTxns.filter(function(t){
+    var isExp = (t.type==='expense'||t.type==='capex'||t.category==='expense'||t.category==='capex');
+    return isExp && (!dirId||isAll||t.direction===dirId);
+  });
+
+  // Group by direction
+  var dirSummary = {};
+  DIRS.forEach(function(d){
+    dirSummary[d.id]={name:d.name,icon:d.icon,budgetExp:0,budgetCapex:0,actualExp:0,actualCapex:0,reqCount:0,reqApproved:0};
+  });
+  approved.forEach(function(r){
+    if(!dirSummary[r.direction]) return;
+    if(r.type==='capex') dirSummary[r.direction].budgetCapex+=(r.amount||0);
+    else dirSummary[r.direction].budgetExp+=(r.amount||0);
+    dirSummary[r.direction].reqApproved++;
+  });
+  REQUESTS.forEach(function(r){
+    if(dirSummary[r.direction]) dirSummary[r.direction].reqCount++;
+  });
+  actualTxns.forEach(function(t){
+    var dir=t.direction||'';
+    if(!dirSummary[dir]) return;
+    var amt=Math.abs(t.amount||t.usd_amount||0);
+    if(t.type==='capex'||t.category==='capex') dirSummary[dir].actualCapex+=amt;
+    else dirSummary[dir].actualExp+=amt;
+  });
+
+  // Totals
+  var totBudg=0,totAct=0,totCapBudg=0,totCapAct=0;
+  Object.values(dirSummary).forEach(function(d){ totBudg+=d.budgetExp; totAct+=d.actualExp; totCapBudg+=d.budgetCapex; totCapAct+=d.actualCapex; });
+
+  // Pending requests CFP (Cash Flow Plan)
+  var pending = REQUESTS.filter(function(r){ return r.status&&r.status.startsWith('pending')&&(!dirId||isAll||r.direction===dirId); });
+  var pendingTotal = pending.reduce(function(s,r){return s+(r.amount||0);},0);
+
+  var h='<div style="padding:20px;max-width:1300px;margin:0 auto">';
+  h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">';
+  h+='<div><div style="font-size:18px;font-weight:700;color:var(--t1)">📊 Actual vs Fact (CFP)</div>';
+  h+='<div style="font-size:11px;color:var(--t3)">Tasdiqlangan zayavkalar (Byudjet) vs Haqiqiy harajatlar</div></div>';
+  h+='<button onclick="openNewReqModal(\'\',\'expense\')" style="padding:7px 14px;background:#FFB830;border:none;border-radius:8px;color:#000;cursor:pointer;font-size:12px;font-weight:600">+ Zayavka</button>';
+  h+='</div>';
+
+  // Summary KPI cards
+  h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px">';
+  var kpis=[
+    {lbl:'Harajat Byudjeti',val:'$'+fS(Math.round(totBudg)),sub:'Tasdiqlangan zayavkalar',col:'#6C8EFF'},
+    {lbl:'Haqiqiy Harajat', val:'$'+fS(Math.round(totAct)), sub:'Actual tranzaksiyalar',   col:'#17B374'},
+    {lbl:'CapEx Byudjeti',  val:'$'+fS(Math.round(totCapBudg)),sub:'Tasdiqlangan CapEx',   col:'#A78BFF'},
+    {lbl:'Kutilayotgan CFP',val:'$'+fS(Math.round(pendingTotal)),sub:pending.length+' ta jarayondagi zayavka',col:'#FFB830'},
+  ];
+  kpis.forEach(function(k){
+    h+='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:16px">';
+    h+='<div style="font-size:11px;color:var(--t3);margin-bottom:6px">'+k.lbl+'</div>';
+    h+='<div style="font-size:22px;font-weight:700;color:'+k.col+'">'+k.val+'</div>';
+    h+='<div style="font-size:10px;color:var(--t3);margin-top:4px">'+k.sub+'</div></div>';
+  });
+  h+='</div>';
+
+  // Direction comparison table
+  h+='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;overflow:hidden;margin-bottom:16px">';
+  h+='<div style="padding:14px 16px;border-bottom:1px solid var(--b1);font-size:13px;font-weight:600;color:var(--t1)">Yo\'nalishlar kesimida taqqoslama</div>';
+  h+='<table style="width:100%;border-collapse:collapse;font-size:11px">';
+  h+='<thead><tr style="background:var(--s2);color:var(--t3);font-size:10px;font-weight:600">';
+  ["Yo'nalish","Zayavkalar","Harajat Byudjeti","Actual Harajat","Farq (Exp)","CapEx Byudjeti","Actual CapEx","Farq (CapEx)","Ijro %"].forEach(function(c){
+    h+='<th style="padding:8px 10px;text-align:left;white-space:nowrap">'+c+'</th>';
+  });
+  h+='</tr></thead><tbody>';
+  DIRS.forEach(function(d){
+    var s=dirSummary[d.id]; if(!s) return;
+    var expDiff=s.actualExp-s.budgetExp;
+    var capDiff=s.actualCapex-s.budgetCapex;
+    var total=s.budgetExp+s.budgetCapex;
+    var actualTotal=s.actualExp+s.actualCapex;
+    var pct=total>0?Math.round(actualTotal/total*100):0;
+    h+='<tr style="border-bottom:1px solid var(--b1)">';
+    h+='<td style="padding:9px 10px;font-weight:600;color:var(--t1)"><span style="font-size:13px">'+d.icon+'</span> '+escHtml(d.name)+'</td>';
+    h+='<td style="padding:9px 10px;text-align:center"><span style="background:var(--b2);color:var(--t2);padding:2px 8px;border-radius:20px;font-size:10px">'+s.reqCount+'</span></td>';
+    h+='<td style="padding:9px 10px;color:var(--t2)">$'+fS(Math.round(s.budgetExp))+'</td>';
+    h+='<td style="padding:9px 10px;color:var(--t1);font-weight:600">$'+fS(Math.round(s.actualExp))+'</td>';
+    h+='<td style="padding:9px 10px;color:'+(expDiff>0?'#FF4D6A':expDiff<0?'#17B374':'var(--t3)')+'">'+( expDiff>0?'▲ $'+fS(Math.round(expDiff)):expDiff<0?'▼ $'+fS(Math.round(-expDiff)):'—')+'</td>';
+    h+='<td style="padding:9px 10px;color:var(--t2)">$'+fS(Math.round(s.budgetCapex))+'</td>';
+    h+='<td style="padding:9px 10px;color:var(--t1);font-weight:600">$'+fS(Math.round(s.actualCapex))+'</td>';
+    h+='<td style="padding:9px 10px;color:'+(capDiff>0?'#FF4D6A':capDiff<0?'#17B374':'var(--t3)')+'">'+( capDiff>0?'▲ $'+fS(Math.round(capDiff)):capDiff<0?'▼ $'+fS(Math.round(-capDiff)):'—')+'</td>';
+    h+='<td style="padding:9px 10px"><div style="display:flex;align-items:center;gap:6px"><div style="flex:1;height:6px;background:var(--b2);border-radius:3px;min-width:60px"><div style="height:6px;background:'+(pct>100?'#FF4D6A':'#6C8EFF')+';border-radius:3px;width:'+Math.min(pct,100)+'%"></div></div><span style="font-size:10px;color:'+(pct>100?'#FF4D6A':pct>=80?'#17B374':'var(--t3)')+'">'+pct+'%</span></div></td>';
+    h+='</tr>';
+  });
+  h+='</tbody></table></div>';
+
+  // Pending CFP table
+  if(pending.length){
+    h+='<div style="background:var(--s1);border:1px solid #FFB83040;border-radius:12px;overflow:hidden">';
+    h+='<div style="padding:14px 16px;border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:8px"><span style="font-size:14px">⏳</span><span style="font-size:13px;font-weight:600;color:var(--t1)">Cash Flow Plan — Kutilayotgan Zayavkalar</span><span style="background:#FFB83022;color:#FFB830;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600">$'+fS(Math.round(pendingTotal))+'</span></div>';
+    h+='<table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr style="background:var(--s2);color:var(--t3);font-size:10px;font-weight:600">';
+    ['ID','Sarlavha','Yo\'nalish','Tur','Miqdor','Bosqich','Deadline'].forEach(function(c){ h+='<th style="padding:8px 10px;text-align:left;white-space:nowrap">'+c+'</th>'; });
+    h+='</tr></thead><tbody>';
+    pending.forEach(function(r){
+      var dObj=DIRS.find(function(d){return d.id===r.direction;})||{name:r.direction||'',icon:''};
+      var stMeta=REQ_STATUS_META[r.status]||{lbl:r.status,col:'#888'};
+      var typMeta=REQ_TYPES.find(function(t){return t.id===r.type;})||{icon:'📄',lbl:''};
+      h+='<tr style="border-bottom:1px solid var(--b1);cursor:pointer" onclick="openReqDetail(\''+r.id+'\')">';
+      h+='<td style="padding:8px 10px;font-family:var(--mono);color:var(--t3);font-size:10px">'+escHtml(r.id)+'</td>';
+      h+='<td style="padding:8px 10px;color:var(--t1);font-weight:600">'+escHtml(r.title||'')+'</td>';
+      h+='<td style="padding:8px 10px;color:var(--t2)">'+(dObj.icon||'')+' '+escHtml(dObj.name||'')+'</td>';
+      h+='<td style="padding:8px 10px">'+typMeta.icon+' '+typMeta.lbl+'</td>';
+      h+='<td style="padding:8px 10px;font-weight:700;color:#FFB830">$'+fmt(r.amount||0)+'</td>';
+      h+='<td style="padding:8px 10px"><span style="padding:2px 8px;border-radius:20px;background:'+stMeta.col+'22;color:'+stMeta.col+';font-size:10px">'+stMeta.lbl+'</span></td>';
+      h+='<td style="padding:8px 10px;font-family:var(--mono);color:var(--t2);font-size:10px">'+escHtml(r.deadline||'—')+'</td>';
+      h+='</tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+
+  h+='</div>';
+  MC.innerHTML=h;
+}
 
 // ── TASK MANAGEMENT RENDER ────────────────────────────────────────────────────
 function renderTasksPage(dirId){
