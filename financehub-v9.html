@@ -11998,7 +11998,10 @@ function renderRequestsPage(dirId){
   var fltStatus = (document.getElementById('_reqFltStatus')||{}).value||'';
   var fltType   = (document.getElementById('_reqFltType')||{}).value||'';
   var fltDir2   = (document.getElementById('_reqFltDir')||{}).value||'';
-  if(fltStatus) reqs = reqs.filter(function(r){return r.status===fltStatus;});
+  if(fltStatus) reqs = reqs.filter(function(r){
+    if(fltStatus==='__pending__') return r.status&&r.status.startsWith('pending');
+    return r.status===fltStatus;
+  });
   if(fltType)   reqs = reqs.filter(function(r){return r.type===fltType;});
   if(fltDir2)   reqs = reqs.filter(function(r){return r.direction===fltDir2;});
   reqs.sort(function(a,b){return (b.created_at||'')>(a.created_at||'')?1:-1;});
@@ -12028,16 +12031,26 @@ function renderRequestsPage(dirId){
   h += '<button onclick="openNewReqModal(\''+(!isAll?dirId:'')+'\',\'capex\')" style="padding:7px 14px;background:#6C8EFF;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">🏗️ CapEx So'rov</button>';
   h += '</div></div>';
 
-  // Stats cards
+  // Stats cards — bosilganda filter qo'yadi
+  var curFltStatus = fltStatus;
   h += '<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:14px">';
-  [{lbl:'Jami',val:stats.total,col:'#6C8EFF'},{lbl:'Qoralama',val:stats.draft,col:'#888'},{lbl:'Kutilmoqda',val:stats.pending,col:'#FFB830'},{lbl:'Tasdiqlandi',val:stats.approved,col:'#17B374'},{lbl:'Rad etildi',val:stats.rejected,col:'#FF4D6A'},{lbl:"Tasdiqlangan $",val:'$'+fS(Math.round(stats.approvedAmt)),col:'#17B374'}].forEach(function(s){
-    h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:10px;text-align:center"><div style="font-size:18px;font-weight:700;color:'+s.col+'">'+s.val+'</div><div style="font-size:10px;color:var(--t3);margin-top:2px">'+s.lbl+'</div></div>';
+  [
+    {lbl:"Jami",          val:stats.total,                         col:'#6C8EFF', filter:''},
+    {lbl:"Qoralama",      val:stats.draft,                         col:'#888',    filter:'draft'},
+    {lbl:"Kutilmoqda",    val:stats.pending,                       col:'#FFB830', filter:'__pending__'},
+    {lbl:"Tasdiqlandi",   val:stats.approved,                      col:'#17B374', filter:'approved'},
+    {lbl:"Rad etildi",    val:stats.rejected,                      col:'#FF4D6A', filter:'rejected'},
+    {lbl:"Tasdiqlangan $",val:'$'+fS(Math.round(stats.approvedAmt)),col:'#17B374',filter:'approved'},
+  ].forEach(function(s){
+    var isActive = s.filter==='' ? curFltStatus==='' : (s.filter==='__pending__' ? curFltStatus.startsWith('pending') : curFltStatus===s.filter);
+    var clickFn = "document.getElementById('_reqFltStatus').value='"+s.filter+"';renderRequestsPage('"+dirId+"')";
+    h += '<div onclick="'+clickFn+'" style="background:var(--s1);border:1px solid '+(isActive?s.col+'66':'var(--b1)')+';border-radius:10px;padding:10px;text-align:center;cursor:pointer;transition:.15s;'+(isActive?'box-shadow:0 0 0 2px '+s.col+'44':'')+'" onmouseover="this.style.borderColor=\''+s.col+'\'" onmouseout="this.style.borderColor=\''+(isActive?s.col+'66':'var(--b1)')+'\'"><div style="font-size:18px;font-weight:700;color:'+s.col+'">'+s.val+'</div><div style="font-size:10px;color:var(--t3);margin-top:2px">'+s.lbl+'</div></div>';
   });
   h += '</div>';
 
   // Filters
   h += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">';
-  h += '<select id="_reqFltStatus" onchange="renderRequestsPage(\''+dirId+'\')" style="padding:6px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:11px"><option value="">Barcha status</option>';
+  h += '<select id="_reqFltStatus" onchange="renderRequestsPage(\''+dirId+'\')" style="padding:6px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:11px"><option value="">Barcha status</option><option value="__pending__">⏳ Kutilmoqda (barchasi)</option>';
   Object.keys(REQ_STATUS_META).forEach(function(k){ h+='<option value="'+k+'">'+REQ_STATUS_META[k].lbl+'</option>'; });
   h += '</select>';
   h += '<select id="_reqFltType" onchange="renderRequestsPage(\''+dirId+'\')" style="padding:6px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:11px"><option value="">Barcha tur</option>';
