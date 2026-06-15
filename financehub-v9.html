@@ -10856,7 +10856,7 @@ const SUBNAV_DEFS = {
     {id:'debcred',   lbl:'Debitor/Kreditor', icon:'📋'},
     {id:'holding3s', lbl:"Ta'sischiga Hisobot", icon:'🏛️'},
     {id:'tasks',     lbl:'Vazifalar',           icon:'✅'},
-    {id:'requests',  lbl:'So'rovlar',          icon:'📝'},
+    {id:'requests',  lbl:"So’rovlar",          icon:'📝'},
     {id:'actfact',   lbl:'Actual vs Fact',      icon:'📊'},
   ],
   cargo: [
@@ -10871,7 +10871,7 @@ const SUBNAV_DEFS = {
     {id:'pipeline',  lbl:'Pipeline',         icon:'📈'},
     {id:'payroll',   lbl:'Payroll',          icon:'👨‍💼'},
     {id:'tasks',     lbl:'Vazifalar',        icon:'✅'},
-    {id:'requests',  lbl:'So'rovlar',       icon:'📝'},
+    {id:'requests',  lbl:"So’rovlar",       icon:'📝'},
     {id:'entry',     lbl:'Kiritish',         icon:'✏️'},
   ],
   logistics: [
@@ -10886,7 +10886,7 @@ const SUBNAV_DEFS = {
     {id:'pipeline',  lbl:'Pipeline',         icon:'📈'},
     {id:'payroll',   lbl:'Payroll',          icon:'👨‍💼'},
     {id:'tasks',     lbl:'Vazifalar',        icon:'✅'},
-    {id:'requests',  lbl:'So'rovlar',       icon:'📝'},
+    {id:'requests',  lbl:"So’rovlar",       icon:'📝'},
     {id:'entry',     lbl:'Kiritish',         icon:'✏️'},
   ],
   exchange: [
@@ -10899,7 +10899,7 @@ const SUBNAV_DEFS = {
     {id:'pipeline',  lbl:'Pipeline',         icon:'📈'},
     {id:'payroll',   lbl:'Payroll',          icon:'👨‍💼'},
     {id:'tasks',     lbl:'Vazifalar',        icon:'✅'},
-    {id:'requests',  lbl:'So'rovlar',       icon:'📝'},
+    {id:'requests',  lbl:"So’rovlar",       icon:'📝'},
     {id:'entry',     lbl:'Kiritish',         icon:'✏️'},
   ],
   procurement: [
@@ -10914,7 +10914,7 @@ const SUBNAV_DEFS = {
     {id:'pipeline',  lbl:'Pipeline',         icon:'📈'},
     {id:'payroll',   lbl:'Payroll',          icon:'👨‍💼'},
     {id:'tasks',     lbl:'Vazifalar',        icon:'✅'},
-    {id:'requests',  lbl:'So'rovlar',       icon:'📝'},
+    {id:'requests',  lbl:"So’rovlar",       icon:'📝'},
     {id:'entry',     lbl:'Kiritish',         icon:'✏️'},
   ],
 };
@@ -11989,9 +11989,9 @@ function renderRequestsPage(dirId){
   MC.classList.add('on');
   var dirObj = DIRS.find(function(d){return d.id===dirId;})||{name:"Barcha Yo'nalishlar",icon:'🏢'};
   if(isAll){
-    setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:'📝 So'rovlar',fn:''}]);
+    setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:'📝 So’rovlar',fn:''}]);
   } else {
-    setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:(dirObj.icon||'')+' '+(dirObj.name||dirId),fn:"goNav('"+dirId+"')"},{lbl:'📝 So'rovlar',fn:''}]);
+    setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:(dirObj.icon||'')+' '+(dirObj.name||dirId),fn:"goNav('"+dirId+"')"},{lbl:'📝 So’rovlar',fn:''}]);
   }
 
   var reqs = isAll ? REQUESTS.slice() : REQUESTS.filter(function(r){return r.direction===dirId;});
@@ -12023,12 +12023,12 @@ function renderRequestsPage(dirId){
   h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">';
   h += '<div style="display:flex;align-items:center;gap:12px">';
   h += '<div style="width:40px;height:40px;border-radius:10px;background:rgba(255,185,48,0.15);display:flex;align-items:center;justify-content:center;font-size:20px">📝</div>';
-  h += '<div><div style="font-size:18px;font-weight:700;color:var(--t1)">'+(isAll?'Barcha So'rovlar':(dirObj.icon||'')+' '+(dirObj.name||dirId)+' — So'rovlar')+'</div>';
+  h += '<div><div style="font-size:18px;font-weight:700;color:var(--t1)">'+(isAll?'Barcha So’rovlar':(dirObj.icon||'')+' '+(dirObj.name||dirId)+' — So’rovlar')+'</div>';
   h += '<div style="font-size:11px;color:var(--t3)">Harajat & CapEx Tasdiqlash Tizimi</div></div></div>';
   h += '<div style="display:flex;gap:8px">';
   if(pendingCnt>0) h += '<div style="padding:6px 14px;background:rgba(255,185,48,0.15);border:1px solid #FFB83040;border-radius:8px;color:#FFB830;font-size:12px;font-weight:600">⏳ '+pendingCnt+' ta tasdiqlash kutilmoqda</div>';
-  h += '<button onclick="openNewReqModal(\''+(!isAll?dirId:'')+'\',\'expense\')" style="padding:7px 14px;background:#FFB830;border:none;border-radius:8px;color:#000;cursor:pointer;font-size:12px;font-weight:600">💸 Harajat So'rov</button>';
-  h += '<button onclick="openNewReqModal(\''+(!isAll?dirId:'')+'\',\'capex\')" style="padding:7px 14px;background:#6C8EFF;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">🏗️ CapEx So'rov</button>';
+  h += '<button onclick="openNewReqModal(\''+(!isAll?dirId:'')+'\',\'expense\')" style="padding:7px 14px;background:#FFB830;border:none;border-radius:8px;color:#000;cursor:pointer;font-size:12px;font-weight:600">💸 Harajat So’rov</button>';
+  h += '<button onclick="openNewReqModal(\''+(!isAll?dirId:'')+'\',\'capex\')" style="padding:7px 14px;background:#6C8EFF;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">🏗️ CapEx So’rov</button>';
   h += '</div></div>';
 
   // Stats cards — bosilganda filter qo'yadi
@@ -12067,7 +12067,7 @@ function renderRequestsPage(dirId){
 
   // Table
   if(!reqs.length){
-    h += '<div style="text-align:center;padding:50px;background:var(--s1);border:1px solid var(--b1);border-radius:12px;color:var(--t3);font-size:13px">📭 So'rovlar topilmadi<br><span style="font-size:11px;margin-top:8px;display:block">Yangi sorov yaratish uchun yuqoridagi tugmalarni bosing</span></div>';
+    h += '<div style="text-align:center;padding:50px;background:var(--s1);border:1px solid var(--b1);border-radius:12px;color:var(--t3);font-size:13px">📭 So’rovlar topilmadi<br><span style="font-size:11px;margin-top:8px;display:block">Yangi sorov yaratish uchun yuqoridagi tugmalarni bosing</span></div>';
   } else {
     h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;overflow:hidden">';
     h += '<table style="width:100%;border-collapse:collapse;font-size:11px">';
@@ -12126,7 +12126,7 @@ window.openNewReqModal = function(dirId, type){
   var old=document.getElementById('_reqModalOv'); if(old) old.remove();
   var empList = (PAYROLL||[]).filter(function(e){ return !dirId || e.direction===dirId; });
   var cats = type==='capex' ? REQ_CAPEX_CATS : REQ_EXPENSE_CATS;
-  var typMeta = REQ_TYPES.find(function(t){return t.id===type;})||{icon:'📝',lbl:'So'rov'};
+  var typMeta = REQ_TYPES.find(function(t){return t.id===type;})||{icon:'📝',lbl:"So’rov"};
 
   var ov = document.createElement('div');
   ov.id='_reqModalOv';
@@ -12134,13 +12134,13 @@ window.openNewReqModal = function(dirId, type){
   ov.innerHTML = `
   <div style="background:var(--s1);border:1px solid var(--b1);border-radius:16px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;padding:28px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-      <div style="font-size:16px;font-weight:700;color:var(--t1)">${typMeta.icon} Yangi ${typMeta.lbl} So'rovsi</div>
+      <div style="font-size:16px;font-weight:700;color:var(--t1)">${typMeta.icon} Yangi ${typMeta.lbl} So’rovsi</div>
       <button onclick="document.getElementById('_reqModalOv').remove()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px">✕</button>
     </div>
     <div style="display:grid;gap:14px">
       <div>
         <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">Sarlavha *</label>
-        <input id="_reqTitle" placeholder="So'rov sarlavhasi..." style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box">
+        <input id="_reqTitle" placeholder="So’rov sarlavhasi..." style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box">
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div>
@@ -12170,7 +12170,7 @@ window.openNewReqModal = function(dirId, type){
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div>
-          <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">So'rovchi</label>
+          <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">So’rovchi</label>
           <input id="_reqBy" placeholder="Ism Familiya" value="${escHtml((CUR_USER||{}).name||'')}" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box">
         </div>
         <div>
@@ -12184,7 +12184,7 @@ window.openNewReqModal = function(dirId, type){
       </div>
       <div>
         <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">Izoh / Asoslash</label>
-        <textarea id="_reqDesc" rows="3" placeholder="So'rov sababi va asoslanishi..." style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;resize:vertical;box-sizing:border-box"></textarea>
+        <textarea id="_reqDesc" rows="3" placeholder="So’rov sababi va asoslanishi..." style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;resize:vertical;box-sizing:border-box"></textarea>
       </div>
       <!-- Approval chain preview -->
       <div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:14px">
@@ -12373,7 +12373,7 @@ window.openReqDetail = function(reqId){
             ["Kategoriya", escHtml(r.category||'—')],
             ["Miqdor", '<span style="font-weight:700;color:#17B374;font-size:14px">$'+fmt(r.amount||0)+'</span>'],
             ["Vendor", escHtml(r.vendor||'—')],
-            ["So'rovchi", escHtml(r.requested_by||'—')],
+            ["So’rovchi", escHtml(r.requested_by||'—')],
             ["Deadline", escHtml(r.deadline||'—')],
           ].map(function(f){ return '<div style="background:var(--s2);border:1px solid var(--b1);border-radius:7px;padding:8px"><div style="font-size:9px;color:var(--t3);margin-bottom:2px">'+f[0]+'</div><div style="font-size:11px;color:var(--t1)">'+f[1]+'</div></div>'; }).join('')}
         </div>
@@ -12521,7 +12521,7 @@ function renderActualFact(dirId){
   h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">';
   h+='<div><div style="font-size:18px;font-weight:700;color:var(--t1)">📊 Actual vs Fact (CFP)</div>';
   h+='<div style="font-size:11px;color:var(--t3)">Tasdiqlangan sorovlar (Byudjet) vs Haqiqiy harajatlar</div></div>';
-  h+='<button onclick="openNewReqModal(\'\',\'expense\')" style="padding:7px 14px;background:#FFB830;border:none;border-radius:8px;color:#000;cursor:pointer;font-size:12px;font-weight:600">+ So'rov</button>';
+  h+='<button onclick="openNewReqModal(\'\',\'expense\')" style="padding:7px 14px;background:#FFB830;border:none;border-radius:8px;color:#000;cursor:pointer;font-size:12px;font-weight:600">+ So’rov</button>';
   h+='</div>';
 
   // Summary KPI cards
@@ -12545,7 +12545,7 @@ function renderActualFact(dirId){
   h+='<div style="padding:14px 16px;border-bottom:1px solid var(--b1);font-size:13px;font-weight:600;color:var(--t1)">Yo\'nalishlar kesimida taqqoslama</div>';
   h+='<table style="width:100%;border-collapse:collapse;font-size:11px">';
   h+='<thead><tr style="background:var(--s2);color:var(--t3);font-size:10px;font-weight:600">';
-  ["Yo'nalish","So'rovlar","Harajat Byudjeti","Actual Harajat","Farq (Exp)","CapEx Byudjeti","Actual CapEx","Farq (CapEx)","Ijro %"].forEach(function(c){
+  ["Yo'nalish","So’rovlar","Harajat Byudjeti","Actual Harajat","Farq (Exp)","CapEx Byudjeti","Actual CapEx","Farq (CapEx)","Ijro %"].forEach(function(c){
     h+='<th style="padding:8px 10px;text-align:left;white-space:nowrap">'+c+'</th>';
   });
   h+='</tr></thead><tbody>';
@@ -12573,7 +12573,7 @@ function renderActualFact(dirId){
   // Pending CFP table
   if(pending.length){
     h+='<div style="background:var(--s1);border:1px solid #FFB83040;border-radius:12px;overflow:hidden">';
-    h+='<div style="padding:14px 16px;border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:8px"><span style="font-size:14px">⏳</span><span style="font-size:13px;font-weight:600;color:var(--t1)">Cash Flow Plan — Kutilayotgan So'rovlar</span><span style="background:#FFB83022;color:#FFB830;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600">$'+fS(Math.round(pendingTotal))+'</span></div>';
+    h+='<div style="padding:14px 16px;border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:8px"><span style="font-size:14px">⏳</span><span style="font-size:13px;font-weight:600;color:var(--t1)">Cash Flow Plan — Kutilayotgan So’rovlar</span><span style="background:#FFB83022;color:#FFB830;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600">$'+fS(Math.round(pendingTotal))+'</span></div>';
     h+='<table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr style="background:var(--s2);color:var(--t3);font-size:10px;font-weight:600">';
     ['ID','Sarlavha','Yo\'nalish','Tur','Miqdor','Bosqich','Deadline'].forEach(function(c){ h+='<th style="padding:8px 10px;text-align:left;white-space:nowrap">'+c+'</th>'; });
     h+='</tr></thead><tbody>';
@@ -24526,13 +24526,13 @@ function renderLogisticsDash(){
   h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">';
   h += '<div style="font-size:20px;font-weight:800;color:var(--t1)">🚛 Logistics — Yuk tashish jarayoni</div>';
   h += '<div style="display:flex;gap:8px;">';
-  h += '<button onclick="renderLogisticsNewShipment()" style="padding:8px 18px;border-radius:8px;border:none;background:#00BCD4;color:#fff;cursor:pointer;font-size:12px;font-weight:700;">+ Yangi So'rov</button>';
+  h += '<button onclick="renderLogisticsNewShipment()" style="padding:8px 18px;border-radius:8px;border:none;background:#00BCD4;color:#fff;cursor:pointer;font-size:12px;font-weight:700;">+ Yangi So’rov</button>';
   h += '</div></div>';
 
   // KPI Cards
   h += '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;">';
   var kpis = [
-    {lbl:'Aktiv So'rovlar', val:active,          sub:'Jarayondagi yuklar',   col:'#6C8EFF', ico:'📦'},
+    {lbl:'Aktiv So’rovlar', val:active,          sub:'Jarayondagi yuklar',   col:'#6C8EFF', ico:'📦'},
     {lbl:'Yetkazilgan',      val:delivered,        sub:'Final Acceptance',     col:'#22C55E', ico:'✅'},
     {lbl:'Muammoli',         val:rescue,           sub:'Rescue bosqichida',    col:'#EF4444', ico:'🆘'},
     {lbl:'Jami Daromad',     val:logFmt(totalRev), sub:'Barcha sorovlar',    col:'#FFB830', ico:'💰'},
@@ -24597,7 +24597,7 @@ function renderLogisticsDash(){
 
   // Recent shipments
   h += '<div style="background:var(--s2);border-radius:10px;border:1px solid var(--b2);padding:16px;">';
-  h += '<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:12px;">🕐 So\'nggi So'rovlar</div>';
+  h += '<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:12px;">🕐 So\'nggi So’rovlar</div>';
   var recent = ships.slice(-6).reverse();
   if(recent.length === 0){
     h += '<div style="font-size:12px;color:var(--t3);text-align:center;padding:20px 0;">Hali sorov yo\'q</div>';
@@ -24618,7 +24618,7 @@ function renderLogisticsDash(){
   // All shipments table
   if(ships.length > 0){
     h += '<div style="background:var(--s2);border-radius:10px;border:1px solid var(--b2);padding:16px;margin-bottom:20px;">';
-    h += '<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:12px;">📋 Barcha So'rovlar</div>';
+    h += '<div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:12px;">📋 Barcha So’rovlar</div>';
     h += '<table style="width:100%;border-collapse:collapse;font-size:12px;">';
     h += '<thead><tr style="background:var(--s3);">';
     ['#','Klient','Marshrut','Transport','Bosqich','Daromad','Xarajat','Foyda','Sana'].forEach(function(th){
@@ -24653,10 +24653,10 @@ function renderLogisticsDash(){
 
 function renderLogisticsNewShipment(){
   var el = document.getElementById('pg-l1');
-  setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:'🚛 Logistics',fn:"goNav('logistics')"},{lbl:'Yangi So'rov',fn:''}]);
+  setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:'🚛 Logistics',fn:"goNav('logistics')"},{lbl:'Yangi So’rov',fn:''}]);
 
   var h = '<div style="padding:24px 28px;max-width:700px;">';
-  h += '<div style="font-size:18px;font-weight:800;color:var(--t1);margin-bottom:20px;">📨 Yangi So'rov — Yuk tashish</div>';
+  h += '<div style="font-size:18px;font-weight:800;color:var(--t1);margin-bottom:20px;">📨 Yangi So’rov — Yuk tashish</div>';
   h += '<div class="card">';
 
   // Klient
@@ -24752,14 +24752,14 @@ function logSaveNewShipment(){
     history:      [{date: new Date().toISOString().slice(0,10), from:'', to:stage, by: CUR_USER?(CUR_USER.full_name||CUR_USER.email):'unknown'}]
   });
   lsShipmentsSave(ships);
-  toast('✅ So'rov saqlandi!');
+  toast('✅ So’rov saqlandi!');
   renderLogisticsDash();
 }
 
 function renderLogisticsShipmentDetail(id){
   var ships = lsShipments();
   var s = ships.find(function(x){ return x.id===id; });
-  if(!s){ toast('So'rov topilmadi'); renderLogisticsDash(); return; }
+  if(!s){ toast("So\'rov topilmadi"); renderLogisticsDash(); return; }
   var el = document.getElementById('pg-l1');
   setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:'🚛 Logistics',fn:"goNav('logistics')"},{lbl:s.client,fn:''}]);
 
@@ -24868,7 +24868,7 @@ function logDeleteShipment(id){
   if(!confirm('Bu sorovni o\'chirmoqchimisiz?')) return;
   var ships = lsShipments().filter(function(x){ return x.id !== id; });
   lsShipmentsSave(ships);
-  toast('🗑️ So'rov o\'chirildi');
+  toast('🗑️ So’rov o\'chirildi');
   renderLogisticsDash();
 }
 
@@ -24904,7 +24904,7 @@ var GUIDE_FEATURE_DESC = [
   {icon:'📅', title:'Davr filtri',                body:"Yuqori paneldagi Bugun/Hafta/Oy/Kvartal/Hammasi tugmalari yoki 'Belgilash' orqali o'zboshimcha davr tanlanadi. Barcha hisobotlar shu davrga moslashadi."},
   {icon:'🎨', title:'Tema',                        body:'Rang temasi (qoʻngʻiroq rangi) yuqori paneldagi doiralardan tanlanadi. Tanlangan tema saqlanadi.'},
   {icon:'📊', title:'Excel eksport',               body:"Har bir sahifaning o'ng tomonidagi 📥 Excel tugmasi orqali ma'lumotlar CSV formatda yuklab olinadi."},
-  {icon:'📝', title:'So'rov tizimi',              body:"Harajat yoki CapEx sorovsi yaratiladi → 5 bosqichdan o'tadi (Bo'lim rahbari → Yo'nalish moliyachisi → Yo'nalish rahbari → Holding moliyachisi → Holding rahbari) → Tasdiqlanganda amalga oshirilishi mumkin."},
+  {icon:'📝', title:"So\'rov tizimi",              body:"Harajat yoki CapEx sorovsi yaratiladi → 5 bosqichdan o'tadi (Bo'lim rahbari → Yo'nalish moliyachisi → Yo'nalish rahbari → Holding moliyachisi → Holding rahbari) → Tasdiqlanganda amalga oshirilishi mumkin."},
   {icon:'✅', title:'Vazifalar (Task Management)', body:'Kanban, Ro\'yxat, Kalendar va Tahlil ko\'rinishlarida topshiriqlar boshqariladi. Checklist, subtask, muddati, mas\'ul xodim, ball tizimi mavjud.'},
   {icon:'🏛️', title:"Ta'sischiga Hisobot",        body:"Holding sahifasida — barcha yo'nalishlarning konsolidatsiyalangan 3 hisobot: P&L, Cash Flow, Balans. Intercompany balanslar va CapEx ko'rsatiladi."},
   {icon:'👥', title:'Xodimlar va Inventar',        body:"Payroll bo'limida xodim kartochkasi: ish haqi, KPI, inventar biriktirilgan. Xodim ishdan chiqarilganda inventar qaytarish ro'yxati avtomatik chiqadi."},
