@@ -686,6 +686,8 @@ function showDash(profile) {
 
       window.ALLOWED_NAVS = [{id: d, lbl: DIR_ICO[d] + " " + DIR_LBL[d]}];
       buildNav();
+      // Exchange yo'nalishi: avval lokaldan Supabase ga push, keyin sync
+      if(d === 'exchange' && EX_TXNS && EX_TXNS.length) exPushToSupabase();
       exSyncFromSupabase();
       renderL2(d);
 
