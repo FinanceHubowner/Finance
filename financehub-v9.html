@@ -8678,8 +8678,200 @@ var _PAYROLL_DEFAULT=[];
 
 var PAYROLL=(function(){var saved=lsLoad('payroll');return saved||_PAYROLL_DEFAULT;})();
 
+// ── XODIM INVENTAR TIZIMI ───────────────────────────────────────
+// Har bir inventar buyum: id, nom, tur, seriya, tavsif, yo'nalish, xodim, sana, qiymat, holat
+var EMPLOYEE_INVENTORY = (function(){
+  var saved = lsLoad('emp_inventory');
+  return saved || [];
+})();
+function empInvSave(){ lsSave('emp_inventory', EMPLOYEE_INVENTORY); }
+function empInvNextId(){
+  var maxNum = EMPLOYEE_INVENTORY.reduce(function(m,x){
+    var n = parseInt((x.id||'').replace(/\D/g,''),10)||0; return Math.max(m,n);
+  },0);
+  return 'INV-' + String(maxNum+1).padStart(4,'0');
+}
+function getEmpInventory(empId){
+  return EMPLOYEE_INVENTORY.filter(function(x){ return x.assigned_to_id===empId && x.status!=='returned' && x.status!=='written_off'; });
+}
+
+// ── EMPLOYEE INVENTORY MODAL ─────────────────────────────────────────────────
+window.openEmpInvAdd = function(empId, empName){
+  var existing = document.getElementById('_empInvAddOv'); if(existing) existing.remove();
+  var ov = document.createElement('div');
+  ov.id = '_empInvAddOv';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center';
+  ov.innerHTML = '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:24px;width:360px;max-width:95vw">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
+    +'<span style="font-size:14px;font-weight:700;color:var(--t1)">📦 Inventar Biriktirish</span>'
+    +'<span style="font-size:11px;color:var(--t3)">'+escHtml(empName)+'</span>'
+    +'</div>'
+    +'<div style="display:flex;flex-direction:column;gap:10px">'
+    +'<input id="_invName" placeholder="Inventar nomi *" style="padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;width:100%;box-sizing:border-box">'
+    +'<select id="_invType" style="padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px">'
+    +'<option value="Kompyuter">💻 Kompyuter / Noutbuk</option>'
+    +'<option value="Telefon">📱 Telefon</option>'
+    +'<option value="Avtomobil">🚗 Avtomobil</option>'
+    +'<option value="Mebel">🪑 Mebel</option>'
+    +'<option value="Asbob">🔧 Asbob-anjom</option>'
+    +'<option value="Boshqa">📦 Boshqa</option>'
+    +'</select>'
+    +'<input id="_invSerial" placeholder="Seriya raqami (ixtiyoriy)" style="padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;width:100%;box-sizing:border-box">'
+    +'<input id="_invCost" type="number" placeholder="Qiymati (USD)" style="padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;width:100%;box-sizing:border-box">'
+    +'<input id="_invNote" placeholder="Izoh" style="padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;width:100%;box-sizing:border-box">'
+    +'</div>'
+    +'<div style="display:flex;gap:8px;margin-top:16px">'
+    +'<button onclick="document.getElementById(\'_empInvAddOv\').remove()" style="flex:1;padding:9px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:12px">Bekor</button>'
+    +'<button onclick="empInvSaveNew('+empId+',\''+escHtml(empName)+'\')" style="flex:1;padding:9px;background:#6C8EFF;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">Biriktirish</button>'
+    +'</div>'
+    +'</div>';
+  document.body.appendChild(ov);
+};
+
+window.empInvSaveNew = function(empId, empName){
+  var name = (document.getElementById('_invName')||{}).value||'';
+  if(!name.trim()){ alert('Inventar nomini kiriting'); return; }
+  var item = {
+    id: empInvNextId(),
+    name: name.trim(),
+    type: (document.getElementById('_invType')||{}).value||'Boshqa',
+    serial_no: ((document.getElementById('_invSerial')||{}).value||'').trim(),
+    cost_usd: parseFloat((document.getElementById('_invCost')||{}).value)||0,
+    note: ((document.getElementById('_invNote')||{}).value||'').trim(),
+    assigned_to_id: empId,
+    assigned_to_name: empName,
+    assigned_date: new Date().toISOString().slice(0,10),
+    status: 'active',
+  };
+  EMPLOYEE_INVENTORY.push(item);
+  empInvSave();
+  var ov = document.getElementById('_empInvAddOv'); if(ov) ov.remove();
+  var openCard = document.getElementById('_prDetailOv'); if(openCard) openCard.remove();
+  prShowDetail(empId);
+};
+
+window.empInvReturn = function(invId){
+  var it = EMPLOYEE_INVENTORY.find(function(x){return x.id===invId;});
+  if(!it) return;
+  if(!confirm('"'+it.name+'" qaytarildi deb belgilansinmi?')) return;
+  it.status = 'returned';
+  it.returned_date = new Date().toISOString().slice(0,10);
+  empInvSave();
+  var empId = it.assigned_to_id;
+  var ov = document.getElementById('_prDetailOv'); if(ov) ov.remove();
+  prShowDetail(empId);
+};
+
+window.empDismissModal = function(empId, empName){
+  var inv = getEmpInventory(empId);
+  var existing = document.getElementById('_empDismissOv'); if(existing) existing.remove();
+  var ov = document.createElement('div');
+  ov.id = '_empDismissOv';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center';
+  var h = '<div style="background:var(--s1);border:1px solid rgba(255,77,106,0.4);border-radius:14px;padding:24px;width:420px;max-width:95vw;max-height:90vh;overflow-y:auto">';
+  h += '<div style="font-size:14px;font-weight:700;color:#FF4D6A;margin-bottom:4px">🚪 Ishdan Bo\'shatish</div>';
+  h += '<div style="font-size:12px;color:var(--t2);margin-bottom:16px">'+escHtml(empName)+'</div>';
+  if(inv.length){
+    h += '<div style="font-size:11px;font-weight:600;color:var(--t3);margin-bottom:8px">⚠️ Qaytarilishi kerak bo\'lgan inventarlar ('+inv.length+' ta):</div>';
+    var total = 0;
+    inv.forEach(function(it){
+      total += (it.cost_usd||0);
+      h += '<div style="padding:8px 10px;background:rgba(255,77,106,0.08);border:1px solid rgba(255,77,106,0.2);border-radius:8px;margin-bottom:6px">';
+      h += '<div style="display:flex;justify-content:space-between;align-items:center">';
+      h += '<div><div style="font-size:12px;font-weight:600;color:var(--t1)">'+escHtml(it.name)+'</div>';
+      h += '<div style="font-size:10px;color:var(--t3);margin-top:2px">'+escHtml(it.id)+' · '+escHtml(it.type)+(it.serial_no?' · S/N: '+escHtml(it.serial_no):'')+'</div>';
+      if(it.note) h += '<div style="font-size:10px;color:var(--t3);margin-top:2px">'+escHtml(it.note)+'</div>';
+      h += '</div>';
+      h += '<div style="font-family:var(--mono);font-size:12px;color:#FF4D6A">$'+fmt(it.cost_usd||0)+'</div>';
+      h += '</div></div>';
+    });
+    h += '<div style="display:flex;justify-content:space-between;padding:8px 10px;font-size:12px;font-weight:600;color:var(--t1);margin-top:4px">';
+    h += '<span>Jami inventar qiymati:</span><span style="font-family:var(--mono);color:#FF4D6A">$'+fmt(total)+'</span></div>';
+  } else {
+    h += '<div style="text-align:center;padding:16px;font-size:12px;color:var(--t3)">✅ Inventar biriktirilmagan</div>';
+  }
+  h += '<div style="display:flex;gap:8px;margin-top:16px">';
+  h += '<button onclick="document.getElementById(\'_empDismissOv\').remove()" style="flex:1;padding:9px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:12px">Bekor</button>';
+  h += '<button onclick="empConfirmDismiss('+empId+')" style="flex:1;padding:9px;background:#FF4D6A;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">Ishdan bo\'shatish</button>';
+  h += '</div>';
+  h += '</div>';
+  ov.innerHTML = h;
+  document.body.appendChild(ov);
+};
+
+window.empConfirmDismiss = function(empId){
+  EMPLOYEE_INVENTORY.forEach(function(it){
+    if(it.assigned_to_id===empId && it.status==='active'){
+      it.status = 'pending_return';
+      it.dismiss_date = new Date().toISOString().slice(0,10);
+    }
+  });
+  empInvSave();
+  var ov1 = document.getElementById('_empDismissOv'); if(ov1) ov1.remove();
+  var ov2 = document.getElementById('_prDetailOv'); if(ov2) ov2.remove();
+  alert('Xodim ishdan bo\'shatildi. Inventarlar "qaytarilishi kerak" holatiga o\'tkazildi.');
+};
 
 function prSave(){lsSave('payroll',PAYROLL);}
+
+// ══════════════════════════════════════════════════════════════════
+// TASK MANAGEMENT MODULE
+// ══════════════════════════════════════════════════════════════════
+var TASKS = (function(){ var s=lsLoad('tasks'); return s||[]; })();
+function taskSave(){ lsSave('tasks', TASKS); }
+function taskNextId(){
+  var max=TASKS.reduce(function(m,t){ var n=parseInt((t.id||'').replace(/\D/g,''),10)||0; return Math.max(m,n); },0);
+  return 'TSK-'+String(max+1).padStart(4,'0');
+}
+function tasksCheckDeadlines(){
+  var today=new Date().toISOString().slice(0,10);
+  var changed=false;
+  TASKS.forEach(function(t){
+    if(t.deadline && t.deadline<today && t.status!=='Bajarildi' && t.status!=='Bekor qilindi' && t.status!=='Kechikdi'){
+      t.status='Kechikdi'; changed=true;
+    }
+    (t.subtasks||[]).forEach(function(st){
+      if(st.deadline && st.deadline<today && st.status!=='Bajarildi' && st.status!=='Bekor qilindi' && st.status!=='Kechikdi'){
+        st.status='Kechikdi'; changed=true;
+      }
+    });
+  });
+  if(changed) taskSave();
+}
+// Run on load
+tasksCheckDeadlines();
+
+var TASK_STATUSES = ['Yangi','Jarayonda','Tekshiruvda','Bajarildi','Kechikdi','Bekor qilindi'];
+var TASK_STATUS_COLORS = {
+  'Yangi':'#6C8EFF','Jarayonda':'#FFB830','Tekshiruvda':'#00D4FF',
+  'Bajarildi':'#17B374','Kechikdi':'#FF4D6A','Bekor qilindi':'#888'
+};
+var TASK_PRIORITIES = ['Past','O\'rta','Yuqori','Shoshilinch'];
+var TASK_PRIORITY_COLORS = {'Past':'#888','O\'rta':'#FFB830','Yuqori':'#FF6B00','Shoshilinch':'#FF4D6A'};
+var TASK_SCORES = [1,2,3,4,5];
+var TASK_SPACES = ['HR','Moliya','Logistika','Sotuv','Marketing','Call-center','IT','Ombor','Rahbariyat'];
+
+function tasksByDir(dirId){
+  if(!dirId||dirId==='all') return TASKS;
+  return TASKS.filter(function(t){ return t.direction===dirId; });
+}
+function getTask(id){ return TASKS.find(function(t){ return t.id===id; }); }
+
+// ── NOTIFICATIONS (in-app) ───────────────────────────────────────
+var TASK_NOTIFS = (function(){ var s=lsLoad('task_notifs'); return s||[]; })();
+function notifSave(){ lsSave('task_notifs',TASK_NOTIFS); }
+function addNotif(msg, taskId){
+  TASK_NOTIFS.unshift({id:Date.now(),msg:msg,taskId:taskId||null,read:false,ts:new Date().toISOString()});
+  if(TASK_NOTIFS.length>100) TASK_NOTIFS.length=100;
+  notifSave();
+  updateNotifBadge();
+}
+function updateNotifBadge(){
+  var unread=TASK_NOTIFS.filter(function(n){return !n.read;}).length;
+  var el=document.getElementById('_taskNotifBadge');
+  if(el) el.textContent=unread>0?String(unread):'';
+  if(el) el.style.display=unread>0?'':'none';
+}
 
 
 
@@ -9115,8 +9307,9 @@ function renderPayroll(focusDir){
     var c=prCalc(e);
 
 
+    var _old=document.getElementById('_prDetailOv'); if(_old) _old.remove();
     var ov=document.createElement('div');
-
+    ov.id='_prDetailOv';
 
     ov.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)';
 
@@ -9168,6 +9361,41 @@ function renderPayroll(focusDir){
 
       }).join('')
 
+      // ── INVENTAR ──────────────────────────────────────────
+      +(function(){
+        var inv = getEmpInventory(e.id);
+        var h2 = '<div style="margin-top:14px;border-top:1px solid var(--b1);padding-top:12px">';
+        h2 += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
+        h2 += '<span style="font-size:11px;font-weight:600;color:var(--t3)">📦 BIRIKTIRILGAN INVENTAR</span>';
+        h2 += '<button onclick="openEmpInvAdd('+e.id+',\''+escHtml(e.name)+'\')" style="background:rgba(108,142,255,0.15);border:1px solid rgba(108,142,255,0.35);border-radius:5px;padding:3px 8px;color:#6C8EFF;cursor:pointer;font-size:10px">+ Qo\'shish</button>';
+        h2 += '</div>';
+        if(!inv.length){
+          h2 += '<div style="text-align:center;padding:10px;font-size:11px;color:var(--t3)">Inventar biriktirilmagan</div>';
+        } else {
+          inv.forEach(function(it){
+            var typeColors={Kompyuter:'#6C8EFF',Telefon:'#00D4FF',Avtomobil:'#FFB830',Mebel:'#A78BFF',Asbob:'#00E5A0',Boshqa:'#94A3C4'};
+            var tc = typeColors[it.type]||'#94A3C4';
+            h2 += '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--s2);border-radius:6px;margin-bottom:4px">';
+            h2 += '<div style="width:6px;height:6px;border-radius:50%;background:'+tc+';flex-shrink:0"></div>';
+            h2 += '<div style="flex:1;min-width:0">';
+            h2 += '<div style="font-size:11px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(it.name)+'</div>';
+            h2 += '<div style="font-size:10px;color:var(--t3)">'+escHtml(it.id)+' · '+escHtml(it.type)+(it.serial_no?' · '+escHtml(it.serial_no):'')+'</div>';
+            h2 += '</div>';
+            h2 += '<div style="font-size:10px;font-family:var(--mono);color:'+tc+';white-space:nowrap">$'+fmt(it.cost_usd||0)+'</div>';
+            h2 += '<button onclick="empInvReturn(\''+it.id+'\')" title="Qaytarildi" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:13px;padding:2px">✓</button>';
+            h2 += '</div>';
+          });
+          var total = inv.reduce(function(s,x){return s+(x.cost_usd||0);},0);
+          h2 += '<div style="display:flex;justify-content:space-between;padding:5px 8px;font-size:11px;color:var(--t3)">';
+          h2 += '<span>Jami ('+inv.length+' ta)</span><span style="font-family:var(--mono);color:var(--t1)">$'+fmt(total)+'</span></div>';
+        }
+        h2 += '</div>';
+        // Dismiss button
+        h2 += '<div style="margin-top:10px;display:flex;gap:6px">';
+        h2 += '<button onclick="empDismissModal('+e.id+',\''+escHtml(e.name)+'\')" style="flex:1;padding:8px;background:rgba(255,77,106,0.1);border:1px solid rgba(255,77,106,0.3);border-radius:8px;color:#FF4D6A;cursor:pointer;font-size:11px;font-weight:600">🚪 Ishdan bo\'shatish</button>';
+        h2 += '</div>';
+        return h2;
+      })()
 
       +'</div></div>';
 
@@ -10626,6 +10854,8 @@ const SUBNAV_DEFS = {
     {id:'balance',   lbl:'Balans Sheet',     icon:'⚖️'},
     {id:'kassa',     lbl:'Kassalar',         icon:'💳'},
     {id:'debcred',   lbl:'Debitor/Kreditor', icon:'📋'},
+    {id:'holding3s', lbl:"Ta'sischiga Hisobot", icon:'🏛️'},
+    {id:'tasks',     lbl:'Vazifalar',           icon:'✅'},
   ],
   cargo: [
     {id:'dashboard', lbl:'Dashboard',        icon:'📊'},
@@ -10638,6 +10868,7 @@ const SUBNAV_DEFS = {
     {id:'crm',       lbl:'Mijozlar',         icon:'👥'},
     {id:'pipeline',  lbl:'Pipeline',         icon:'📈'},
     {id:'payroll',   lbl:'Payroll',          icon:'👨‍💼'},
+    {id:'tasks',     lbl:'Vazifalar',        icon:'✅'},
     {id:'entry',     lbl:'Kiritish',         icon:'✏️'},
   ],
   logistics: [
@@ -10651,6 +10882,7 @@ const SUBNAV_DEFS = {
     {id:'crm',       lbl:'Mijozlar',         icon:'👥'},
     {id:'pipeline',  lbl:'Pipeline',         icon:'📈'},
     {id:'payroll',   lbl:'Payroll',          icon:'👨‍💼'},
+    {id:'tasks',     lbl:'Vazifalar',        icon:'✅'},
     {id:'entry',     lbl:'Kiritish',         icon:'✏️'},
   ],
   exchange: [
@@ -10662,6 +10894,7 @@ const SUBNAV_DEFS = {
     {id:'crm',       lbl:'Mijozlar',         icon:'👥'},
     {id:'pipeline',  lbl:'Pipeline',         icon:'📈'},
     {id:'payroll',   lbl:'Payroll',          icon:'👨‍💼'},
+    {id:'tasks',     lbl:'Vazifalar',        icon:'✅'},
     {id:'entry',     lbl:'Kiritish',         icon:'✏️'},
   ],
   procurement: [
@@ -10675,6 +10908,7 @@ const SUBNAV_DEFS = {
     {id:'crm',       lbl:'Mijozlar',         icon:'👥'},
     {id:'pipeline',  lbl:'Pipeline',         icon:'📈'},
     {id:'payroll',   lbl:'Payroll',          icon:'👨‍💼'},
+    {id:'tasks',     lbl:'Vazifalar',        icon:'✅'},
     {id:'entry',     lbl:'Kiritish',         icon:'✏️'},
   ],
 };
@@ -10965,7 +11199,8 @@ function goNav(id){
 
 
     else if(subId==='debcred')  renderDebCred();
-
+    else if(subId==='holding3s') renderHolding3S();
+    else if(subId==='tasks')     renderTasksPage('all');
 
     // payroll direction-level only
 
@@ -11062,6 +11297,10 @@ function goNav(id){
 
     renderPipeline(dirId);
 
+
+  } else if(subId==='tasks'){
+
+    renderTasksPage(dirId);
 
   } else {
 
@@ -11388,6 +11627,874 @@ function toast(msg){
 
 
 // ════════════════════════════════════════════
+
+// ── TA'SISCHIGA HISOBOT (Holding 3-Statement) ─────────────────────────────
+function renderHolding3S(){
+  var MC = document.getElementById('mainContent'); if(!MC) return;
+
+  // ── helpers ──
+  var nonH = DIRS.filter(function(d){ return d.id!=='holding'; });
+
+  // ── per-direction computed values ──
+  var dirs = nonH.map(function(d){
+    var id = d.id;
+    var rows = fil(id); // filtered DATA rows for period
+
+    // P&L values
+    var rev    = id==='logistics'||id==='cargo' ? sk(rows,'revenue') : sk(rows,'income');
+    var cogs_  = sk(rows,'cogs');
+    var opex_  = sk(rows,'expense');
+    var tax_   = sk(rows,'tax_paid');
+    var da_    = 0; // D&A allocated per direction
+    try{
+      var totalDA = TXNS.filter(function(t){
+        return t.type==='capex'&&t.status!=='Bekor'&&t.direction===id;
+      }).reduce(function(s,t){return s+Math.abs(+(t.amount)||0);},0);
+      var _pm = DATE_FROM&&DATE_TO ? Math.max(1,Math.round((new Date(DATE_TO)-new Date(DATE_FROM))/(1000*60*60*24*30))) : 12;
+      da_ = Math.round(totalDA * 0.1 / 12 * _pm);
+    }catch(e){}
+    var ebit   = rev - cogs_ - opex_ - da_;
+    var ebt    = ebit;
+    var tax_f  = tax_>0 ? tax_ : Math.max(0,Math.round(ebt*0.12));
+    var netProfit = ebt - tax_f;
+
+    // Cash flows from this direction to holding
+    var divReceived = TXNS.filter(function(t){
+      return t.status!=='Bekor' && t.direction===id &&
+        (t.type==='finance'||(t.type==='transfer'&&t.to_dir==='holding')) &&
+        ((t.subcat||'').indexOf('Dividend')>=0||(t.subcat||'').indexOf('dividend')>=0||(t.subcat||'').indexOf('Foyda')>=0);
+    }).reduce(function(s,t){return s+Math.abs(+(t.amount)||0);},0);
+
+    // Loans given by holding to this direction
+    var loansGiven = TXNS.filter(function(t){
+      return t.status!=='Bekor' && t.to_dir===id &&
+        (t.type==='loan_in'||(t.subcat||'').indexOf('qarz')>=0||(t.subcat||'').indexOf('Qarz')>=0);
+    }).reduce(function(s,t){return s+Math.abs(+(t.amount)||0);},0);
+
+    // Loans returned from direction to holding
+    var loansReturned = TXNS.filter(function(t){
+      return t.status!=='Bekor' && t.direction===id && t.to_dir==='holding' &&
+        ((t.subcat||'').indexOf('qarz')>=0||(t.subcat||'').indexOf('Qarz')>=0||t.type==='loan_in');
+    }).reduce(function(s,t){return s+Math.abs(+(t.amount)||0);},0);
+
+    // Net balance: Net > 0 → direction owes holding (Receivable); Net < 0 → holding owes direction (Payable)
+    var net = netProfit - divReceived + loansGiven - loansReturned;
+
+    return {
+      id: id, name: d.name, icon: d.icon||'🏢',
+      netProfit: netProfit, rev: rev, ebit: ebit,
+      divReceived: divReceived, loansGiven: loansGiven, loansReturned: loansReturned,
+      net: net,
+    };
+  });
+
+  // ── Holding-level aggregates ──
+  var totalProfit   = dirs.reduce(function(s,d){return s+d.netProfit;},0);
+  var totalDivRcv   = dirs.reduce(function(s,d){return s+d.divReceived;},0);
+  var totalLoansGiv = dirs.reduce(function(s,d){return s+d.loansGiven;},0);
+  var totalLoansRet = dirs.reduce(function(s,d){return s+d.loansReturned;},0);
+
+  // CF: Holding own expenses (from holding direction txns)
+  var holdRows = fil('holding');
+  var holdExp  = sk(holdRows,'expense');
+  var holdCapex = TXNS.filter(function(t){return t.status!=='Bekor'&&t.direction==='holding'&&t.type==='capex';})
+                     .reduce(function(s,t){return s+Math.abs(+(t.amount)||0);},0);
+
+  // CF summary
+  var cfDivIn    = totalDivRcv;
+  var cfLoanOut  = totalLoansGiv;
+  var cfLoanIn   = totalLoansRet;
+  var cfNetCash  = cfDivIn - holdExp - cfLoanOut + cfLoanIn - holdCapex;
+
+  // BS: Holding cash = kassa of holding direction
+  var holdCash = TXNS.filter(function(t){
+    return t.status!=='Bekor'&&t.direction==='holding'&&(t.type==='income'||t.type==='finance'||t.type==='loan_in');
+  }).reduce(function(s,t){return s+Math.abs(+(t.amount)||0);},0)
+  - TXNS.filter(function(t){
+    return t.status!=='Bekor'&&t.direction==='holding'&&(t.type==='opex'||t.type==='transfer');
+  }).reduce(function(s,t){return s+Math.abs(+(t.amount)||0);},0);
+  holdCash = Math.max(0, holdCash);
+
+  // BS: Receivables / Payables from interco
+  var totalReceivable = dirs.filter(function(d){return d.net>0;}).reduce(function(s,d){return s+d.net;},0);
+  var totalPayable    = dirs.filter(function(d){return d.net<0;}).reduce(function(s,d){return s+Math.abs(d.net);},0);
+
+  // BS: CapEx (Fixed Assets at cost)
+  var holdCapexTotal = TXNS.filter(function(t){return t.status!=='Bekor'&&t.direction==='holding'&&t.type==='capex';})
+    .reduce(function(s,t){return s+Math.abs(+(t.amount)||0);},0);
+
+  // BS: Investments in directions (capital given, not loans)
+  var bsInvestments = TXNS.filter(function(t){
+    return t.status!=='Bekor'&&t.to_dir&&t.to_dir!=='holding'&&t.type==='transfer'&&
+      !((t.subcat||'').indexOf('qarz')>=0||(t.subcat||'').indexOf('Qarz')>=0);
+  }).reduce(function(s,t){return s+Math.abs(+(t.amount)||0);},0);
+
+  var totalAssets = holdCash + totalReceivable + holdCapexTotal + bsInvestments;
+  var totalEquity = totalProfit - holdExp;
+  var totalLiab   = totalPayable;
+
+  // ── Capex drill-down list ──
+  var holdCapexTxns = TXNS.filter(function(t){return t.status!=='Bekor'&&t.direction==='holding'&&t.type==='capex';});
+
+  // ─── RENDER ───────────────────────────────────────────────────────────────
+  var cc = function(v,pos,neg){ return v>0?(pos||'#17B374'):(v<0?(neg||'#FF4D6A'):'var(--t3)'); };
+
+  var h = '<div style="padding:20px;max-width:1100px;margin:0 auto">';
+
+  // Title
+  h += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">';
+  h += '<div style="width:40px;height:40px;border-radius:10px;background:rgba(108,142,255,0.15);display:flex;align-items:center;justify-content:center;font-size:20px">🏛️</div>';
+  var _perLbl = DATE_FROM&&DATE_TO ? DATE_FROM+' – '+DATE_TO : (typeof PER!=='undefined'&&PER>=99999?'Barcha vaqt':'So\'nggi '+PER+' kun');
+  h += '<div><div style="font-size:18px;font-weight:700;color:var(--t1)">Ta\'sischiga Hisobot</div>';
+  h += '<div style="font-size:11px;color:var(--t3)">Founder Consolidated View · IAS 27 · '+_perLbl+'</div></div>';
+  h += '</div>';
+
+  // ── 3-column top cards ──
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px">';
+
+  // Card 1: P&L summary
+  h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:16px">';
+  h += '<div style="font-size:10px;font-weight:600;color:var(--t3);letter-spacing:.5px;margin-bottom:10px">📈 DAROMAD HISOBOTI</div>';
+  var plRows = [
+    {lbl:"Jami Daromad",      val:dirs.reduce(function(s,d){return s+d.rev;},0),      col:'#17B374'},
+    {lbl:"Sof Foyda (jami)",  val:totalProfit,   col: totalProfit>0?'#17B374':'#FF4D6A'},
+    {lbl:"Dividend Olingan",  val:totalDivRcv,   col:'#6C8EFF'},
+    {lbl:"Qarz Berildi",      val:-totalLoansGiv,col:'#FFB830'},
+    {lbl:"Qarz Qaytarildi",   val:totalLoansRet, col:'#00D4FF'},
+  ];
+  plRows.forEach(function(r){
+    h += '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--b1)">';
+    h += '<span style="font-size:11px;color:var(--t2)">'+r.lbl+'</span>';
+    h += '<span style="font-size:11px;font-family:var(--mono);color:'+r.col+'">'+(r.val<0?'-':'')+fmtM(Math.abs(r.val))+'</span></div>';
+  });
+  h += '</div>';
+
+  // Card 2: Cash Flow
+  h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:16px">';
+  h += '<div style="font-size:10px;font-weight:600;color:var(--t3);letter-spacing:.5px;margin-bottom:10px">💵 Pcash OQIMI</div>';
+  var cfRows = [
+    {lbl:"+ Dividend olingan",  val:cfDivIn,      col:'#17B374'},
+    {lbl:"- Xarajatlar",        val:-holdExp,     col:'#FF4D6A'},
+    {lbl:"- Qarz Berildi",      val:-cfLoanOut,   col:'#FFB830'},
+    {lbl:"+ Qarz Qaytarildi",   val:cfLoanIn,     col:'#00D4FF'},
+    {lbl:"- CapEx",             val:-holdCapex,   col:'#FF4D6A'},
+  ];
+  cfRows.forEach(function(r){
+    h += '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--b1)">';
+    h += '<span style="font-size:11px;color:var(--t2)">'+r.lbl+'</span>';
+    h += '<span style="font-size:11px;font-family:var(--mono);color:'+r.col+'">'+(r.val<0?'-':'')+fmtM(Math.abs(r.val))+'</span></div>';
+  });
+  h += '<div style="display:flex;justify-content:space-between;padding:6px 0;margin-top:4px">';
+  h += '<span style="font-size:11px;font-weight:600;color:var(--t1)">Net Cash</span>';
+  h += '<span style="font-size:13px;font-weight:700;font-family:var(--mono);color:'+cc(cfNetCash)+'">'+fmtM(cfNetCash)+'</span></div>';
+  h += '</div>';
+
+  // Card 3: Balance Sheet summary
+  h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:16px">';
+  h += '<div style="font-size:10px;font-weight:600;color:var(--t3);letter-spacing:.5px;margin-bottom:10px">⚖️ BALANS (TA\'SISCHI)</div>';
+  var bsRows = [
+    {lbl:"Naqd Pul (Holding)",     val:holdCash,        col:'#17B374'},
+    {lbl:"Debitor (yo'nalishlar)", val:totalReceivable, col:'#6C8EFF'},
+    {lbl:"Investitsiyalar",         val:bsInvestments,   col:'#A78BFF'},
+    {lbl:"Asosiy Vositalar",        val:holdCapexTotal,  col:'#FFB830', click:'_hs3_ppe_drill'},
+    {sep:true, lbl:"JAMI AKTIV",   val:totalAssets,     col:'var(--t1)'},
+    {lbl:"Kreditor (yo'nalish)",   val:-totalPayable,   col:'#FF4D6A'},
+    {sep:true, lbl:"Kapital",       val:totalEquity,     col:'#17B374'},
+  ];
+  bsRows.forEach(function(r){
+    if(r.sep){
+      h += '<div style="display:flex;justify-content:space-between;padding:5px 0;border-top:1px solid var(--b1);margin-top:3px">';
+      h += '<span style="font-size:11px;font-weight:600;color:var(--t1)">'+r.lbl+'</span>';
+      h += '<span style="font-size:12px;font-weight:700;font-family:var(--mono);color:'+r.col+'">'+fmtM(r.val)+'</span></div>';
+    } else {
+      h += '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--b1)">';
+      h += '<span style="font-size:11px;color:var(--t2)'+(r.click?';cursor:pointer;text-decoration:underline dotted':'')+'"'+(r.click?' onclick="document.getElementById(\''+r.click+'\').scrollIntoView({behavior:\'smooth\'})"':'')+'>'+r.lbl+'</span>';
+      h += '<span style="font-size:11px;font-family:var(--mono);color:'+r.col+'">'+(r.val<0?'-':'')+fmtM(Math.abs(r.val))+'</span></div>';
+    }
+  });
+  h += '</div>';
+
+  h += '</div>'; // end 3-col grid
+
+  // ── Interco Balance Table ──────────────────────────────────────────────────
+  h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:16px;margin-bottom:16px">';
+  h += '<div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:12px">🔄 Yo\'nalishlar bilan Hisob-Kitob</div>';
+  h += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">';
+  h += '<thead><tr style="color:var(--t3);border-bottom:1px solid var(--b1)">';
+  ['Yo\'nalish','Sof Foyda','Dividend Olindi','Qarz Berildi','Qarz Qaytarildi','Net Balans','Holat'].forEach(function(c){
+    h += '<th style="padding:6px 8px;text-align:right;font-weight:600">'+c+'</th>';
+  });
+  h += '</tr></thead><tbody>';
+  dirs.forEach(function(d){
+    var statusLbl, statusCol;
+    if(Math.abs(d.net)<1000){ statusLbl='Balanslangan'; statusCol='#17B374'; }
+    else if(d.net>0){ statusLbl='Yo\'nalish qarzdor'; statusCol='#6C8EFF'; }
+    else { statusLbl='Ta\'sischi qarzdor'; statusCol='#FFB830'; }
+    h += '<tr style="border-bottom:1px solid var(--b1)">';
+    h += '<td style="padding:8px;text-align:left"><span style="font-size:13px">'+d.icon+'</span> <span style="font-weight:600;color:var(--t1)">'+d.name+'</span></td>';
+    h += '<td style="padding:8px;text-align:right;font-family:var(--mono);color:'+cc(d.netProfit)+'">'+fmtM(d.netProfit)+'</td>';
+    h += '<td style="padding:8px;text-align:right;font-family:var(--mono);color:#6C8EFF">'+fmtM(d.divReceived)+'</td>';
+    h += '<td style="padding:8px;text-align:right;font-family:var(--mono);color:#FFB830">'+fmtM(d.loansGiven)+'</td>';
+    h += '<td style="padding:8px;text-align:right;font-family:var(--mono);color:#00D4FF">'+fmtM(d.loansReturned)+'</td>';
+    h += '<td style="padding:8px;text-align:right;font-family:var(--mono);font-weight:700;color:'+cc(d.net)+'">'+fmtM(d.net)+'</td>';
+    h += '<td style="padding:8px;text-align:right"><span style="padding:2px 8px;border-radius:20px;background:'+statusCol+'22;color:'+statusCol+';font-size:10px;font-weight:600">'+statusLbl+'</span></td>';
+    h += '</tr>';
+  });
+  h += '</tbody></table></div>';
+  h += '<div style="font-size:10px;color:var(--t3);margin-top:8px">Net = Sof Foyda − Dividend Olingan + Qarz Berildi − Qarz Qaytarildi &nbsp;|&nbsp; Net > 0 → yo\'nalish ta\'sischiga qarzdor (Debitor) &nbsp;|&nbsp; Net &lt; 0 → ta\'sischi yo\'nalishga qarzdor (Kreditor)</div>';
+  h += '</div>';
+
+  // ── Fixed Assets Drill-Down ────────────────────────────────────────────────
+  h += '<div id="_hs3_ppe_drill" style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:16px;margin-bottom:16px">';
+  h += '<div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:12px">🏗️ Asosiy Vositalar (CapEx) — Ro\'yxat</div>';
+  if(!holdCapexTxns.length){
+    h += '<div style="text-align:center;padding:20px;color:var(--t3);font-size:12px">CapEx tranzaksiyalari mavjud emas</div>';
+  } else {
+    h += '<table style="width:100%;border-collapse:collapse;font-size:11px">';
+    h += '<thead><tr style="color:var(--t3);border-bottom:1px solid var(--b1)">';
+    ['Sana','Nomi / Maqsad','Kategoriya','Miqdor'].forEach(function(c){
+      h += '<th style="padding:6px 8px;text-align:left;font-weight:600">'+c+'</th>';
+    });
+    h += '</tr></thead><tbody>';
+    var capexTotal = 0;
+    holdCapexTxns.forEach(function(t){
+      var amt = Math.abs(+(t.amount)||0);
+      capexTotal += amt;
+      h += '<tr style="border-bottom:1px solid var(--b1)">';
+      h += '<td style="padding:7px 8px;color:var(--t3)">'+escHtml(t.date||'')+'</td>';
+      h += '<td style="padding:7px 8px;color:var(--t1)">'+escHtml(t.purpose||t.description||'—')+'</td>';
+      h += '<td style="padding:7px 8px;color:var(--t3)">'+escHtml(t.subcat||t.type||'')+'</td>';
+      h += '<td style="padding:7px 8px;font-family:var(--mono);color:#FFB830;text-align:right">'+fmtM(amt)+'</td>';
+      h += '</tr>';
+    });
+    h += '<tr><td colspan="3" style="padding:7px 8px;font-weight:600;color:var(--t1)">JAMI</td>';
+    h += '<td style="padding:7px 8px;font-family:var(--mono);font-weight:700;color:#FFB830;text-align:right">'+fmtM(capexTotal)+'</td></tr>';
+    h += '</tbody></table>';
+  }
+  h += '</div>';
+
+  h += '</div>'; // outer padding div
+
+  MC.innerHTML = h;
+}
+
+// helper: fmtM — alias to fS for holding3s
+function fmtM(v){ return fS(Math.round(v||0)); }
+
+// ── TASK MANAGEMENT RENDER ────────────────────────────────────────────────────
+function renderTasksPage(dirId){
+  var MC = document.getElementById('mainContent'); if(!MC) return;
+  tasksCheckDeadlines();
+
+  var isAll = (!dirId || dirId==='all');
+  var tasks  = isAll ? TASKS.slice() : tasksByDir(dirId);
+  var dirObj = DIRS.find(function(d){return d.id===dirId;}) || {name:'Barcha Yo\'nalishlar',icon:'🏢'};
+  var today  = new Date().toISOString().slice(0,10);
+
+  // Stats
+  var stats = {
+    total:tasks.length,
+    yangi:0, jarayonda:0, tekshiruvda:0, bajarildi:0, kechikdi:0, bekor:0
+  };
+  tasks.forEach(function(t){
+    if(t.status==='Yangi') stats.yangi++;
+    else if(t.status==='Jarayonda') stats.jarayonda++;
+    else if(t.status==='Tekshiruvda') stats.tekshiruvda++;
+    else if(t.status==='Bajarildi') stats.bajarildi++;
+    else if(t.status==='Kechikdi') stats.kechikdi++;
+    else if(t.status==='Bekor qilindi') stats.bekor++;
+  });
+
+  // Capture filter values BEFORE replacing innerHTML
+  var fltStatus = (document.getElementById('_taskFltStatus')||{}).value||'';
+  var fltPri    = (document.getElementById('_taskFltPri')||{}).value||'';
+  var fltDir    = (document.getElementById('_taskFltDir')||{}).value||'';
+  var fltSearch = ((document.getElementById('_taskFltSearch')||{}).value||'').toLowerCase();
+
+  var h = '<div style="padding:20px;max-width:1200px;margin:0 auto">';
+
+  // Header
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">';
+  h += '<div style="display:flex;align-items:center;gap:12px">';
+  h += '<div style="width:40px;height:40px;border-radius:10px;background:rgba(108,142,255,0.15);display:flex;align-items:center;justify-content:center;font-size:20px">✅</div>';
+  h += '<div><div style="font-size:18px;font-weight:700;color:var(--t1)">'+(isAll?'Barcha Vazifalar':(dirObj.icon||'')+ ' '+dirObj.name+' — Vazifalar')+'</div>';
+  h += '<div style="font-size:11px;color:var(--t3)">Task Management · MVP</div></div>';
+  h += '</div>';
+  h += '<div style="display:flex;gap:8px">';
+  if(isAll){
+    h += '<button onclick="renderTasksPage(\'all\')" style="padding:7px 14px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:11px">🔄 Yangilash</button>';
+  }
+  h += '<button onclick="openTaskModal(\''+(!isAll?dirId:'')+'\')" style="padding:7px 16px;background:#6C8EFF;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">+ Yangi Vazifa</button>';
+  h += '<button onclick="openNotifPanel()" style="position:relative;padding:7px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:13px">🔔<span id="_taskNotifBadge" style="position:absolute;top:-4px;right:-4px;background:#FF4D6A;color:#fff;font-size:9px;font-weight:700;border-radius:10px;padding:1px 4px;display:none"></span></button>';
+  h += '</div></div>';
+
+  // Stats row
+  var statItems = [
+    {lbl:'Jami',      val:stats.total,      col:'#6C8EFF'},
+    {lbl:'Yangi',     val:stats.yangi,      col:'#6C8EFF'},
+    {lbl:'Jarayonda', val:stats.jarayonda,  col:'#FFB830'},
+    {lbl:'Tekshiruvda',val:stats.tekshiruvda,col:'#00D4FF'},
+    {lbl:'Bajarildi', val:stats.bajarildi,  col:'#17B374'},
+    {lbl:'Kechikdi',  val:stats.kechikdi,   col:'#FF4D6A'},
+    {lbl:'Bekor',     val:stats.bekor,      col:'#888'},
+  ];
+  h += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:16px">';
+  statItems.forEach(function(s){
+    h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:10px;text-align:center">';
+    h += '<div style="font-size:20px;font-weight:700;color:'+s.col+'">'+s.val+'</div>';
+    h += '<div style="font-size:10px;color:var(--t3);margin-top:2px">'+s.lbl+'</div>';
+    h += '</div>';
+  });
+  h += '</div>';
+
+  // Filter bar
+  h += '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">';
+  h += '<select id="_taskFltStatus" onchange="renderTasksPage(\''+dirId+'\')" style="padding:6px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:11px">';
+  h += '<option value="">Barcha status</option>';
+  TASK_STATUSES.forEach(function(s){ h+='<option value="'+s+'">'+s+'</option>'; });
+  h += '</select>';
+  h += '<select id="_taskFltPri" onchange="renderTasksPage(\''+dirId+'\')" style="padding:6px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:11px">';
+  h += '<option value="">Barcha ustuvorlik</option>';
+  TASK_PRIORITIES.forEach(function(p){ h+='<option value="'+p+'">'+p+'</option>'; });
+  h += '</select>';
+  if(isAll){
+    h += '<select id="_taskFltDir" onchange="renderTasksPage(\'all\')" style="padding:6px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:11px">';
+    h += '<option value="">Barcha yo\'nalish</option>';
+    DIRS.forEach(function(d){ h+='<option value="'+d.id+'">'+escHtml(d.name)+'</option>'; });
+    h += '</select>';
+  }
+  h += '<input id="_taskFltSearch" oninput="renderTasksPage(\''+dirId+'\')" placeholder="🔍 Qidirish..." style="padding:6px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:11px;flex:1;min-width:140px">';
+  h += '<button onclick="exportTasksExcel(\''+dirId+'\')" style="padding:6px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:11px">📊 Excel</button>';
+  h += '</div>';
+
+  // Apply filters
+  var visible = tasks.filter(function(t){
+    if(fltStatus && t.status!==fltStatus) return false;
+    if(fltPri && t.priority!==fltPri) return false;
+    if(fltDir && t.direction!==fltDir) return false;
+    if(fltSearch && !(t.title||'').toLowerCase().includes(fltSearch) && !(t.description||'').toLowerCase().includes(fltSearch)) return false;
+    return true;
+  });
+
+  // Sort: Shoshilinch > Yuqori > O'rta > Past; then by deadline
+  var priOrder={'Shoshilinch':0,'Yuqori':1,'O\'rta':2,'Past':3};
+  visible.sort(function(a,b){
+    var pa=(priOrder[a.priority]||9), pb=(priOrder[b.priority]||9);
+    if(pa!==pb) return pa-pb;
+    return (a.deadline||'9999')>(b.deadline||'9999')?1:-1;
+  });
+
+  // Task list table
+  if(!visible.length){
+    h += '<div style="text-align:center;padding:40px;background:var(--s1);border:1px solid var(--b1);border-radius:12px;color:var(--t3);font-size:13px">📭 Vazifalar topilmadi</div>';
+  } else {
+    h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;overflow:hidden">';
+    h += '<table style="width:100%;border-collapse:collapse;font-size:11px">';
+    h += '<thead><tr style="background:var(--s2);color:var(--t3);font-size:10px;font-weight:600">';
+    ['ID','Nomi','Yo\'nalish','Mas\'ul','Deadline','Ball','Ustuvorlik','Status',''].forEach(function(c){
+      h += '<th style="padding:8px 10px;text-align:left;white-space:nowrap">'+c+'</th>';
+    });
+    h += '</tr></thead><tbody>';
+
+    visible.forEach(function(t){
+      var stCol  = TASK_STATUS_COLORS[t.status]||'#888';
+      var priCol = TASK_PRIORITY_COLORS[t.priority]||'#888';
+      var isLate = t.deadline && t.deadline<today && t.status!=='Bajarildi' && t.status!=='Bekor qilindi';
+      var dLbl   = t.deadline || '—';
+      var dCol   = isLate ? '#FF4D6A' : 'var(--t2)';
+      var subtaskCount = (t.subtasks||[]).length;
+      var checkDone = (t.checklist||[]).filter(function(c){return c.done;}).length;
+      var checkTotal= (t.checklist||[]).length;
+
+      h += '<tr style="border-bottom:1px solid var(--b1);cursor:pointer" onclick="openTaskDetail(\''+t.id+'\')">';
+      h += '<td style="padding:9px 10px;font-family:var(--mono);color:var(--t3);white-space:nowrap">'+escHtml(t.id)+'</td>';
+      h += '<td style="padding:9px 10px;max-width:220px">';
+      h += '<div style="font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(t.title||'')+'</div>';
+      if(t.space) h += '<div style="font-size:9px;color:var(--t3)">📁 '+escHtml(t.space)+'</div>';
+      if(subtaskCount) h += '<div style="font-size:9px;color:var(--t3)">🔗 '+subtaskCount+' subtask</div>';
+      if(checkTotal) h += '<div style="font-size:9px;color:var(--t3)">☑ '+checkDone+'/'+checkTotal+'</div>';
+      h += '</td>';
+
+      // Direction
+      var dObj = DIRS.find(function(d){return d.id===t.direction;})||{name:t.direction||'—',icon:''};
+      h += '<td style="padding:9px 10px;white-space:nowrap;color:var(--t2)"><span style="font-size:13px">'+(dObj.icon||'')+'</span> '+escHtml(dObj.name||'')+'</td>';
+      h += '<td style="padding:9px 10px;color:var(--t2);white-space:nowrap">'+escHtml(t.assignee_name||'—')+'</td>';
+      h += '<td style="padding:9px 10px;font-family:var(--mono);color:'+dCol+';white-space:nowrap">'+(isLate?'⚠️ ':'')+escHtml(dLbl)+'</td>';
+      h += '<td style="padding:9px 10px;text-align:center"><span style="display:inline-block;width:24px;height:24px;border-radius:50%;background:#6C8EFF22;color:#6C8EFF;font-weight:700;line-height:24px;text-align:center;font-size:11px">'+(t.score||'—')+'</span></td>';
+      h += '<td style="padding:9px 10px"><span style="padding:2px 8px;border-radius:20px;background:'+priCol+'22;color:'+priCol+';font-size:10px;font-weight:600">'+escHtml(t.priority||'—')+'</span></td>';
+      h += '<td style="padding:9px 10px"><span style="padding:2px 8px;border-radius:20px;background:'+stCol+'22;color:'+stCol+';font-size:10px;font-weight:600">'+escHtml(t.status||'—')+'</span></td>';
+      h += '<td style="padding:9px 10px;white-space:nowrap">';
+      h += '<button onclick="event.stopPropagation();openTaskDetail(\''+t.id+'\')" style="padding:3px 8px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;color:var(--t2);cursor:pointer;font-size:10px;margin-right:4px">Ko\'rish</button>';
+      h += '<button onclick="event.stopPropagation();deleteTask(\''+t.id+'\')" style="padding:3px 8px;background:rgba(255,77,106,0.1);border:1px solid rgba(255,77,106,0.3);border-radius:6px;color:#FF4D6A;cursor:pointer;font-size:10px">🗑</button>';
+      h += '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+  }
+  h += '</div>';
+  MC.innerHTML = h;
+  // Restore filter values after re-render
+  if(fltStatus){ var el=document.getElementById('_taskFltStatus'); if(el) el.value=fltStatus; }
+  if(fltPri)   { var el2=document.getElementById('_taskFltPri');    if(el2) el2.value=fltPri; }
+  if(fltDir)   { var el3=document.getElementById('_taskFltDir');    if(el3) el3.value=fltDir; }
+  if(fltSearch){ var el4=document.getElementById('_taskFltSearch'); if(el4) el4.value=fltSearch; }
+  updateNotifBadge();
+}
+
+// ── TASK CREATION MODAL ──────────────────────────────────────────────────────
+window.openTaskModal = function(dirId, parentId){
+  var ex = document.getElementById('_taskModalOv'); if(ex) ex.remove();
+  var ov = document.createElement('div');
+  ov.id = '_taskModalOv';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.onclick = function(e){ if(e.target===ov) ov.remove(); };
+
+  var parentTask = parentId ? getTask(parentId) : null;
+  var isSubtask  = !!parentTask;
+
+  var dirOpts = '<option value="">— Yo\'nalish —</option>';
+  DIRS.forEach(function(d){ dirOpts += '<option value="'+d.id+'"'+(d.id===dirId?' selected':'')+'>'+escHtml(d.name)+'</option>'; });
+
+  var spaceOpts = '<option value="">— Bo\'lim —</option>';
+  TASK_SPACES.forEach(function(s){ spaceOpts += '<option value="'+s+'">'+s+'</option>'; });
+
+  var priOpts = TASK_PRIORITIES.map(function(p){ return '<option value="'+p+'">'+p+'</option>'; }).join('');
+  var scoreOpts = TASK_SCORES.map(function(s){ return '<option value="'+s+'">'+s+' ball</option>'; }).join('');
+
+  var empOpts = '<option value="">— Xodim —</option>';
+  PAYROLL.forEach(function(e){ empOpts += '<option value="'+e.id+'" data-n="'+escHtml(e.name)+'">'+escHtml(e.name)+'</option>'; });
+
+  var h = '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:24px;width:540px;max-width:95vw;max-height:90vh;overflow-y:auto">';
+  h += '<div style="font-size:14px;font-weight:700;color:var(--t1);margin-bottom:16px">'+(isSubtask?'🔗 Subtask Qo\'shish':'✅ Yangi Vazifa')+(parentTask?' — <span style="color:var(--t3);font-size:11px">'+escHtml(parentTask.title)+'</span>':'')+'</div>';
+
+  var row = function(lbl, inp){ return '<div style="margin-bottom:10px"><label style="font-size:10px;color:var(--t3);font-weight:600;display:block;margin-bottom:4px">'+lbl+'</label>'+inp+'</div>'; };
+  var iStyle = 'width:100%;box-sizing:border-box;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px';
+
+  h += row('Vazifa nomi *', '<input id="_ti_title" placeholder="Vazifa nomi..." style="'+iStyle+'">');
+  h += row('Tavsif *', '<textarea id="_ti_desc" rows="2" placeholder="Vazifa tavsifi..." style="'+iStyle+';resize:vertical"></textarea>');
+
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">';
+  if(!isSubtask){
+    h += '<div>'+row('Yo\'nalish *', '<select id="_ti_dir" style="'+iStyle+'">'+dirOpts+'</select>')+'</div>';
+    h += '<div>'+row('Bo\'lim / Space', '<select id="_ti_space" style="'+iStyle+'">'+spaceOpts+'</select>')+'</div>';
+  }
+  h += '<div>'+row('Mas\'ul xodim *', '<select id="_ti_assignee" style="'+iStyle+'">'+empOpts+'</select>')+'</div>';
+  h += '<div>'+row('Qabul qiluvchi *', '<select id="_ti_receiver" style="'+iStyle+'">'+empOpts+'</select>')+'</div>';
+  h += '<div>'+row('Deadline *', '<input id="_ti_deadline" type="date" style="'+iStyle+'" value="'+new Date(Date.now()+7*86400000).toISOString().slice(0,10)+'">')+'</div>';
+  h += '<div>'+row('Ustuvorlik *', '<select id="_ti_priority" style="'+iStyle+'">'+priOpts+'</select>')+'</div>';
+  h += '<div>'+row('Ball (og\'irlik) *', '<select id="_ti_score" style="'+iStyle+'">'+scoreOpts+'</select>')+'</div>';
+  if(!isSubtask){
+    h += '<div>'+row('Takrorlanish', '<select id="_ti_recur" style="'+iStyle+'"><option value="">Yo\'q</option><option value="daily">Har kuni</option><option value="weekly">Har hafta</option><option value="monthly">Har oy</option><option value="quarterly">Har chorak</option><option value="yearly">Har yil</option></select>')+'</div>';
+  }
+  h += '</div>';
+
+  // Checklist
+  h += '<div style="margin-bottom:10px"><label style="font-size:10px;color:var(--t3);font-weight:600;display:block;margin-bottom:6px">Checklist (ixtiyoriy)</label>';
+  h += '<div id="_ti_checks"></div>';
+  h += '<button onclick="addCheckItem()" style="padding:4px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;color:var(--t2);cursor:pointer;font-size:11px;margin-top:4px">+ Band qo\'shish</button></div>';
+
+  // Flags
+  h += '<div style="display:flex;gap:16px;margin-bottom:14px">';
+  if(!isSubtask){
+    h += '<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--t2);cursor:pointer"><input type="checkbox" id="_ti_fin_link"> 💰 Moliyaviy modul bilan bog\'lash</label>';
+    h += '<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--t2);cursor:pointer"><input type="checkbox" id="_ti_kpi_link"> 📊 KPIga ta\'sir qiladi</label>';
+  }
+  h += '</div>';
+
+  h += '<div style="display:flex;gap:8px">';
+  h += '<button onclick="document.getElementById(\'_taskModalOv\').remove()" style="flex:1;padding:9px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:12px">Bekor</button>';
+  h += '<button onclick="saveNewTask(\''+(!isSubtask?dirId:'')+(parentId?'\',\''+parentId:'')+'\','+isSubtask+')" style="flex:2;padding:9px;background:#6C8EFF;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">✅ Saqlash</button>';
+  h += '</div>';
+  h += '</div>';
+  ov.innerHTML = h;
+  document.body.appendChild(ov);
+};
+
+window.addCheckItem = function(){
+  var cont = document.getElementById('_ti_checks'); if(!cont) return;
+  var idx = cont.children.length;
+  var d = document.createElement('div');
+  d.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:4px';
+  d.innerHTML = '<input type="checkbox" disabled><input type="text" placeholder="Band nomi..." style="flex:1;padding:5px 8px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;color:var(--t1);font-size:11px" data-chk="'+idx+'"><button onclick="this.parentElement.remove()" style="background:none;border:none;color:#FF4D6A;cursor:pointer;font-size:13px">✕</button>';
+  cont.appendChild(d);
+};
+
+window.saveNewTask = function(dirId, parentId, isSubtask){
+  var title  = (document.getElementById('_ti_title')||{}).value||'';
+  var desc   = (document.getElementById('_ti_desc')||{}).value||'';
+  var deadline = (document.getElementById('_ti_deadline')||{}).value||'';
+  var priority = (document.getElementById('_ti_priority')||{}).value||'O\'rta';
+  var score  = parseInt((document.getElementById('_ti_score')||{}).value)||3;
+
+  if(!title.trim()){ alert('Vazifa nomini kiriting'); return; }
+  if(!deadline)     { alert('Deadline kiriting'); return; }
+
+  var assigneeSel = document.getElementById('_ti_assignee');
+  var receiverSel = document.getElementById('_ti_receiver');
+  var assigneeId   = assigneeSel ? parseInt(assigneeSel.value)||0 : 0;
+  var assigneeName = assigneeSel ? (assigneeSel.options[assigneeSel.selectedIndex]||{}).text||'' : '';
+  var receiverId   = receiverSel ? parseInt(receiverSel.value)||0 : 0;
+  var receiverName = receiverSel ? (receiverSel.options[receiverSel.selectedIndex]||{}).text||'' : '';
+
+  if(!assigneeId){ alert('Mas\'ul xodimni tanlang'); return; }
+  if(!receiverId){ alert('Qabul qiluvchi shaxsni tanlang'); return; }
+
+  var taskDirId = (document.getElementById('_ti_dir')||{}).value || dirId;
+  if(!isSubtask && !taskDirId){ alert('Yo\'nalishni tanlang'); return; }
+
+  var space   = (document.getElementById('_ti_space')||{}).value||'';
+  var recur   = (document.getElementById('_ti_recur')||{}).value||'';
+  var finLink = (document.getElementById('_ti_fin_link')||{}).checked||false;
+  var kpiLink = (document.getElementById('_ti_kpi_link')||{}).checked||true;
+
+  // Checklist
+  var checks = [];
+  var checkInputs = document.querySelectorAll('[data-chk]');
+  checkInputs.forEach(function(inp){ if(inp.value.trim()) checks.push({text:inp.value.trim(),done:false}); });
+
+  var now = new Date().toISOString();
+  var today = now.slice(0,10);
+  var status = deadline < today ? 'Kechikdi' : 'Yangi';
+
+  if(isSubtask && parentId){
+    var parent = getTask(parentId);
+    if(!parent){ alert('Parent task topilmadi'); return; }
+    if(!parent.subtasks) parent.subtasks = [];
+    var st = {
+      id: 'ST-'+Date.now(),
+      title: title.trim(),
+      description: desc.trim(),
+      assignee_id: assigneeId, assignee_name: assigneeName,
+      deadline: deadline, status: status,
+      score: score, priority: priority,
+      checklist: checks, note: '',
+      created_at: now, updated_at: now,
+    };
+    parent.subtasks.push(st);
+    parent.updated_at = now;
+    taskSave();
+    document.getElementById('_taskModalOv').remove();
+    openTaskDetail(parentId);
+    return;
+  }
+
+  var task = {
+    id: taskNextId(),
+    title: title.trim(),
+    description: desc.trim(),
+    direction: taskDirId,
+    space: space,
+    assignee_id: assigneeId, assignee_name: assigneeName,
+    receiver_id: receiverId, receiver_name: receiverName,
+    creator_name: 'Admin',
+    deadline: deadline, status: status,
+    priority: priority, score: score,
+    checklist: checks, comments: [], files: [],
+    result: '', is_recurring: !!recur, recurring_type: recur,
+    is_finance_linked: finLink, is_kpi_linked: kpiLink,
+    subtasks: [],
+    created_at: now, updated_at: now,
+  };
+  TASKS.push(task);
+  taskSave();
+  addNotif('Yangi vazifa berildi: '+task.title, task.id);
+  document.getElementById('_taskModalOv').remove();
+  var curDir = DRILL.dir||'';
+  renderTasksPage(curDir||'all');
+};
+
+// ── TASK DETAIL MODAL ────────────────────────────────────────────────────────
+window.openTaskDetail = function(taskId){
+  var ex = document.getElementById('_taskDetailOv'); if(ex) ex.remove();
+  var t = getTask(taskId); if(!t) return;
+  var ov = document.createElement('div');
+  ov.id = '_taskDetailOv';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.onclick = function(e){ if(e.target===ov) ov.remove(); };
+
+  var stCol  = TASK_STATUS_COLORS[t.status]||'#888';
+  var priCol = TASK_PRIORITY_COLORS[t.priority]||'#888';
+  var today  = new Date().toISOString().slice(0,10);
+  var isLate = t.deadline && t.deadline<today && t.status!=='Bajarildi' && t.status!=='Bekor qilindi';
+
+  var h = '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:0;width:640px;max-width:96vw;max-height:90vh;overflow-y:auto">';
+
+  // Title bar
+  h += '<div style="padding:20px 20px 14px;border-bottom:1px solid var(--b1);position:sticky;top:0;background:var(--s1);z-index:2">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">';
+  h += '<div>';
+  h += '<div style="font-size:14px;font-weight:700;color:var(--t1);margin-bottom:4px">'+escHtml(t.title)+'</div>';
+  h += '<div style="display:flex;gap:6px;flex-wrap:wrap">';
+  h += '<span style="padding:2px 8px;border-radius:20px;background:'+stCol+'22;color:'+stCol+';font-size:10px;font-weight:600">'+t.status+'</span>';
+  h += '<span style="padding:2px 8px;border-radius:20px;background:'+priCol+'22;color:'+priCol+';font-size:10px;font-weight:600">'+escHtml(t.priority)+'</span>';
+  h += '<span style="padding:2px 8px;border-radius:20px;background:#6C8EFF22;color:#6C8EFF;font-size:10px;font-weight:600">'+t.score+' ball</span>';
+  if(t.is_kpi_linked) h += '<span style="padding:2px 8px;border-radius:20px;background:#17B37422;color:#17B374;font-size:10px">📊 KPI</span>';
+  if(t.is_finance_linked) h += '<span style="padding:2px 8px;border-radius:20px;background:#FFB83022;color:#FFB830;font-size:10px">💰 Moliya</span>';
+  if(t.is_recurring) h += '<span style="padding:2px 8px;border-radius:20px;background:#A78BFF22;color:#A78BFF;font-size:10px">🔄 '+escHtml(t.recurring_type||'')+'</span>';
+  h += '</div></div>';
+  h += '<button onclick="document.getElementById(\'_taskDetailOv\').remove()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px;padding:0 4px">✕</button>';
+  h += '</div></div>';
+
+  // Body
+  h += '<div style="padding:16px 20px">';
+
+  // Info grid
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">';
+  var infoItems = [
+    {lbl:'Mas\'ul', val:escHtml(t.assignee_name||'—')},
+    {lbl:'Qabul qiluvchi', val:escHtml(t.receiver_name||'—')},
+    {lbl:'Deadline', val:'<span style="color:'+(isLate?'#FF4D6A':'var(--t2)')+'">'+escHtml(t.deadline||'—')+(isLate?' ⚠️':'')+'</span>'},
+    {lbl:'Yo\'nalish', val:escHtml((DIRS.find(function(d){return d.id===t.direction;})||{name:t.direction||'—'}).name)},
+    {lbl:'Bo\'lim', val:escHtml(t.space||'—')},
+    {lbl:'Yaratilgan', val:escHtml((t.created_at||'').slice(0,10))},
+  ];
+  infoItems.forEach(function(i){
+    h += '<div style="background:var(--s2);border-radius:8px;padding:8px 10px">';
+    h += '<div style="font-size:10px;color:var(--t3);font-weight:600;margin-bottom:2px">'+i.lbl+'</div>';
+    h += '<div style="font-size:12px;color:var(--t1)">'+i.val+'</div></div>';
+  });
+  h += '</div>';
+
+  // Description
+  if(t.description){
+    h += '<div style="background:var(--s2);border-radius:8px;padding:10px 12px;margin-bottom:12px">';
+    h += '<div style="font-size:10px;color:var(--t3);font-weight:600;margin-bottom:4px">Tavsif</div>';
+    h += '<div style="font-size:12px;color:var(--t1);line-height:1.6">'+escHtml(t.description)+'</div></div>';
+  }
+
+  // Status change
+  h += '<div style="margin-bottom:12px">';
+  h += '<div style="font-size:10px;color:var(--t3);font-weight:600;margin-bottom:6px">Status O\'zgartirish</div>';
+  h += '<div style="display:flex;gap:6px;flex-wrap:wrap">';
+  TASK_STATUSES.forEach(function(s){
+    var sc = TASK_STATUS_COLORS[s]||'#888';
+    var isActive = t.status===s;
+    h += '<button onclick="changeTaskStatus(\''+taskId+'\',\''+s+'\')" style="padding:5px 10px;border-radius:20px;font-size:10px;font-weight:600;cursor:pointer;border:1px solid '+sc+';background:'+(isActive?sc:'transparent')+';color:'+(isActive?'#fff':sc)+'">'+s+'</button>';
+  });
+  h += '</div></div>';
+
+  // Checklist
+  var checks = t.checklist||[];
+  if(checks.length){
+    var done = checks.filter(function(c){return c.done;}).length;
+    h += '<div style="margin-bottom:12px">';
+    h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">';
+    h += '<div style="font-size:10px;color:var(--t3);font-weight:600">Checklist</div>';
+    h += '<div style="font-size:10px;color:var(--t3)">'+done+'/'+checks.length+' ('+Math.round(done/checks.length*100)+'%)</div>';
+    h += '</div>';
+    // Progress bar
+    h += '<div style="height:3px;background:var(--b1);border-radius:2px;margin-bottom:8px"><div style="height:3px;background:#17B374;border-radius:2px;width:'+Math.round(done/checks.length*100)+'%"></div></div>';
+    checks.forEach(function(c,i){
+      h += '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--b1)">';
+      h += '<input type="checkbox" '+(c.done?'checked':'')+' onchange="toggleCheck(\''+taskId+'\','+i+',this.checked)" style="cursor:pointer">';
+      h += '<span style="font-size:12px;color:var(--t1);'+(c.done?'text-decoration:line-through;color:var(--t3)':'')+'">'+escHtml(c.text)+'</span>';
+      h += '</div>';
+    });
+    h += '</div>';
+  }
+
+  // Result field
+  h += '<div style="margin-bottom:12px">';
+  h += '<div style="font-size:10px;color:var(--t3);font-weight:600;margin-bottom:6px">Natija</div>';
+  h += '<textarea id="_td_result_'+taskId+'" rows="2" placeholder="Bajarilgan ish natijasini kiriting..." style="width:100%;box-sizing:border-box;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;resize:vertical">'+escHtml(t.result||'')+'</textarea>';
+  h += '<button onclick="saveTaskResult(\''+taskId+'\')" style="margin-top:6px;padding:6px 14px;background:#17B374;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:11px;font-weight:600">💾 Natijani Saqlash</button>';
+  h += '</div>';
+
+  // Comments
+  h += '<div style="margin-bottom:12px">';
+  h += '<div style="font-size:10px;color:var(--t3);font-weight:600;margin-bottom:8px">Izohlar ('+(t.comments||[]).length+')</div>';
+  (t.comments||[]).forEach(function(c){
+    h += '<div style="background:var(--s2);border-radius:8px;padding:8px 10px;margin-bottom:6px">';
+    h += '<div style="display:flex;justify-content:space-between;margin-bottom:4px">';
+    h += '<span style="font-size:11px;font-weight:600;color:var(--t1)">'+escHtml(c.author||'?')+'</span>';
+    h += '<span style="font-size:10px;color:var(--t3)">'+escHtml((c.ts||'').slice(0,16).replace('T',' '))+'</span></div>';
+    h += '<div style="font-size:12px;color:var(--t2)">'+escHtml(c.text||'')+'</div></div>';
+  });
+  h += '<div style="display:flex;gap:6px;margin-top:6px">';
+  h += '<input id="_td_cmt_'+taskId+'" placeholder="Izoh yozing..." style="flex:1;padding:7px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:11px">';
+  h += '<button onclick="addComment(\''+taskId+'\')" style="padding:7px 14px;background:#6C8EFF;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:11px">Yuborish</button>';
+  h += '</div></div>';
+
+  // Subtasks
+  var subtasks = t.subtasks||[];
+  h += '<div style="margin-bottom:12px">';
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
+  h += '<div style="font-size:10px;color:var(--t3);font-weight:600">Subtasklar ('+subtasks.length+')</div>';
+  h += '<button onclick="openTaskModal(\''+t.direction+'\',\''+taskId+'\')" style="padding:4px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;color:var(--t2);cursor:pointer;font-size:10px">+ Subtask</button>';
+  h += '</div>';
+  subtasks.forEach(function(st){
+    var sc = TASK_STATUS_COLORS[st.status]||'#888';
+    h += '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--s2);border-radius:8px;margin-bottom:5px">';
+    h += '<span style="font-size:12px;color:var(--t1);flex:1">'+escHtml(st.title||'')+'</span>';
+    h += '<span style="font-size:10px;color:var(--t3)">'+escHtml(st.assignee_name||'')+'</span>';
+    h += '<span style="font-size:10px;color:var(--t3)">'+escHtml(st.deadline||'')+'</span>';
+    h += '<span style="padding:2px 7px;border-radius:20px;background:'+sc+'22;color:'+sc+';font-size:10px;font-weight:600">'+escHtml(st.status)+'</span>';
+    h += '</div>';
+  });
+  h += '</div>';
+
+  // Action buttons
+  h += '<div style="display:flex;gap:8px;padding-top:10px;border-top:1px solid var(--b1)">';
+  if(t.status==='Tekshiruvda'){
+    h += '<button onclick="changeTaskStatus(\''+taskId+'\',\'Bajarildi\')" style="flex:1;padding:9px;background:#17B374;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">✅ Qabul Qilish</button>';
+    h += '<button onclick="openReturnModal(\''+taskId+'\')" style="flex:1;padding:9px;background:#FF4D6A;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">↩ Qaytarish</button>';
+  } else if(t.status!=='Bajarildi' && t.status!=='Bekor qilindi'){
+    h += '<button onclick="changeTaskStatus(\''+taskId+'\',\'Tekshiruvda\')" style="flex:1;padding:9px;background:#00D4FF;border:none;border-radius:8px;color:#000;cursor:pointer;font-size:12px;font-weight:600">📋 Tekshiruvga Yuborish</button>';
+  }
+  h += '</div>';
+
+  h += '</div></div>';
+  ov.innerHTML = h;
+  document.body.appendChild(ov);
+};
+
+window.changeTaskStatus = function(taskId, newStatus){
+  var t = getTask(taskId); if(!t) return;
+  t.status = newStatus;
+  t.updated_at = new Date().toISOString();
+  taskSave();
+  addNotif('Vazifa statusi o\'zgartirildi: '+t.title+' → '+newStatus, taskId);
+  // refresh
+  var ex = document.getElementById('_taskDetailOv'); if(ex) ex.remove();
+  openTaskDetail(taskId);
+};
+
+window.toggleCheck = function(taskId, idx, done){
+  var t = getTask(taskId); if(!t) return;
+  if(t.checklist && t.checklist[idx]) t.checklist[idx].done = done;
+  t.updated_at = new Date().toISOString();
+  taskSave();
+};
+
+window.saveTaskResult = function(taskId){
+  var t = getTask(taskId); if(!t) return;
+  var val = (document.getElementById('_td_result_'+taskId)||{}).value||'';
+  t.result = val;
+  t.updated_at = new Date().toISOString();
+  taskSave();
+  // auto-move to Tekshiruvda if result filled and status is Jarayonda/Yangi
+  if(val.trim() && (t.status==='Yangi'||t.status==='Jarayonda')){
+    t.status = 'Tekshiruvda';
+    addNotif('Natija kiritildi, tekshiruvga yuborildi: '+t.title, taskId);
+  }
+  taskSave();
+  var ex = document.getElementById('_taskDetailOv'); if(ex) ex.remove();
+  openTaskDetail(taskId);
+};
+
+window.addComment = function(taskId){
+  var t = getTask(taskId); if(!t) return;
+  var inp = document.getElementById('_td_cmt_'+taskId); if(!inp) return;
+  var txt = inp.value.trim(); if(!txt) return;
+  if(!t.comments) t.comments = [];
+  t.comments.push({text:txt, author:'Siz', ts:new Date().toISOString()});
+  t.updated_at = new Date().toISOString();
+  taskSave();
+  addNotif('Yangi izoh: '+t.title, taskId);
+  var ex = document.getElementById('_taskDetailOv'); if(ex) ex.remove();
+  openTaskDetail(taskId);
+};
+
+window.deleteTask = function(taskId){
+  var t = getTask(taskId); if(!t) return;
+  if(!confirm('"'+t.title+'" vazifani o\'chirishni tasdiqlaysizmi?')) return;
+  TASKS.splice(TASKS.findIndex(function(x){return x.id===taskId;}),1);
+  taskSave();
+  var curDir = DRILL.dir||'';
+  renderTasksPage(curDir||'all');
+};
+
+window.openReturnModal = function(taskId){
+  var ex = document.getElementById('_taskReturnOv'); if(ex) ex.remove();
+  var ov = document.createElement('div');
+  ov.id = '_taskReturnOv';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML = '<div style="background:var(--s1);border:1px solid rgba(255,77,106,0.4);border-radius:14px;padding:24px;width:360px;max-width:95vw">'
+    +'<div style="font-size:13px;font-weight:700;color:#FF4D6A;margin-bottom:12px">↩ Qayta Ishlashga Qaytarish</div>'
+    +'<textarea id="_returnNote" rows="3" placeholder="Qaytarish sababi va tuzatish izohi..." style="width:100%;box-sizing:border-box;padding:8px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;resize:vertical"></textarea>'
+    +'<div style="display:flex;gap:8px;margin-top:12px">'
+    +'<button onclick="document.getElementById(\'_taskReturnOv\').remove()" style="flex:1;padding:9px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:12px">Bekor</button>'
+    +'<button onclick="confirmReturn(\''+taskId+'\')" style="flex:1;padding:9px;background:#FF4D6A;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">Qaytarish</button>'
+    +'</div></div>';
+  document.body.appendChild(ov);
+};
+
+window.confirmReturn = function(taskId){
+  var note = (document.getElementById('_returnNote')||{}).value||'';
+  if(!note.trim()){ alert('Qaytarish sababini kiriting'); return; }
+  var t = getTask(taskId); if(!t) return;
+  t.status = 'Jarayonda';
+  if(!t.comments) t.comments = [];
+  t.comments.push({text:'↩ Qaytarildi: '+note, author:'Qabul qiluvchi', ts:new Date().toISOString()});
+  t.updated_at = new Date().toISOString();
+  taskSave();
+  addNotif('Vazifa qayta ishlashga qaytarildi: '+t.title, taskId);
+  document.getElementById('_taskReturnOv').remove();
+  var ex = document.getElementById('_taskDetailOv'); if(ex) ex.remove();
+  openTaskDetail(taskId);
+};
+
+// ── NOTIFICATIONS PANEL ──────────────────────────────────────────────────────
+window.openNotifPanel = function(){
+  var ex = document.getElementById('_notifPanelOv'); if(ex){ ex.remove(); return; }
+  var ov = document.createElement('div');
+  ov.id = '_notifPanelOv';
+  ov.style.cssText = 'position:fixed;top:50px;right:20px;width:320px;max-height:480px;overflow-y:auto;background:var(--s1);border:1px solid var(--b1);border-radius:12px;z-index:9998;box-shadow:0 8px 32px rgba(0,0,0,0.4)';
+  var h = '<div style="padding:12px 14px;border-bottom:1px solid var(--b1);display:flex;justify-content:space-between;align-items:center">';
+  h += '<span style="font-size:12px;font-weight:700;color:var(--t1)">🔔 Bildirishnomalar</span>';
+  h += '<button onclick="markAllNotifRead()" style="font-size:10px;color:#6C8EFF;background:none;border:none;cursor:pointer">Hammasini o\'qildi</button>';
+  h += '</div>';
+  if(!TASK_NOTIFS.length){
+    h += '<div style="padding:20px;text-align:center;font-size:11px;color:var(--t3)">Bildirishnomalar yo\'q</div>';
+  }
+  TASK_NOTIFS.slice(0,30).forEach(function(n){
+    h += '<div style="padding:10px 14px;border-bottom:1px solid var(--b1);cursor:pointer;background:'+(n.read?'transparent':'rgba(108,142,255,0.05)')+'" onclick="markNotifRead('+n.id+',\''+escHtml(n.taskId||'')+'\',this)">';
+    h += '<div style="font-size:11px;color:var(--t1);margin-bottom:2px">'+escHtml(n.msg||'')+'</div>';
+    h += '<div style="font-size:10px;color:var(--t3)">'+escHtml((n.ts||'').slice(0,16).replace('T',' '))+'</div>';
+    h += '</div>';
+  });
+  ov.innerHTML = h;
+  document.body.appendChild(ov);
+};
+
+window.markNotifRead = function(id, taskId, el){
+  var n = TASK_NOTIFS.find(function(x){return x.id===id;});
+  if(n){ n.read=true; notifSave(); }
+  if(el) el.style.background = 'transparent';
+  updateNotifBadge();
+  if(taskId && getTask(taskId)){
+    var pan = document.getElementById('_notifPanelOv'); if(pan) pan.remove();
+    openTaskDetail(taskId);
+  }
+};
+
+window.markAllNotifRead = function(){
+  TASK_NOTIFS.forEach(function(n){n.read=true;});
+  notifSave();
+  updateNotifBadge();
+  var pan = document.getElementById('_notifPanelOv'); if(pan) pan.remove();
+};
+
+// ── EXCEL EXPORT ─────────────────────────────────────────────────────────────
+window.exportTasksExcel = function(dirId){
+  var tasks = (!dirId||dirId==='all') ? TASKS : tasksByDir(dirId);
+  var rows  = [['ID','Nomi','Tavsif','Yo\'nalish','Bo\'lim','Mas\'ul','Qabul qiluvchi','Status','Deadline','Ball','Ustuvorlik','KPI','Natija','Yaratilgan']];
+  tasks.forEach(function(t){
+    var dObj = DIRS.find(function(d){return d.id===t.direction;})||{name:t.direction||''};
+    rows.push([
+      t.id, t.title, t.description, dObj.name, t.space||'',
+      t.assignee_name||'', t.receiver_name||'', t.status,
+      t.deadline||'', t.score||'', t.priority||'',
+      t.is_kpi_linked?'Ha':'Yo\'q', t.result||'',
+      (t.created_at||'').slice(0,10),
+    ]);
+  });
+  var csv = rows.map(function(r){return r.map(function(c){return '"'+(String(c||'').replace(/"/g,'""'))+'"';}).join(',');}).join('\n');
+  var blob = new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'tasks_'+(dirId||'all')+'_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+};
 
 
 function renderL1(){
