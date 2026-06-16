@@ -11189,24 +11189,18 @@ function buildNav(){
   var di = dirInfo[topActive]||{name:topActive,icon:'',col:'var(--acc)'};
 
 
-  var h = '<div class="subnav">';
+  // Wrapper: flex row, tabs scrollable left part, Excel fixed right
+  var h = '<div style="display:flex;align-items:center;background:var(--s2);border-bottom:1px solid var(--b1);padding:0 24px">';
 
+  // Scrollable tabs area
+  h += '<div class="subnav" style="flex:1;min-width:0;border:none;padding:6px 0;overflow-x:auto;scrollbar-width:thin">';
 
   // Direction badge
-
-
-  h += '<div class="subnav-dir" style="color:'+di.col+';background:'+di.col+'11;border:1px solid '+di.col+'33">'
-
-
+  h += '<div class="subnav-dir" style="color:'+di.col+';background:'+di.col+'11;border:1px solid '+di.col+'33;flex-shrink:0">'
      + di.icon+' '+di.name+'</div>';
-
-
-  h += '<div class="snbtn-sep"></div>';
-
+  h += '<div class="snbtn-sep" style="flex-shrink:0"></div>';
 
   // Sub-nav buttons
-
-
   snItems.forEach(function(s){
     var isOn = ACTV_SUB===s.id;
     var navId = topActive+':'+s.id;
@@ -11219,14 +11213,16 @@ function buildNav(){
       var tc=(typeof getOpenTaskCount==='function')?getOpenTaskCount():0;
       if(tc>0) badge='<span style="display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;margin-left:5px;background:#6C8EFF;color:#fff;font-size:9px;font-weight:700;border-radius:999px;line-height:1">'+tc+'</span>';
     }
-    h += '<button class="snbtn'+(isOn?' on':'')+'" onclick="goNav(\''+navId+'\')">'
+    h += '<button class="snbtn'+(isOn?' on':'')+'" style="flex-shrink:0" onclick="goNav(\''+navId+'\')">'
        + s.icon+' '+s.lbl+badge+'</button>';
   });
 
-  // Excel export tugmasi — o'ng tomonda
-  h += '<div style="margin-left:auto">'
+  h += '</div>';
+
+  // Excel export — fixed right, never pushed out
+  h += '<div style="flex-shrink:0;padding-left:8px">'
      + '<button class="snbtn" onclick="exportToExcel()" title="Excel ga yuklash" '
-     + 'style="background:rgba(33,150,83,0.15);color:#21a653;border:1px solid #21a65340">'
+     + 'style="background:rgba(33,150,83,0.15);color:#21a653;border:1px solid #21a65340;white-space:nowrap">'
      + '📥 Excel</button></div>';
 
   h += '</div>';
