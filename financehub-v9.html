@@ -11910,6 +11910,90 @@ function renderHolding3S(){
   // ── Capex drill-down list ──
   var holdCapexTxns = TXNS.filter(function(t){return t.status!=='Bekor'&&t.direction==='holding'&&t.type==='capex';});
 
+  // ─── Populate _DD drilldown store ─────────────────────────────────────────
+  _DD = {};
+
+  // Rev total: barcha yo'nalishlar daromad tranzaksiyalari
+  var _ddRevTxns = [];
+  dirs.forEach(function(d){
+    var id=d.id;
+    var revType = (id==='logistics'||id==='cargo') ? ['revenue'] : (id==='exchange') ? ['spread'] : (id==='procurement') ? ['commission'] : ['income'];
+    TXNS.filter(function(t){ return t.status!=='Bekor'&&t.direction===id; }).forEach(function(t){
+      if(revType.some(function(rt){ return (t.type||'').toLowerCase()===rt||(t.subcat||'').toLowerCase().indexOf(rt)>=0; }))
+        _ddRevTxns.push(_txnToDD(t));
+    });
+  });
+  _DD['rev_total'] = {title:'Jami Daromad', subtitle:'Barcha yo\'nalishlar daromad tranzaksiyalari', total:dirs.reduce(function(s,d){return s+d.rev;},0), totalCol:'#17B374', txns:_ddRevTxns, breakdown:dirs.map(function(d){return {lbl:d.icon+' '+d.name, val:d.rev, col:'#17B374'};})};
+
+  // Net profit: yo'nalish bo'yicha tarkib
+  _DD['net_profit'] = {title:'Sof Foyda (Jami)', subtitle:'Barcha yo\'nalishlar sof foydasi', total:totalProfit, totalCol:totalProfit>0?'#17B374':'#FF4D6A', txns:[], breakdown:dirs.map(function(d){return {lbl:d.icon+' '+d.name, val:d.netProfit, col:d.netProfit>0?'#17B374':'#FF4D6A'};})};
+
+  // Dividend received
+  var _ddDivTxns = TXNS.filter(function(t){
+    return t.status!=='Bekor' && ((t.type==='finance'||(t.type==='transfer'&&t.to_dir==='holding')) && ((t.subcat||'').toLowerCase().indexOf('dividend')>=0||(t.subcat||'').toLowerCase().indexOf('foyda')>=0));
+  }).map(function(t){ return _txnToDD(t); });
+  _DD['div_rcv'] = {title:'Dividend Olingan', subtitle:'Yo\'nalishlardan Holding ga dividend transferlari', total:totalDivRcv, totalCol:'#6C8EFF', txns:_ddDivTxns, breakdown:dirs.map(function(d){return {lbl:d.icon+' '+d.name, val:d.divReceived, col:'#6C8EFF'};})};
+
+  // Loans given
+  var _ddLoanGivTxns = TXNS.filter(function(t){
+    return t.status!=='Bekor' && t.to_dir && t.to_dir!=='holding' && (t.type==='loan_in'||(t.subcat||'').toLowerCase().indexOf('qarz')>=0);
+  }).map(function(t){ return _txnToDD(t); });
+  _DD['loans_giv'] = {title:'Qarz Berildi', subtitle:'Holding dan yo\'nalishlarga berilgan qarzlar', total:totalLoansGiv, totalCol:'#FFB830', txns:_ddLoanGivTxns, breakdown:dirs.map(function(d){return {lbl:d.icon+' '+d.name, val:d.loansGiven, col:'#FFB830'};})};
+
+  // Loans returned
+  var _ddLoanRetTxns = TXNS.filter(function(t){
+    return t.status!=='Bekor' && t.direction && t.to_dir==='holding' && ((t.subcat||'').toLowerCase().indexOf('qarz')>=0||t.type==='loan_in');
+  }).map(function(t){ return _txnToDD(t); });
+  _DD['loans_ret'] = {title:'Qarz Qaytarildi', subtitle:'Yo\'nalishlardan Holding ga qaytarilgan qarzlar', total:totalLoansRet, totalCol:'#00D4FF', txns:_ddLoanRetTxns, breakdown:dirs.map(function(d){return {lbl:d.icon+' '+d.name, val:d.loansReturned, col:'#00D4FF'};})};
+
+  // Holding expenses
+  var _ddHoldExpTxns = TXNS.filter(function(t){ return t.status!=='Bekor'&&t.direction==='holding'&&t.type==='expense'; }).map(function(t){ return _txnToDD(t,'holding'); });
+  _DD['hold_exp'] = {title:'Holding Xarajatlari', subtitle:'Holding o\'zining xarajatlari', total:holdExp, totalCol:'#FF4D6A', txns:_ddHoldExpTxns};
+
+  // CapEx
+  var _ddCapexTxns = holdCapexTxns.map(function(t){ return _txnToDD(t,'holding'); });
+  _DD['hold_capex'] = {title:'Holding CapEx', subtitle:'Asosiy vositalar xaridlari', total:holdCapex, totalCol:'#FFB830', txns:_ddCapexTxns};
+
+  // Net Cash
+  _DD['net_cash'] = {title:'Net Cash', subtitle:'Holding sof pul oqimi tarkibi', total:cfNetCash, totalCol:cfNetCash>0?'#17B374':'#FF4D6A', txns:[], breakdown:[
+    {lbl:'+ Dividend olingan', val:cfDivIn,   col:'#17B374'},
+    {lbl:'- Holding xarajat',  val:-holdExp,  col:'#FF4D6A'},
+    {lbl:'- Qarz berildi',     val:-cfLoanOut,col:'#FFB830'},
+    {lbl:'+ Qarz qaytarildi',  val:cfLoanIn,  col:'#00D4FF'},
+    {lbl:'- CapEx',            val:-holdCapex,col:'#FF4D6A'},
+  ]};
+
+  // Balance items
+  var _ddCashTxns = TXNS.filter(function(t){ return t.status!=='Bekor'&&t.direction==='holding'&&(t.type==='income'||t.type==='finance'||t.type==='loan_in'); }).map(function(t){ return _txnToDD(t,'holding'); });
+  _DD['hold_cash'] = {title:'Naqd Pul (Holding)', subtitle:'Holding kassa hisobi', total:holdCash, totalCol:'#17B374', txns:_ddCashTxns};
+
+  _DD['debitor'] = {title:"Debitor — Yo'nalishlar Qarzi", subtitle:"Holding ga qarzdor yo'nalishlar", total:totalReceivable, totalCol:'#6C8EFF', txns:[], breakdown:dirs.filter(function(d){return d.net>0;}).map(function(d){return {lbl:d.icon+' '+d.name, val:d.net, col:'#6C8EFF'};})};
+
+  var _ddInvTxns = TXNS.filter(function(t){
+    return t.status!=='Bekor'&&t.to_dir&&t.to_dir!=='holding'&&t.type==='transfer'&&!((t.subcat||'').toLowerCase().indexOf('qarz')>=0);
+  }).map(function(t){ return _txnToDD(t); });
+  _DD['investments'] = {title:'Investitsiyalar', subtitle:"Holding dan yo'nalishlarga kapital kiritish", total:bsInvestments, totalCol:'#A78BFF', txns:_ddInvTxns};
+
+  _DD['creditor'] = {title:"Kreditor — Holding Qarzi", subtitle:"Holding qarzdor bo'lgan yo'nalishlar", total:totalPayable, totalCol:'#FF4D6A', txns:[], breakdown:dirs.filter(function(d){return d.net<0;}).map(function(d){return {lbl:d.icon+' '+d.name, val:Math.abs(d.net), col:'#FF4D6A'};})};
+
+  // Per-direction rows
+  dirs.forEach(function(d){
+    var dTxns = TXNS.filter(function(t){return t.status!=='Bekor'&&t.direction===d.id;}).map(function(t){return _txnToDD(t);});
+    _DD['dir_'+d.id] = {title:d.icon+' '+d.name+' — Barcha Tranzaksiyalar', total:d.netProfit, totalCol:d.netProfit>0?'#17B374':'#FF4D6A', txns:dTxns, breakdown:[
+      {lbl:'Daromad',         val:d.rev,          col:'#17B374'},
+      {lbl:'Sof Foyda',       val:d.netProfit,     col:d.netProfit>0?'#17B374':'#FF4D6A'},
+      {lbl:'Dividend Berdi',  val:d.divReceived,   col:'#6C8EFF'},
+      {lbl:'Qarz Oldi',       val:d.loansGiven,    col:'#FFB830'},
+      {lbl:'Qarz Qaytardi',   val:d.loansReturned, col:'#00D4FF'},
+      {lbl:'Net Balans',      val:d.net,           col:d.net>0?'#6C8EFF':'#FFB830'},
+    ]};
+  });
+
+  // Helper: clickable value span
+  function ddVal(key, val, col, extra){
+    return '<span onclick="showTxnDrill(\''+key+'\')" title="Click — batafsil ko\'rish" style="cursor:pointer;font-size:11px;font-family:var(--mono);color:'+col+';text-decoration:underline dotted;text-underline-offset:3px">'+(val<0?'-':'')+fmtM(Math.abs(val))+'</span>';
+  }
+
   // ─── RENDER ───────────────────────────────────────────────────────────────
   var cc = function(v,pos,neg){ return v>0?(pos||'#17B374'):(v<0?(neg||'#FF4D6A'):'var(--t3)'); };
 
@@ -11930,16 +12014,17 @@ function renderHolding3S(){
   h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:16px">';
   h += '<div style="font-size:10px;font-weight:600;color:var(--t3);letter-spacing:.5px;margin-bottom:10px">📈 DAROMAD HISOBOTI</div>';
   var plRows = [
-    {lbl:"Jami Daromad",      val:dirs.reduce(function(s,d){return s+d.rev;},0),      col:'#17B374'},
-    {lbl:"Sof Foyda (jami)",  val:totalProfit,   col: totalProfit>0?'#17B374':'#FF4D6A'},
-    {lbl:"Dividend Olingan",  val:totalDivRcv,   col:'#6C8EFF'},
-    {lbl:"Qarz Berildi",      val:-totalLoansGiv,col:'#FFB830'},
-    {lbl:"Qarz Qaytarildi",   val:totalLoansRet, col:'#00D4FF'},
+    {lbl:"Jami Daromad",      val:dirs.reduce(function(s,d){return s+d.rev;},0),      col:'#17B374',  dk:'rev_total'},
+    {lbl:"Sof Foyda (jami)",  val:totalProfit,   col: totalProfit>0?'#17B374':'#FF4D6A', dk:'net_profit'},
+    {lbl:"Dividend Olingan",  val:totalDivRcv,   col:'#6C8EFF', dk:'div_rcv'},
+    {lbl:"Qarz Berildi",      val:-totalLoansGiv,col:'#FFB830', dk:'loans_giv'},
+    {lbl:"Qarz Qaytarildi",   val:totalLoansRet, col:'#00D4FF', dk:'loans_ret'},
   ];
   plRows.forEach(function(r){
     h += '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--b1)">';
     h += '<span style="font-size:11px;color:var(--t2)">'+r.lbl+'</span>';
-    h += '<span style="font-size:11px;font-family:var(--mono);color:'+r.col+'">'+(r.val<0?'-':'')+fmtM(Math.abs(r.val))+'</span></div>';
+    h += ddVal(r.dk, r.val, r.col);
+    h += '</div>';
   });
   h += '</div>';
 
@@ -11947,32 +12032,34 @@ function renderHolding3S(){
   h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:16px">';
   h += '<div style="font-size:10px;font-weight:600;color:var(--t3);letter-spacing:.5px;margin-bottom:10px">💵 Pcash OQIMI</div>';
   var cfRows = [
-    {lbl:"+ Dividend olingan",  val:cfDivIn,      col:'#17B374'},
-    {lbl:"- Xarajatlar",        val:-holdExp,     col:'#FF4D6A'},
-    {lbl:"- Qarz Berildi",      val:-cfLoanOut,   col:'#FFB830'},
-    {lbl:"+ Qarz Qaytarildi",   val:cfLoanIn,     col:'#00D4FF'},
-    {lbl:"- CapEx",             val:-holdCapex,   col:'#FF4D6A'},
+    {lbl:"+ Dividend olingan",  val:cfDivIn,    col:'#17B374', dk:'div_rcv'},
+    {lbl:"- Xarajatlar",        val:-holdExp,   col:'#FF4D6A', dk:'hold_exp'},
+    {lbl:"- Qarz Berildi",      val:-cfLoanOut, col:'#FFB830', dk:'loans_giv'},
+    {lbl:"+ Qarz Qaytarildi",   val:cfLoanIn,   col:'#00D4FF', dk:'loans_ret'},
+    {lbl:"- CapEx",             val:-holdCapex, col:'#FF4D6A', dk:'hold_capex'},
   ];
   cfRows.forEach(function(r){
     h += '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--b1)">';
     h += '<span style="font-size:11px;color:var(--t2)">'+r.lbl+'</span>';
-    h += '<span style="font-size:11px;font-family:var(--mono);color:'+r.col+'">'+(r.val<0?'-':'')+fmtM(Math.abs(r.val))+'</span></div>';
+    h += ddVal(r.dk, r.val, r.col);
+    h += '</div>';
   });
   h += '<div style="display:flex;justify-content:space-between;padding:6px 0;margin-top:4px">';
   h += '<span style="font-size:11px;font-weight:600;color:var(--t1)">Net Cash</span>';
-  h += '<span style="font-size:13px;font-weight:700;font-family:var(--mono);color:'+cc(cfNetCash)+'">'+fmtM(cfNetCash)+'</span></div>';
+  h += ddVal('net_cash', cfNetCash, cc(cfNetCash));
+  h += '</div>';
   h += '</div>';
 
   // Card 3: Balance Sheet summary
   h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:16px">';
   h += '<div style="font-size:10px;font-weight:600;color:var(--t3);letter-spacing:.5px;margin-bottom:10px">⚖️ BALANS (TA\'SISCHI)</div>';
   var bsRows = [
-    {lbl:"Naqd Pul (Holding)",     val:holdCash,        col:'#17B374'},
-    {lbl:"Debitor (yo'nalishlar)", val:totalReceivable, col:'#6C8EFF'},
-    {lbl:"Investitsiyalar",         val:bsInvestments,   col:'#A78BFF'},
-    {lbl:"Asosiy Vositalar",        val:holdCapexTotal,  col:'#FFB830', click:'_hs3_ppe_drill'},
+    {lbl:"Naqd Pul (Holding)",     val:holdCash,        col:'#17B374',   dk:'hold_cash'},
+    {lbl:"Debitor (yo'nalishlar)", val:totalReceivable, col:'#6C8EFF',   dk:'debitor'},
+    {lbl:"Investitsiyalar",         val:bsInvestments,   col:'#A78BFF',   dk:'investments'},
+    {lbl:"Asosiy Vositalar",        val:holdCapexTotal,  col:'#FFB830',   dk:'hold_capex'},
     {sep:true, lbl:"JAMI AKTIV",   val:totalAssets,     col:'var(--t1)'},
-    {lbl:"Kreditor (yo'nalish)",   val:-totalPayable,   col:'#FF4D6A'},
+    {lbl:"Kreditor (yo'nalish)",   val:-totalPayable,   col:'#FF4D6A',   dk:'creditor'},
     {sep:true, lbl:"Kapital",       val:totalEquity,     col:'#17B374'},
   ];
   bsRows.forEach(function(r){
@@ -11982,8 +12069,9 @@ function renderHolding3S(){
       h += '<span style="font-size:12px;font-weight:700;font-family:var(--mono);color:'+r.col+'">'+fmtM(r.val)+'</span></div>';
     } else {
       h += '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--b1)">';
-      h += '<span style="font-size:11px;color:var(--t2)'+(r.click?';cursor:pointer;text-decoration:underline dotted':'')+'"'+(r.click?' onclick="document.getElementById(\''+r.click+'\').scrollIntoView({behavior:\'smooth\'})"':'')+'>'+r.lbl+'</span>';
-      h += '<span style="font-size:11px;font-family:var(--mono);color:'+r.col+'">'+(r.val<0?'-':'')+fmtM(Math.abs(r.val))+'</span></div>';
+      h += '<span style="font-size:11px;color:var(--t2)">'+r.lbl+'</span>';
+      h += ddVal(r.dk, r.val, r.col);
+      h += '</div>';
     }
   });
   h += '</div>';
@@ -12005,12 +12093,12 @@ function renderHolding3S(){
     else if(d.net>0){ statusLbl='Yo\'nalish qarzdor'; statusCol='#6C8EFF'; }
     else { statusLbl='Ta\'sischi qarzdor'; statusCol='#FFB830'; }
     h += '<tr style="border-bottom:1px solid var(--b1)">';
-    h += '<td style="padding:8px;text-align:left"><span style="font-size:13px">'+d.icon+'</span> <span style="font-weight:600;color:var(--t1)">'+d.name+'</span></td>';
-    h += '<td style="padding:8px;text-align:right;font-family:var(--mono);color:'+cc(d.netProfit)+'">'+fmtM(d.netProfit)+'</td>';
-    h += '<td style="padding:8px;text-align:right;font-family:var(--mono);color:#6C8EFF">'+fmtM(d.divReceived)+'</td>';
-    h += '<td style="padding:8px;text-align:right;font-family:var(--mono);color:#FFB830">'+fmtM(d.loansGiven)+'</td>';
-    h += '<td style="padding:8px;text-align:right;font-family:var(--mono);color:#00D4FF">'+fmtM(d.loansReturned)+'</td>';
-    h += '<td style="padding:8px;text-align:right;font-family:var(--mono);font-weight:700;color:'+cc(d.net)+'">'+fmtM(d.net)+'</td>';
+    h += '<td style="padding:8px;text-align:left;cursor:pointer" onclick="showTxnDrill(\'dir_'+d.id+'\')" title="Batafsil ko\'rish"><span style="font-size:13px">'+d.icon+'</span> <span style="font-weight:600;color:var(--t1);text-decoration:underline dotted;text-underline-offset:3px">'+d.name+'</span></td>';
+    h += '<td style="padding:8px;text-align:right">'+ddVal('dir_'+d.id, d.netProfit, cc(d.netProfit))+'</td>';
+    h += '<td style="padding:8px;text-align:right">'+ddVal('div_rcv', d.divReceived, '#6C8EFF')+'</td>';
+    h += '<td style="padding:8px;text-align:right">'+ddVal('loans_giv', d.loansGiven, '#FFB830')+'</td>';
+    h += '<td style="padding:8px;text-align:right">'+ddVal('loans_ret', d.loansReturned, '#00D4FF')+'</td>';
+    h += '<td style="padding:8px;text-align:right">'+ddVal('dir_'+d.id, d.net, cc(d.net))+'</td>';
     h += '<td style="padding:8px;text-align:right"><span style="padding:2px 8px;border-radius:20px;background:'+statusCol+'22;color:'+statusCol+';font-size:10px;font-weight:600">'+statusLbl+'</span></td>';
     h += '</tr>';
   });
@@ -15004,6 +15092,138 @@ function renderL2(dirId){
 
 
 // ════════════════════════════════════════════
+// ── UNIVERSAL TRANSACTION DRILLDOWN ──────────────────────────────────────────
+// Har bir sahifadagi raqamni bosib tranzaksiyalar ro'yxatini ko'rish uchun
+// _DD[key] = {title, subtitle, total, totalCol, txns: [{date,dir,type,cat,counterparty,purpose,amount,col}], breakdown:[{lbl,val,col}]}
+// ─────────────────────────────────────────────────────────────────────────────
+
+var _DD = {}; // drilldown data store — render funksiyalari to'ldiradi
+
+function showTxnDrill(key){
+  var d = _DD[key]; if(!d) return;
+  var old = document.getElementById('_txnDrillOv'); if(old) old.remove();
+  var txns = d.txns || [];
+  var breakdown = d.breakdown || [];
+  var totalCol = d.totalCol || '#17B374';
+
+  // Build transaction rows HTML
+  function buildTxTable(rows, q){
+    if(!rows.length) return '<div style="text-align:center;padding:30px;color:var(--t3);font-size:12px">📭 Tranzaksiyalar topilmadi</div>';
+    var hasDir = rows.some(function(r){return r.dir;});
+    var h = '<table style="width:100%;border-collapse:collapse;font-size:11px">';
+    h += '<thead><tr style="color:var(--t3);font-size:10px;font-weight:600;border-bottom:1px solid var(--b1)">';
+    h += '<th style="padding:6px 8px;text-align:left">Sana</th>';
+    if(hasDir) h += '<th style="padding:6px 8px;text-align:left">Yo\'nalish</th>';
+    h += '<th style="padding:6px 8px;text-align:left">Tur/Kategoriya</th>';
+    h += '<th style="padding:6px 8px;text-align:left">Kontragent / Maqsad</th>';
+    h += '<th style="padding:6px 8px;text-align:right">Miqdor</th>';
+    h += '</tr></thead><tbody>';
+    rows.forEach(function(r){
+      var visible = !q || [r.date,r.dir,r.type,r.cat,r.counterparty,r.purpose].join(' ').toLowerCase().indexOf(q) >= 0;
+      if(!visible) return;
+      h += '<tr style="border-bottom:1px solid var(--b1);transition:.1s" onmouseover="this.style.background=\'var(--s2)\'" onmouseout="this.style.background=\'\'">';
+      h += '<td style="padding:7px 8px;font-family:var(--mono);color:var(--t3);white-space:nowrap">'+escHtml(r.date||'—')+'</td>';
+      if(hasDir) h += '<td style="padding:7px 8px;color:var(--t2)">'+escHtml(r.dir||'—')+'</td>';
+      h += '<td style="padding:7px 8px;color:var(--t2)">'+escHtml(r.type||r.cat||'—')+'</td>';
+      h += '<td style="padding:7px 8px;color:var(--t1);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(r.counterparty||r.purpose||'—')+'</td>';
+      var ac = r.col||(r.amount<0?'#FF4D6A':'#17B374');
+      h += '<td style="padding:7px 8px;text-align:right;font-family:var(--mono);font-weight:600;color:'+ac+'">'+fmtM(Math.abs(r.amount||0))+'</td>';
+      h += '</tr>';
+    });
+    h += '</tbody></table>';
+    return h;
+  }
+
+  // Build breakdown table
+  var bdHtml = '';
+  if(breakdown.length){
+    bdHtml = '<div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:12px;margin-bottom:14px">';
+    bdHtml += '<div style="font-size:10px;font-weight:600;color:var(--t3);letter-spacing:.5px;margin-bottom:8px">TARKIB</div>';
+    breakdown.forEach(function(b){
+      bdHtml += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--b1)">';
+      bdHtml += '<span style="font-size:11px;color:var(--t2)">'+escHtml(b.lbl||'')+'</span>';
+      bdHtml += '<span style="font-size:12px;font-weight:700;font-family:var(--mono);color:'+(b.col||totalCol)+'">'+fmtM(b.val||0)+'</span>';
+      bdHtml += '</div>';
+    });
+    bdHtml += '</div>';
+  }
+
+  var initTableHtml = buildTxTable(txns, '');
+
+  var ov = document.createElement('div');
+  ov.id = '_txnDrillOv';
+  ov.style.cssText = 'position:fixed;inset:0;background:#0009;z-index:9100;display:flex;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto';
+  ov.innerHTML = '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:16px;width:100%;max-width:820px;margin:auto">'
+    // Header
+    +'<div style="display:flex;align-items:center;justify-content:space-between;padding:18px 22px 0">'
+    +'<div>'
+    +'<div style="font-size:16px;font-weight:700;color:var(--t1)">'+escHtml(d.title||'')+'</div>'
+    +(d.subtitle?'<div style="font-size:11px;color:var(--t3);margin-top:2px">'+escHtml(d.subtitle)+'</div>':'')
+    +'</div>'
+    +'<button onclick="document.getElementById(\'_txnDrillOv\').remove()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:20px;padding:4px;line-height:1">✕</button>'
+    +'</div>'
+    // Total badge
+    +(d.total!==undefined?'<div style="padding:8px 22px 16px"><span style="background:'+totalCol+'18;border:1px solid '+totalCol+'44;color:'+totalCol+';font-size:22px;font-weight:700;font-family:var(--mono);padding:6px 16px;border-radius:8px">'+fmtM(d.total)+'</span></div>':'<div style="height:16px"></div>')
+    // Body
+    +'<div style="padding:0 22px 22px">'
+    // Breakdown
+    +bdHtml
+    // Search + count
+    +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
+    +'<input id="_ddSearch" placeholder="🔍 Qidirish... (sana, tur, kontragent)" oninput="_ddFilter(\''+key+'\')" style="flex:1;padding:7px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px">'
+    +'<div style="font-size:11px;color:var(--t3);white-space:nowrap">'+txns.length+' ta tranzaksiya</div>'
+    +'<button onclick="_ddExport(\''+key+'\')" style="padding:6px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--t2);cursor:pointer;font-size:11px">📥 CSV</button>'
+    +'</div>'
+    +'<div id="_ddTableWrap" style="max-height:380px;overflow-y:auto;border:1px solid var(--b1);border-radius:8px">'
+    +initTableHtml
+    +'</div>'
+    +'</div>'
+    +'</div>';
+
+  document.body.appendChild(ov);
+  ov.addEventListener('click', function(e){ if(e.target===ov) ov.remove(); });
+
+  // Filter function
+  window._ddFilter = function(k){
+    var q = (document.getElementById('_ddSearch')||{}).value||'';
+    var rows = (_DD[k]||{}).txns||[];
+    document.getElementById('_ddTableWrap').innerHTML = buildTxTable(rows, q.toLowerCase());
+  };
+
+  // Export CSV
+  window._ddExport = function(k){
+    var rows = (_DD[k]||{}).txns||[];
+    var header = ['Sana','Yo\'nalish','Tur/Kategoriya','Kontragent/Maqsad','Miqdor'];
+    var csv = [header].concat(rows.map(function(r){
+      return [r.date||'',r.dir||'',r.type||r.cat||'',r.counterparty||r.purpose||'',r.amount||0];
+    })).map(function(r){ return r.map(function(c){return '"'+(c+'').replace(/"/g,'""')+'"';}).join(','); }).join('\n');
+    var a=document.createElement('a'); a.href='data:text/csv;charset=utf-8,﻿'+encodeURIComponent(csv);
+    a.download=((_DD[k]||{}).title||'drill')+'_'+new Date().toISOString().slice(0,10)+'.csv'; a.click();
+  };
+}
+
+// Helper: TXNS ni drilldown formatga o'tkazish
+function _txnToDD(t, overrideDir){
+  var dir = overrideDir || t.direction || '';
+  var dirObj = DIRS.find(function(d){return d.id===dir;})||{};
+  return {
+    date: t.date||'',
+    dir: (dirObj.icon||'') + ' ' + (dirObj.name||dir),
+    type: t.type||'',
+    cat: t.subcat||t.category||t.sku||t.type||'',
+    counterparty: t.counterparty||t.client||t.company||'',
+    purpose: t.purpose||t.description||t.note||'',
+    amount: Math.abs(+(t.amount)||0),
+    col: null
+  };
+}
+
+// ── Balance Sheet drilldown — window.bsDetail renderBalance ichida qayta belgilanadi ──
+// bsDetail — renderBalance() ichida window.bsDetail = function(){...} sifatida to'liq qayta aniqlanadi.
+// Bu fallback faqat renderBalance chaqirilmagan holat uchun:
+function bsDetail(key){ renderBalance(); setTimeout(function(){ if(window.bsDetail) window.bsDetail(key); },100); }
+
+// ════════════════════════════════════════════
 
 
 function showKD(kpi){
@@ -16362,6 +16582,73 @@ function renderPL(focusDir){
 
 
 
+  // ─── Populate _DD for P&L drilldown ─────────────────────────────────────
+  var _plLblMap = {
+    rev:'Daromad', cogs:'Tannarx (COGS)', gp:'Yalpi Foyda', opex:'Operatsion Xarajat',
+    ebitda:'EBITDA', da:'Amortizatsiya (D&A)', ebit:'EBIT', interest:'Foiz Xarajati',
+    ebt:'Soliqqa Tortiluvchi Foyda', tax:'Daromad Solig\'i', netIncome:'Sof Foyda'
+  };
+  var _plTypeMap = {
+    cargo:       {rev:'revenue', cogs:'cogs', opex:'expense', interest:'finance', tax:'tax_paid'},
+    logistics:   {rev:'revenue', cogs:'cogs', opex:'expense', interest:'finance', tax:'tax_paid'},
+    exchange:    {rev:'spread',  opex:'expense', interest:'finance', tax:'tax_paid'},
+    procurement: {rev:'commission', opex:'expense', interest:'finance', tax:'tax_paid'},
+    holding:     {rev:'income',  opex:'expense', interest:'finance', tax:'tax_paid'},
+  };
+  // Computed rows get breakdown from components
+  var _plComputedBreak = {
+    gp:       function(pd){ return [{lbl:'Daromad',val:pd.rev,col:'#00E5A0'},{lbl:'− Tannarx',val:-pd.cogs,col:'#FF4D6A'}]; },
+    ebitda:   function(pd){ return [{lbl:'Yalpi Foyda',val:pd.gp,col:'#6C8EFF'},{lbl:'− OpEx',val:-pd.opex,col:'#FF4D6A'}]; },
+    ebit:     function(pd){ return [{lbl:'EBITDA',val:pd.ebitda,col:'#FFB830'},{lbl:'− D&A',val:-pd.da,col:'#FF7A50'}]; },
+    ebt:      function(pd){ return [{lbl:'EBIT',val:pd.ebit,col:'#A78BFF'},{lbl:'− Foiz',val:-pd.interest,col:'#FF4D6A'}]; },
+    netIncome:function(pd){ return [{lbl:'EBT',val:pd.ebt,col:'#94A3C4'},{lbl:'− Soliq',val:-pd.tax,col:'#FF4D6A'}]; },
+  };
+  ['rev','cogs','opex','interest','tax','gp','ebitda','ebit','ebt','netIncome'].forEach(function(k){
+    var lbl = _plLblMap[k]||k;
+    // Per direction
+    plData.forEach(function(pd){
+      var did = pd.dir.id;
+      var typeMap = _plTypeMap[did]||{};
+      var txnType = typeMap[k];
+      var ddKey = 'pl_'+k+'_'+did;
+      var txns = txnType ? TXNS.filter(function(t){
+        return t.status!=='Bekor' && t.direction===did && t.type===txnType;
+      }).map(function(t){ return _txnToDD(t); }) : [];
+      var val = pd[k]||0;
+      var brk = _plComputedBreak[k] ? _plComputedBreak[k](pd) : [];
+      _DD[ddKey] = {
+        title: pd.dir.icon+' '+pd.dir.name+' — '+lbl,
+        subtitle: 'Davr: '+DATE_FROM+' → '+DATE_TO,
+        total: val, totalCol: val>=0?'#17B374':'#FF4D6A',
+        txns: txns, breakdown: brk
+      };
+    });
+    // Consolidated
+    var allTxns = [];
+    plData.forEach(function(pd){
+      var did = pd.dir.id;
+      var txnType = (_plTypeMap[did]||{})[k];
+      if(txnType) TXNS.filter(function(t){
+        return t.status!=='Bekor'&&t.direction===did&&t.type===txnType;
+      }).forEach(function(t){ allTxns.push(_txnToDD(t)); });
+    });
+    var totalVal = totals[k]||0;
+    _DD['pl_'+k+'_consolidated'] = {
+      title: 'Konsolidatsiya — '+lbl,
+      subtitle: 'Barcha yo\'nalishlar · Davr: '+DATE_FROM+' → '+DATE_TO,
+      total: totalVal, totalCol: totalVal>=0?'#17B374':'#FF4D6A',
+      txns: allTxns,
+      breakdown: plData.map(function(pd){ return {lbl:pd.dir.icon+' '+pd.dir.name, val:pd[k]||0, col:pd.dir.c||'#6C8EFF'}; })
+    };
+  });
+
+  // plKpiDetail — top KPI kartochkalarini drilldown ga yo'naltiradi
+  window.plKpiDetail = function(key){
+    var kMap = {revenue:'pl_rev_consolidated', gross_profit:'pl_gp_consolidated',
+                ebitda:'pl_ebitda_consolidated', net_income:'pl_netIncome_consolidated'};
+    showTxnDrill(kMap[key]||('pl_'+key+'_consolidated'));
+  };
+
   // ─── KPI SUMMARY STRIP ─────────────────────────────────
 
 
@@ -16574,8 +16861,12 @@ function renderPL(focusDir){
 
         var pv = row.pct ? d[row.pct] : null;
 
+        var _dk = 'pl_'+row.key+'_'+d.dir.id;
+        var _drill = !!_DD[_dk];
 
-        h+='<td style="text-align:right;font-family:var(--mono);font-size:11px;color:'+col+(row.bold?';font-weight:600':'')+'">'+txt+(pv?'<span style="font-size:9px;color:var(--t3);margin-left:3px">'+pv+'%</span>':'')+'</td>';
+        h+='<td style="text-align:right;font-family:var(--mono);font-size:11px;color:'+col+(row.bold?';font-weight:600':'')+(_drill?';cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px':'')+'"'
+          +(_drill?' onclick="showTxnDrill(\''+_dk+'\')" title="Batafsil ko\'rish — click"':'')
+          +'>'+txt+(pv?'<span style="font-size:9px;color:var(--t3);margin-left:3px">'+pv+'%</span>':'')+'</td>';
 
 
       });
@@ -16589,8 +16880,12 @@ function renderPL(focusDir){
 
         var pv2 = row.pct ? totals[row.pct] : null;
 
+        var _dkC = 'pl_'+row.key+'_consolidated';
+        var _drillC = !!_DD[_dkC];
 
-        h+='<td style="text-align:right;font-family:var(--mono);font-size:11px;color:'+col2+(row.bold?';font-weight:700':'')+'">'+((row.neg&&total>0?'-':'')+$$(Math.abs(total)))+(pv2?'<span style="font-size:9px;color:var(--t3);margin-left:3px">'+pv2+'%</span>':'')+'</td>';
+        h+='<td style="text-align:right;font-family:var(--mono);font-size:11px;color:'+col2+(row.bold?';font-weight:700':'')+(_drillC?';cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px':'')+'"'
+          +(_drillC?' onclick="showTxnDrill(\''+_dkC+'\')" title="Konsolidatsiya — batafsil"':'')
+          +'>'+((row.neg&&total>0?'-':'')+$$(Math.abs(total)))+(pv2?'<span style="font-size:9px;color:var(--t3);margin-left:3px">'+pv2+'%</span>':'')+'</td>';
 
 
       }
