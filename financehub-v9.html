@@ -8852,6 +8852,10 @@ function prSave(){lsSave('payroll',PAYROLL);}
 // TASK MANAGEMENT MODULE
 // ══════════════════════════════════════════════════════════════════
 var TASKS = (function(){ var s=lsLoad('tasks'); return s||[]; })();
+var HRM_EMP = (function(){ var s=lsLoad('hrm_emp'); return s||[]; })();
+function hrmSave(){ lsSave('hrm_emp', HRM_EMP); }
+function hrmNextTabel(){ var mx=HRM_EMP.reduce(function(m,e){ var n=parseInt((e.tabel||'').replace(/\D/g,''),10)||0; return Math.max(m,n); },0); return 'T-'+String(mx+1).padStart(4,'0'); }
+function hrmNextId(){ var mx=HRM_EMP.reduce(function(m,e){ var n=parseInt((e.id||'').replace(/\D/g,''),10)||0; return Math.max(m,n); },0); return 'EMP-'+String(mx+1).padStart(4,'0'); }
 function getOpenTaskCount(){
   return TASKS.filter(function(t){ return t.status && t.status!=='done' && t.status!=='bajarildi'; }).length;
 }
@@ -10895,6 +10899,7 @@ const SUBNAV_DEFS = {
     {id:'tasks',     lbl:'Vazifalar',           icon:'✅'},
     {id:'requests',  lbl:"So'rovlar",          icon:'📝'},
     {id:'actfact',   lbl:'Actual vs Fact',      icon:'📊'},
+    {id:'hrm',       lbl:'Xodimlar',            icon:'👥'},
   ],
   cargo: [
     {id:'dashboard', lbl:'Dashboard',        icon:'📊'},
@@ -10907,6 +10912,7 @@ const SUBNAV_DEFS = {
     {id:'crm',       lbl:'Mijozlar',         icon:'👥'},
     {id:'pipeline',  lbl:'Pipeline',         icon:'📈'},
     {id:'payroll',   lbl:'Payroll',          icon:'👨‍💼'},
+    {id:'hrm',       lbl:'Xodimlar',         icon:'👥'},
     {id:'tasks',     lbl:'Vazifalar',        icon:'✅'},
     {id:'requests',  lbl:"So'rovlar",       icon:'📝'},
     {id:'actfact',   lbl:'Actual vs Fact',  icon:'📊'},
@@ -10923,6 +10929,7 @@ const SUBNAV_DEFS = {
     {id:'crm',       lbl:'Mijozlar',         icon:'👥'},
     {id:'pipeline',  lbl:'Pipeline',         icon:'📈'},
     {id:'payroll',   lbl:'Payroll',          icon:'👨‍💼'},
+    {id:'hrm',       lbl:'Xodimlar',         icon:'👥'},
     {id:'tasks',     lbl:'Vazifalar',        icon:'✅'},
     {id:'requests',  lbl:"So'rovlar",       icon:'📝'},
     {id:'actfact',   lbl:'Actual vs Fact',  icon:'📊'},
@@ -10937,6 +10944,7 @@ const SUBNAV_DEFS = {
     {id:'crm',       lbl:'Mijozlar',         icon:'👥'},
     {id:'pipeline',  lbl:'Pipeline',         icon:'📈'},
     {id:'payroll',   lbl:'Payroll',          icon:'👨‍💼'},
+    {id:'hrm',       lbl:'Xodimlar',         icon:'👥'},
     {id:'tasks',     lbl:'Vazifalar',        icon:'✅'},
     {id:'requests',  lbl:"So'rovlar",       icon:'📝'},
     {id:'actfact',   lbl:'Actual vs Fact',  icon:'📊'},
@@ -10953,6 +10961,7 @@ const SUBNAV_DEFS = {
     {id:'crm',       lbl:'Mijozlar',         icon:'👥'},
     {id:'pipeline',  lbl:'Pipeline',         icon:'📈'},
     {id:'payroll',   lbl:'Payroll',          icon:'👨‍💼'},
+    {id:'hrm',       lbl:'Xodimlar',         icon:'👥'},
     {id:'tasks',     lbl:'Vazifalar',        icon:'✅'},
     {id:'requests',  lbl:"So'rovlar",       icon:'📝'},
     {id:'actfact',   lbl:'Actual vs Fact',  icon:'📊'},
@@ -11473,6 +11482,10 @@ function goNav(id){
   } else if(subId==='actfact'){
 
     renderActualFact(dirId);
+
+  } else if(subId==='hrm'){
+
+    renderHREmployees(dirId||'all');
 
   } else {
 
@@ -12142,6 +12155,470 @@ function renderHolding3S(){
 
 // helper: fmtM — alias to fS for holding3s
 function fmtM(v){ return fS(Math.round(v||0)); }
+
+// ══════════════════════════════════════════════════════════════
+// ── HRM — XODIMLAR PROFILI MODULI ─────────────────────────────
+// ══════════════════════════════════════════════════════════════
+
+var HRM_STATUSES = ['Ishlayapti','Sinov muddatida','Ta\'tilda','Dekretda','Vaqtincha to\'xtatilgan','Bo\'shatilgan'];
+var HRM_SALARY_TYPES = ['Oklad','Soatbay','Kunbay','KPI asosida','Oklad + bonus','Kelishuv asosida'];
+var HRM_GENDERS = ['Erkak','Ayol'];
+var HRM_EMP_TYPES = ['Doimiy','Vaqtinchalik','Qisman band','Masofadan'];
+
+function renderHREmployees(dirId){
+  var isAll = (!dirId||dirId==='all');
+  var MC = document.getElementById(isAll?'pg-l1':'pg-l2'); if(!MC) return;
+  MC.classList.add('on');
+
+  var emps = isAll ? HRM_EMP.slice() : HRM_EMP.filter(function(e){ return e.dir===dirId; });
+  var dirObj = DIRS.find(function(d){return d.id===dirId;})||{name:'Barcha Yo\'nalishlar',icon:'🏢'};
+
+  // Capture filter values before re-render
+  var fltStatus = (document.getElementById('_hrmFltStatus')||{}).value||'';
+  var fltDir    = (document.getElementById('_hrmFltDir')||{}).value||'';
+  var fltSearch = ((document.getElementById('_hrmFltSearch')||{}).value||'').toLowerCase();
+
+  // Apply filters
+  var list = emps.slice();
+  if(fltStatus) list = list.filter(function(e){ return e.status===fltStatus; });
+  if(fltDir)    list = list.filter(function(e){ return e.dir===fltDir; });
+  if(fltSearch) list = list.filter(function(e){
+    return (e.fname+' '+e.lname+' '+e.mname+' '+e.pos+' '+e.dept+' '+e.tabel).toLowerCase().indexOf(fltSearch)>=0;
+  });
+
+  // Stats
+  var total = emps.length;
+  var active = emps.filter(function(e){ return e.status==='Ishlayapti'; }).length;
+  var probation = emps.filter(function(e){ return e.status==='Sinov muddatida'; }).length;
+  var dismissed = emps.filter(function(e){ return e.status==='Bo\'shatilgan'; }).length;
+  var onLeave = emps.filter(function(e){ return e.status==='Ta\'tilda'||e.status==='Dekretda'; }).length;
+
+  var h = '<div style="padding:20px;max-width:1300px;margin:0 auto">';
+
+  // Header
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">';
+  h += '<div style="display:flex;align-items:center;gap:12px">';
+  h += '<div style="width:40px;height:40px;border-radius:10px;background:rgba(108,142,255,0.15);display:flex;align-items:center;justify-content:center;font-size:20px">👥</div>';
+  h += '<div><div style="font-size:18px;font-weight:700;color:var(--t1)">'+(isAll?'Barcha Xodimlar':(dirObj.icon||'')+' '+dirObj.name+' — Xodimlar')+'</div>';
+  h += '<div style="font-size:11px;color:var(--t3)">HRM · Xodimlar Profili Moduli</div></div></div>';
+  h += '<div style="display:flex;gap:8px">';
+  h += '<button onclick="hrmExportExcel()" style="padding:7px 14px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:11px">📥 Excel</button>';
+  h += '<button onclick="hrmOpenAdd(\''+(!isAll?dirId:'')+'\')" style="padding:7px 16px;background:#6C8EFF;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">+ Yangi Xodim</button>';
+  h += '</div></div>';
+
+  // Stats cards
+  var statItems = [
+    {lbl:'Jami Xodim',    val:total,     col:'#6C8EFF'},
+    {lbl:'Faol',          val:active,    col:'#17B374'},
+    {lbl:'Sinov muddati', val:probation, col:'#FFB830'},
+    {lbl:"Ta'tilda",      val:onLeave,   col:'#00D4FF'},
+    {lbl:"Bo'shatilgan",  val:dismissed, col:'#FF4D6A'},
+  ];
+  h += '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px">';
+  statItems.forEach(function(s){
+    h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:12px;text-align:center">';
+    h += '<div style="font-size:22px;font-weight:700;color:'+s.col+'">'+s.val+'</div>';
+    h += '<div style="font-size:10px;color:var(--t3);margin-top:3px">'+s.lbl+'</div>';
+    h += '</div>';
+  });
+  h += '</div>';
+
+  // Filter bar
+  h += '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">';
+  h += '<input id="_hrmFltSearch" type="text" placeholder="🔍 Ism, lavozim, tabel..." value="'+escHtml(fltSearch)+'" oninput="renderHREmployees(\''+dirId+'\')" style="padding:6px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:11px;width:200px">';
+  h += '<select id="_hrmFltStatus" onchange="renderHREmployees(\''+dirId+'\')" style="padding:6px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:11px">';
+  h += '<option value="">Barcha status</option>';
+  HRM_STATUSES.forEach(function(s){ h+='<option value="'+s+'"'+(fltStatus===s?' selected':'')+'>'+s+'</option>'; });
+  h += '</select>';
+  if(isAll){
+    h += '<select id="_hrmFltDir" onchange="renderHREmployees(\'all\')" style="padding:6px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:11px">';
+    h += '<option value="">Barcha yo\'nalish</option>';
+    DIRS.forEach(function(d){ h+='<option value="'+d.id+'"'+(fltDir===d.id?' selected':'')+'>'+d.icon+' '+d.name+'</option>'; });
+    h += '</select>';
+  }
+  h += '<span style="margin-left:auto;font-size:11px;color:var(--t3)">'+list.length+' ta xodim ko\'rsatilmoqda</span>';
+  h += '</div>';
+
+  // Table
+  h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;overflow:hidden">';
+  h += '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+  h += '<thead><tr style="background:var(--s2);border-bottom:1px solid var(--b1)">';
+  h += '<th style="padding:10px 12px;text-align:left;color:var(--t3);font-weight:600">Tabel</th>';
+  h += '<th style="padding:10px 12px;text-align:left;color:var(--t3);font-weight:600">Xodim</th>';
+  h += '<th style="padding:10px 12px;text-align:left;color:var(--t3);font-weight:600">Bo\'lim / Lavozim</th>';
+  if(isAll) h += '<th style="padding:10px 12px;text-align:left;color:var(--t3);font-weight:600">Yo\'nalish</th>';
+  h += '<th style="padding:10px 12px;text-align:left;color:var(--t3);font-weight:600">Holat</th>';
+  h += '<th style="padding:10px 12px;text-align:left;color:var(--t3);font-weight:600">Ish haqi turi</th>';
+  h += '<th style="padding:10px 12px;text-align:left;color:var(--t3);font-weight:600">Ishga qabul</th>';
+  h += '<th style="padding:10px 12px;text-align:center;color:var(--t3);font-weight:600">Amal</th>';
+  h += '</tr></thead><tbody>';
+
+  if(!list.length){
+    h += '<tr><td colspan="'+(isAll?8:7)+'" style="padding:40px;text-align:center;color:var(--t3)">Xodimlar topilmadi</td></tr>';
+  } else {
+    list.forEach(function(e,i){
+      var statusCol = e.status==='Ishlayapti'?'#17B374':e.status==='Sinov muddatida'?'#FFB830':e.status==='Bo\'shatilgan'?'#FF4D6A':'#6C8EFF';
+      var dirO = DIRS.find(function(d){return d.id===e.dir;})||{name:e.dir||'—',icon:''};
+      h += '<tr style="border-bottom:1px solid var(--b1);cursor:pointer;transition:background 0.1s" onmouseover="this.style.background=\'rgba(108,142,255,0.05)\'" onmouseout="this.style.background=\'\'" onclick="renderHRProfile(\''+e.id+'\')">';
+      h += '<td style="padding:10px 12px;color:var(--t3);font-family:var(--mono);font-size:11px">'+escHtml(e.tabel||'—')+'</td>';
+      h += '<td style="padding:10px 12px"><div style="display:flex;align-items:center;gap:8px">';
+      h += '<div style="width:32px;height:32px;border-radius:50%;background:rgba(108,142,255,0.15);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">'+(e.gender==='Ayol'?'👩':'👨')+'</div>';
+      h += '<div><div style="font-weight:600;color:var(--t1)">'+escHtml(e.lname+' '+e.fname)+'</div>';
+      h += '<div style="font-size:10px;color:var(--t3)">'+escHtml(e.mname||'')+'</div></div></div></td>';
+      h += '<td style="padding:10px 12px"><div style="color:var(--t1)">'+escHtml(e.pos||'—')+'</div><div style="font-size:10px;color:var(--t3)">'+escHtml(e.dept||'—')+'</div></td>';
+      if(isAll) h += '<td style="padding:10px 12px;color:var(--t2)">'+dirO.icon+' '+escHtml(dirO.name)+'</td>';
+      h += '<td style="padding:10px 12px"><span style="display:inline-block;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:600;background:'+statusCol+'22;color:'+statusCol+'">'+escHtml(e.status||'—')+'</span></td>';
+      h += '<td style="padding:10px 12px;color:var(--t2)">'+escHtml(e.salary_type||'—')+'</td>';
+      h += '<td style="padding:10px 12px;color:var(--t3);font-size:11px">'+escHtml(e.hire_date||'—')+'</td>';
+      h += '<td style="padding:10px 12px;text-align:center" onclick="event.stopPropagation()">';
+      h += '<button onclick="renderHRProfile(\''+e.id+'\')" title="Profil" style="padding:4px 8px;background:rgba(108,142,255,0.15);border:none;border-radius:6px;color:#6C8EFF;cursor:pointer;margin-right:4px;font-size:12px">👁</button>';
+      h += '<button onclick="hrmOpenEdit(\''+e.id+'\')" title="Tahrirlash" style="padding:4px 8px;background:rgba(255,184,48,0.15);border:none;border-radius:6px;color:#FFB830;cursor:pointer;margin-right:4px;font-size:12px">✏️</button>';
+      h += '</td>';
+      h += '</tr>';
+    });
+  }
+  h += '</tbody></table></div>';
+  h += '</div>';
+
+  // HRM Add/Edit Modal placeholder
+  h += hrmModalHTML();
+
+  MC.innerHTML = h;
+  // Restore filter values
+  var ss = document.getElementById('_hrmFltStatus'); if(ss) ss.value = fltStatus;
+  var sd = document.getElementById('_hrmFltDir');    if(sd) sd.value = fltDir;
+}
+
+function hrmModalHTML(){
+  return '<div id="hrmModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9000;align-items:center;justify-content:center;padding:20px">'
+    +'<div style="background:var(--s1);border:1px solid var(--b1);border-radius:16px;width:100%;max-width:640px;max-height:90vh;overflow-y:auto;padding:28px">'
+    +'<div id="hrmModalBody"></div>'
+    +'</div></div>';
+}
+
+function hrmOpenAdd(dirId){
+  var d = document.getElementById('hrmModal'); if(!d) return;
+  document.getElementById('hrmModalBody').innerHTML = hrmFormHTML(null, dirId||'');
+  d.style.display = 'flex';
+}
+
+function hrmOpenEdit(empId){
+  var emp = HRM_EMP.find(function(e){return e.id===empId;}); if(!emp) return;
+  var d = document.getElementById('hrmModal'); if(!d) return;
+  document.getElementById('hrmModalBody').innerHTML = hrmFormHTML(emp, emp.dir||'');
+  d.style.display = 'flex';
+}
+
+function hrmCloseModal(){
+  var d = document.getElementById('hrmModal'); if(d) d.style.display = 'none';
+}
+
+function hrmFormHTML(emp, defaultDir){
+  var isEdit = !!emp;
+  var e = emp || {};
+  var fldStyle = 'width:100%;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box';
+  var lblStyle = 'font-size:11px;color:var(--t3);margin-bottom:4px;display:block';
+
+  var h = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">';
+  h += '<div style="font-size:16px;font-weight:700;color:var(--t1)">'+(isEdit?'✏️ Xodimni tahrirlash':'👥 Yangi Xodim qo\'shish')+'</div>';
+  h += '<button onclick="hrmCloseModal()" style="padding:6px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer">✕ Yopish</button>';
+  h += '</div>';
+
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
+
+  // Row 1
+  h += '<div><label style="'+lblStyle+'">Familiya *</label><input id="hFamiliya" style="'+fldStyle+'" value="'+escHtml(e.lname||'')+'"></div>';
+  h += '<div><label style="'+lblStyle+'">Ism *</label><input id="hIsm" style="'+fldStyle+'" value="'+escHtml(e.fname||'')+'"></div>';
+  h += '<div><label style="'+lblStyle+'">Otasining ismi</label><input id="hOta" style="'+fldStyle+'" value="'+escHtml(e.mname||'')+'"></div>';
+  h += '<div><label style="'+lblStyle+'">Jinsi</label><select id="hJins" style="'+fldStyle+'">';
+  HRM_GENDERS.forEach(function(g){ h+='<option value="'+g+'"'+(e.gender===g?' selected':'')+'>'+g+'</option>'; });
+  h += '</select></div>';
+
+  // Row 2
+  h += '<div><label style="'+lblStyle+'">Telefon *</label><input id="hTel" style="'+fldStyle+'" value="'+escHtml(e.phone||'')+'"></div>';
+  h += '<div><label style="'+lblStyle+'">Telefon 2</label><input id="hTel2" style="'+fldStyle+'" value="'+escHtml(e.phone2||'')+'"></div>';
+  h += '<div><label style="'+lblStyle+'">Email</label><input id="hEmail" style="'+fldStyle+'" value="'+escHtml(e.email||'')+'"></div>';
+  h += '<div><label style="'+lblStyle+'">Korporativ email</label><input id="hCorpEmail" style="'+fldStyle+'" value="'+escHtml(e.corp_email||'')+'"></div>';
+
+  // Row 3
+  h += '<div><label style="'+lblStyle+'">Yo\'nalish *</label><select id="hDir" style="'+fldStyle+'">';
+  h += '<option value="">— Tanlang —</option>';
+  DIRS.forEach(function(d){ h+='<option value="'+d.id+'"'+((e.dir||defaultDir)===d.id?' selected':'')+'>'+d.icon+' '+d.name+'</option>'; });
+  h += '</select></div>';
+  h += '<div><label style="'+lblStyle+'">Bo\'lim *</label><input id="hDept" style="'+fldStyle+'" value="'+escHtml(e.dept||'')+'"></div>';
+  h += '<div style="grid-column:span 2"><label style="'+lblStyle+'">Lavozim *</label><input id="hPos" style="'+fldStyle+'" value="'+escHtml(e.pos||'')+'"></div>';
+
+  // Row 4 - Dates
+  h += '<div><label style="'+lblStyle+'">Ishga qabul sanasi *</label><input id="hHireDate" type="date" style="'+fldStyle+'" value="'+escHtml(e.hire_date||'')+'"></div>';
+  h += '<div><label style="'+lblStyle+'">Holat</label><select id="hStatus" style="'+fldStyle+'">';
+  HRM_STATUSES.forEach(function(s){ h+='<option value="'+s+'"'+((e.status||'Ishlayapti')===s?' selected':'')+'>'+s+'</option>'; });
+  h += '</select></div>';
+
+  // Row 5 - Salary
+  h += '<div><label style="'+lblStyle+'">Ish haqi turi</label><select id="hSalType" style="'+fldStyle+'">';
+  HRM_SALARY_TYPES.forEach(function(s){ h+='<option value="'+s+'"'+((e.salary_type||'Oklad')===s?' selected':'')+'>'+s+'</option>'; });
+  h += '</select></div>';
+  h += '<div><label style="'+lblStyle+'">Ish haqi (USD)</label><input id="hSalary" type="number" min="0" style="'+fldStyle+'" value="'+(e.salary||'')+'"></div>';
+
+  // Row 6 - Docs
+  h += '<div><label style="'+lblStyle+'">Pasport seriya va raqami *</label><input id="hPassport" style="'+fldStyle+'" value="'+escHtml(e.passport_s&&e.passport_n?(e.passport_s+' '+e.passport_n):(e.passport||''))+'"></div>';
+  h += '<div><label style="'+lblStyle+'">JSHSHIR (PINFL)</label><input id="hPinfl" style="'+fldStyle+'" value="'+escHtml(e.pinfl||'')+'"></div>';
+
+  // Row 7 - Address
+  h += '<div style="grid-column:span 2"><label style="'+lblStyle+'">Manzil</label><input id="hAddress" style="'+fldStyle+'" value="'+escHtml(e.address||'')+'"></div>';
+
+  // Row 8 - Notes
+  h += '<div style="grid-column:span 2"><label style="'+lblStyle+'">Izoh</label><textarea id="hNote" style="'+fldStyle+';height:60px;resize:vertical">'+escHtml(e.note||'')+'</textarea></div>';
+
+  h += '</div>'; // grid end
+
+  h += '<div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end">';
+  if(isEdit && e.status !== 'Bo\'shatilgan'){
+    h += '<button onclick="hrmDismiss(\''+e.id+'\')" style="padding:8px 16px;background:rgba(255,77,106,0.15);border:1px solid #FF4D6A;border-radius:8px;color:#FF4D6A;cursor:pointer;font-size:12px">🚫 Bo\'shatish</button>';
+  }
+  h += '<button onclick="hrmCloseModal()" style="padding:8px 16px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:12px">Bekor qilish</button>';
+  h += '<button onclick="hrmSaveForm(\''+( isEdit?e.id:'' )+'\')" style="padding:8px 20px;background:#6C8EFF;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">'+(isEdit?'💾 Saqlash':'➕ Qo\'shish')+'</button>';
+  h += '</div>';
+
+  return h;
+}
+
+function hrmSaveForm(empId){
+  var lname   = (document.getElementById('hFamiliya')||{}).value||'';
+  var fname   = (document.getElementById('hIsm')||{}).value||'';
+  var phone   = (document.getElementById('hTel')||{}).value||'';
+  var dir     = (document.getElementById('hDir')||{}).value||'';
+  var dept    = (document.getElementById('hDept')||{}).value||'';
+  var pos     = (document.getElementById('hPos')||{}).value||'';
+  var hdate   = (document.getElementById('hHireDate')||{}).value||'';
+  var passport= (document.getElementById('hPassport')||{}).value||'';
+
+  if(!lname||!fname){ alert('Ism va Familiya majburiy!'); return; }
+  if(!phone){ alert('Telefon raqami majburiy!'); return; }
+  if(!dir){ alert('Yo\'nalishni tanlang!'); return; }
+  if(!dept){ alert('Bo\'lim nomi majburiy!'); return; }
+  if(!pos){ alert('Lavozim majburiy!'); return; }
+  if(!hdate){ alert('Ishga qabul sanasini kiriting!'); return; }
+  if(!passport){ alert('Pasport seriya va raqami majburiy!'); return; }
+
+  var isEdit = !!empId;
+  var now = new Date().toISOString();
+
+  if(isEdit){
+    var emp = HRM_EMP.find(function(e){return e.id===empId;}); if(!emp) return;
+    var oldStatus = emp.status;
+    emp.lname        = lname;
+    emp.fname        = fname;
+    emp.mname        = (document.getElementById('hOta')||{}).value||'';
+    emp.gender       = (document.getElementById('hJins')||{}).value||'Erkak';
+    emp.phone        = phone;
+    emp.phone2       = (document.getElementById('hTel2')||{}).value||'';
+    emp.email        = (document.getElementById('hEmail')||{}).value||'';
+    emp.corp_email   = (document.getElementById('hCorpEmail')||{}).value||'';
+    emp.dir          = dir;
+    emp.dept         = dept;
+    emp.pos          = pos;
+    emp.hire_date    = hdate;
+    emp.status       = (document.getElementById('hStatus')||{}).value||'Ishlayapti';
+    emp.salary_type  = (document.getElementById('hSalType')||{}).value||'Oklad';
+    emp.salary       = parseFloat((document.getElementById('hSalary')||{}).value)||0;
+    emp.passport     = passport;
+    emp.pinfl        = (document.getElementById('hPinfl')||{}).value||'';
+    emp.address      = (document.getElementById('hAddress')||{}).value||'';
+    emp.note         = (document.getElementById('hNote')||{}).value||'';
+    emp.updated_at   = now;
+    // History entry
+    if(!emp.history) emp.history = [];
+    emp.history.push({date:now, action:'Tahrirlash', note:'Ma\'lumotlar yangilandi'+(oldStatus!==emp.status?' | Status: '+oldStatus+' → '+emp.status:'')});
+  } else {
+    var newEmp = {
+      id:          hrmNextId(),
+      tabel:       hrmNextTabel(),
+      lname:       lname,
+      fname:       fname,
+      mname:       (document.getElementById('hOta')||{}).value||'',
+      gender:      (document.getElementById('hJins')||{}).value||'Erkak',
+      phone:       phone,
+      phone2:      (document.getElementById('hTel2')||{}).value||'',
+      email:       (document.getElementById('hEmail')||{}).value||'',
+      corp_email:  (document.getElementById('hCorpEmail')||{}).value||'',
+      dir:         dir,
+      dept:        dept,
+      pos:         pos,
+      hire_date:   hdate,
+      status:      (document.getElementById('hStatus')||{}).value||'Ishlayapti',
+      salary_type: (document.getElementById('hSalType')||{}).value||'Oklad',
+      salary:      parseFloat((document.getElementById('hSalary')||{}).value)||0,
+      passport:    passport,
+      pinfl:       (document.getElementById('hPinfl')||{}).value||'',
+      address:     (document.getElementById('hAddress')||{}).value||'',
+      note:        (document.getElementById('hNote')||{}).value||'',
+      created_at:  now,
+      updated_at:  now,
+      history:     [{date:now, action:'Qo\'shildi', note:'Tizimga yangi xodim kiritildi'}],
+      salary_history: [],
+      documents:   [],
+      files:       [],
+      inventory:   [],
+      education:   [],
+      languages:   [],
+    };
+    HRM_EMP.push(newEmp);
+  }
+  hrmSave();
+  hrmCloseModal();
+  // Re-render current page
+  var cur = ACTV==='l1'?'all':topId;
+  renderHREmployees(cur);
+}
+
+function hrmDismiss(empId){
+  var emp = HRM_EMP.find(function(e){return e.id===empId;}); if(!emp) return;
+  if(!confirm('Xodimni bo\'shatishni tasdiqlaysizmi?\n\n'+emp.lname+' '+emp.fname+'\n\nBu amalni bekor qilish mumkin emas!')) return;
+  emp.status = 'Bo\'shatilgan';
+  emp.updated_at = new Date().toISOString();
+  if(!emp.history) emp.history = [];
+  emp.history.push({date:new Date().toISOString(), action:"Bo'shatildi", note:'Tizimda bo\'shatilgan deb belgilandi'});
+  hrmSave();
+  hrmCloseModal();
+  var cur = ACTV==='l1'?'all':topId;
+  renderHREmployees(cur);
+}
+
+function renderHRProfile(empId){
+  var emp = HRM_EMP.find(function(e){return e.id===empId;}); if(!emp){ alert('Xodim topilmadi!'); return; }
+  var isAll = ACTV==='l1';
+  var MC = document.getElementById(isAll?'pg-l1':'pg-l2'); if(!MC) return;
+  MC.classList.add('on');
+
+  var dirO = DIRS.find(function(d){return d.id===emp.dir;})||{name:emp.dir||'—',icon:''};
+  var statusCol = emp.status==='Ishlayapti'?'#17B374':emp.status==='Sinov muddatida'?'#FFB830':emp.status==='Bo\'shatilgan'?'#FF4D6A':'#6C8EFF';
+  var curDir = isAll?'all':topId;
+
+  var h = '<div style="padding:20px;max-width:1100px;margin:0 auto">';
+
+  // Back button + header
+  h += '<div style="margin-bottom:16px">';
+  h += '<button onclick="renderHREmployees(\''+curDir+'\')" style="padding:6px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:11px">← Ro\'yxatga qaytish</button>';
+  h += '</div>';
+
+  // Profile header card
+  h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:16px;padding:24px;margin-bottom:16px;display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap">';
+  h += '<div style="width:72px;height:72px;border-radius:50%;background:rgba(108,142,255,0.2);display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0">'+(emp.gender==='Ayol'?'👩':'👨')+'</div>';
+  h += '<div style="flex:1;min-width:200px">';
+  h += '<div style="font-size:22px;font-weight:700;color:var(--t1)">'+escHtml(emp.lname+' '+emp.fname+(emp.mname?' '+emp.mname:''))+'</div>';
+  h += '<div style="font-size:13px;color:var(--t2);margin-top:4px">'+escHtml(emp.pos||'—')+' · '+escHtml(emp.dept||'—')+'</div>';
+  h += '<div style="font-size:12px;color:var(--t3);margin-top:2px">'+dirO.icon+' '+escHtml(dirO.name)+' · Tabel: <b>'+escHtml(emp.tabel||'—')+'</b></div>';
+  h += '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">';
+  h += '<span style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;background:'+statusCol+'22;color:'+statusCol+'">'+escHtml(emp.status||'—')+'</span>';
+  h += '<span style="padding:4px 10px;border-radius:20px;font-size:11px;background:rgba(108,142,255,0.1);color:#6C8EFF">'+escHtml(emp.emp_type||'Doimiy')+'</span>';
+  h += '</div></div>';
+  h += '<div style="display:flex;gap:8px;flex-shrink:0">';
+  h += '<button onclick="hrmOpenEdit(\''+emp.id+'\')" style="padding:8px 16px;background:rgba(255,184,48,0.15);border:1px solid #FFB830;border-radius:8px;color:#FFB830;cursor:pointer;font-size:12px">✏️ Tahrirlash</button>';
+  if(emp.status!=='Bo\'shatilgan'){
+    h += '<button onclick="hrmDismiss(\''+emp.id+'\')" style="padding:8px 16px;background:rgba(255,77,106,0.1);border:1px solid #FF4D6A;border-radius:8px;color:#FF4D6A;cursor:pointer;font-size:12px">🚫 Bo\'shatish</button>';
+  }
+  h += '</div></div>';
+
+  // Tab content - 4 sections in grid
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
+
+  // Card helper
+  function card(title, rows){
+    var s = '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:16px">';
+    s += '<div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--b1)">'+title+'</div>';
+    rows.forEach(function(r){
+      s += '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)">';
+      s += '<span style="font-size:11px;color:var(--t3)">'+r[0]+'</span>';
+      s += '<span style="font-size:11px;color:var(--t1);font-weight:500;text-align:right;max-width:60%">'+escHtml(String(r[1]||'—'))+'</span>';
+      s += '</div>';
+    });
+    s += '</div>';
+    return s;
+  }
+
+  // Personal info
+  h += card('👤 Shaxsiy ma\'lumotlar', [
+    ['Tug\'ilgan sana', emp.dob||'—'],
+    ['Jinsi', emp.gender||'—'],
+    ['Millati', emp.nationality||'—'],
+    ['Pasport', emp.passport||'—'],
+    ['JSHSHIR', emp.pinfl||'—'],
+    ['Manzil', emp.address||'—'],
+  ]);
+
+  // Contact
+  h += card('📞 Kontakt', [
+    ['Telefon', emp.phone||'—'],
+    ['Telefon 2', emp.phone2||'—'],
+    ['Email', emp.email||'—'],
+    ['Korp. email', emp.corp_email||'—'],
+  ]);
+
+  // Work info
+  h += card('💼 Ish ma\'lumotlari', [
+    ['Ishga qabul', emp.hire_date||'—'],
+    ['Holat', emp.status||'—'],
+    ['Ish turi', emp.emp_type||'Doimiy'],
+    ['Ish haqi turi', emp.salary_type||'—'],
+    ['Ish haqi', emp.salary?'$'+Number(emp.salary).toLocaleString():'—'],
+    ['Bo\'lim', emp.dept||'—'],
+    ['Lavozim', emp.pos||'—'],
+  ]);
+
+  // Salary history
+  var salH = '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:16px">';
+  salH += '<div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--b1)">💰 Ish haqi tarixi</div>';
+  if(emp.salary_history && emp.salary_history.length){
+    emp.salary_history.forEach(function(sh){
+      salH += '<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:11px">';
+      salH += '<span style="color:var(--t3)">'+escHtml(sh.date||'')+'</span> · ';
+      salH += '<span style="color:var(--t1);font-weight:600">$'+Number(sh.amount||0).toLocaleString()+'</span>';
+      salH += sh.note?'<span style="color:var(--t3)"> · '+escHtml(sh.note)+'</span>':'';
+      salH += '</div>';
+    });
+  } else {
+    salH += '<div style="font-size:11px;color:var(--t3);text-align:center;padding:20px 0">Tarix yo\'q</div>';
+  }
+  salH += '</div>';
+  h += salH;
+
+  h += '</div>'; // grid end
+
+  // History
+  if(emp.history && emp.history.length){
+    h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:16px;margin-top:12px">';
+    h += '<div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--b1)">📋 Kadr o\'zgarishlari tarixi</div>';
+    h += '<div style="max-height:200px;overflow-y:auto">';
+    emp.history.slice().reverse().forEach(function(item){
+      h += '<div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);display:flex;gap:12px;align-items:flex-start">';
+      h += '<div style="width:8px;height:8px;border-radius:50%;background:#6C8EFF;flex-shrink:0;margin-top:4px"></div>';
+      h += '<div><div style="font-size:11px;font-weight:600;color:var(--t1)">'+escHtml(item.action||'—')+'</div>';
+      h += '<div style="font-size:10px;color:var(--t3)">'+escHtml(item.note||'')+'</div>';
+      h += '<div style="font-size:10px;color:var(--t3);margin-top:2px">'+(item.date?item.date.slice(0,16).replace('T',' '):'')+'</div>';
+      h += '</div></div>';
+    });
+    h += '</div></div>';
+  }
+
+  h += hrmModalHTML();
+  h += '</div>';
+  MC.innerHTML = h;
+}
+
+function hrmExportExcel(){
+  var rows = [['Tabel','Familiya','Ism','Otasining ismi','Jinsi','Telefon','Bo\'lim','Lavozim','Yo\'nalish','Holat','Ish haqi turi','Ish haqi (USD)','Ishga qabul']];
+  HRM_EMP.forEach(function(e){
+    var dirO = DIRS.find(function(d){return d.id===e.dir;})||{name:e.dir||''};
+    rows.push([e.tabel||'',e.lname||'',e.fname||'',e.mname||'',e.gender||'',e.phone||'',e.dept||'',e.pos||'',dirO.name,e.status||'',e.salary_type||'',e.salary||0,e.hire_date||'']);
+  });
+  var csv = rows.map(function(r){ return r.map(function(c){ return '"'+String(c).replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
+  var blob = new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'Xodimlar_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
 
 // ══════════════════════════════════════════════════════════════
 // ── ZAYAVKALAR (REQUEST/APPROVAL) RENDER ──────────────────────
