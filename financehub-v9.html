@@ -8865,6 +8865,30 @@ var HRM_EMP = (function(){ var s=lsLoad('hrm_emp'); return s||[]; })();
 function hrmSave(){ lsSave('hrm_emp', HRM_EMP); }
 function hrmNextTabel(){ var mx=HRM_EMP.reduce(function(m,e){ var n=parseInt((e.tabel||'').replace(/\D/g,''),10)||0; return Math.max(m,n); },0); return 'T-'+String(mx+1).padStart(4,'0'); }
 function hrmNextId(){ var mx=HRM_EMP.reduce(function(m,e){ var n=parseInt((e.id||'').replace(/\D/g,''),10)||0; return Math.max(m,n); },0); return 'EMP-'+String(mx+1).padStart(4,'0'); }
+
+// ── Universal taklif (datalist) yordamchilari ──────────────────
+function _uniq(arr){ var seen={}; return arr.filter(function(x){ if(!x||seen[x]) return false; seen[x]=true; return true; }); }
+function getSuggestDepts(dirId){
+  var from1 = HRM_EMP.filter(function(e){ return !dirId||dirId==='all'||e.dir===dirId; }).map(function(e){ return e.dept||''; });
+  var from2 = PAYROLL.filter(function(p){ return !dirId||dirId==='all'||p.dir===dirId; }).map(function(p){ return p.dept||''; });
+  return _uniq(from1.concat(from2)).filter(Boolean).sort();
+}
+function getSuggestPositions(dirId){
+  var from1 = HRM_EMP.filter(function(e){ return !dirId||dirId==='all'||e.dir===dirId; }).map(function(e){ return e.pos||''; });
+  var from2 = PAYROLL.filter(function(p){ return !dirId||dirId==='all'||p.dir===dirId; }).map(function(p){ return p.pos||''; });
+  return _uniq(from1.concat(from2)).filter(Boolean).sort();
+}
+function getSuggestNames(dirId){
+  var from1 = HRM_EMP.filter(function(e){ return !dirId||dirId==='all'||e.dir===dirId; }).map(function(e){ return ((e.lname||'')+' '+(e.fname||'')).trim(); });
+  var from2 = PAYROLL.filter(function(p){ return !dirId||dirId==='all'||p.dir===dirId; }).map(function(p){ return p.name||''; });
+  return _uniq(from1.concat(from2)).filter(Boolean).sort();
+}
+function datalistHTML(id, items){
+  return '<datalist id="'+id+'">'+items.map(function(v){ return '<option value="'+escHtml(v)+'">'; }).join('')+'</datalist>';
+}
+function inputWithList(id, val, listId, fldStyle){
+  return '<input id="'+id+'" list="'+listId+'" autocomplete="off" style="'+fldStyle+'" value="'+escHtml(val||'')+'">';
+}
 function getOpenTaskCount(){
   return TASKS.filter(function(t){ return t.status && t.status!=='done' && t.status!=='bajarildi'; }).length;
 }
@@ -12351,8 +12375,10 @@ function hrmFormHTML(emp, defaultDir){
   h += '<option value="">— Tanlang —</option>';
   DIRS.forEach(function(d){ h+='<option value="'+d.id+'"'+((e.dir||defaultDir)===d.id?' selected':'')+'>'+d.icon+' '+d.name+'</option>'; });
   h += '</select></div>';
-  h += '<div><label style="'+lblStyle+'">Bo\'lim *</label><input id="hDept" style="'+fldStyle+'" value="'+escHtml(e.dept||'')+'"></div>';
-  h += '<div style="grid-column:span 2"><label style="'+lblStyle+'">Lavozim *</label><input id="hPos" style="'+fldStyle+'" value="'+escHtml(e.pos||'')+'"></div>';
+  var _sugDepts = getSuggestDepts(defaultDir);
+  var _sugPos   = getSuggestPositions(defaultDir);
+  h += '<div><label style="'+lblStyle+'">Bo\'lim *</label>'+inputWithList('hDept', e.dept||'', 'dl_dept', fldStyle)+datalistHTML('dl_dept', _sugDepts)+'</div>';
+  h += '<div style="grid-column:span 2"><label style="'+lblStyle+'">Lavozim *</label>'+inputWithList('hPos', e.pos||'', 'dl_pos', fldStyle)+datalistHTML('dl_pos', _sugPos)+'</div>';
 
   // Row 4 - Dates
   h += '<div><label style="'+lblStyle+'">Ishga qabul sanasi *</label><input id="hHireDate" type="date" style="'+fldStyle+'" value="'+escHtml(e.hire_date||'')+'"></div>';
@@ -12772,6 +12798,12 @@ function renderRequestsPage(dirId){
 window.openNewReqModal = function(dirId, type){
   var old=document.getElementById('_reqModalOv'); if(old) old.remove();
   var empList = (PAYROLL||[]).filter(function(e){ return !dirId || e.direction===dirId; });
+  var _reqDepts = (function(){
+    var base = ['HR','Moliya','Logistika','Sotuv','Marketing','IT','Ombor','Rahbariyat','Boshqa'];
+    var dyn  = getSuggestDepts(dirId||'all');
+    return _uniq(dyn.concat(base)).filter(Boolean).sort();
+  })();
+  var _reqNames = getSuggestNames(dirId||'all');
   var cats = type==='capex' ? REQ_CAPEX_CATS : REQ_EXPENSE_CATS;
   var typMeta = REQ_TYPES.find(function(t){return t.id===type;})||{icon:'📝',lbl:"So’rov"};
 
@@ -12799,7 +12831,7 @@ window.openNewReqModal = function(dirId, type){
         <div>
           <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">Bo'lim</label>
           <select id="_reqDept" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px">
-            ${['HR','Moliya','Logistika','Sotuv','Marketing','IT','Ombor','Rahbariyat','Boshqa'].map(function(d){ return '<option>'+d+'</option>'; }).join('')}
+            ${_reqDepts.map(function(d){ return '<option>'+escHtml(d)+'</option>'; }).join('')}
           </select>
         </div>
       </div>
@@ -12818,7 +12850,8 @@ window.openNewReqModal = function(dirId, type){
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div>
           <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">So’rovchi</label>
-          <input id="_reqBy" placeholder="Ism Familiya" value="${escHtml((CUR_USER||{}).name||'')}" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box">
+          <input id="_reqBy" list="_reqByList" autocomplete="off" placeholder="Ism Familiya" value="${escHtml((CUR_USER||{}).name||'')}" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box">
+          <datalist id="_reqByList">${_reqNames.map(function(n){ return '<option value="'+escHtml(n)+'">'; }).join('')}</datalist>
         </div>
         <div>
           <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">Kerak bo'lish sanasi</label>
@@ -13438,7 +13471,15 @@ window.openTaskModal = function(dirId, parentId){
   var scoreOpts = TASK_SCORES.map(function(s){ return '<option value="'+s+'">'+s+' ball</option>'; }).join('');
 
   var empOpts = '<option value="">— Xodim —</option>';
-  PAYROLL.forEach(function(e){ empOpts += '<option value="'+e.id+'" data-n="'+escHtml(e.name)+'">'+escHtml(e.name)+'</option>'; });
+  // PAYROLL + HRM_EMP birlashtirilgan ro'yxat
+  var _allEmps = PAYROLL.map(function(e){ return {id:e.id, name:e.name||'', dir:e.dir}; });
+  HRM_EMP.forEach(function(e){
+    if(!_allEmps.find(function(x){ return x.id===e.id; })){
+      _allEmps.push({id:e.id, name:((e.lname||'')+' '+(e.fname||'')).trim(), dir:e.dir});
+    }
+  });
+  if(dirId) _allEmps = _allEmps.filter(function(e){ return !e.dir||e.dir===dirId; });
+  _allEmps.forEach(function(e){ empOpts += '<option value="'+e.id+'" data-n="'+escHtml(e.name)+'">'+escHtml(e.name)+'</option>'; });
 
   var h = '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:24px;width:540px;max-width:95vw;max-height:90vh;overflow-y:auto">';
   h += '<div style="font-size:14px;font-weight:700;color:var(--t1);margin-bottom:16px">'+(isSubtask?'🔗 Subtask Qo\'shish':'✅ Yangi Vazifa')+(parentTask?' — <span style="color:var(--t3);font-size:11px">'+escHtml(parentTask.title)+'</span>':'')+'</div>';
