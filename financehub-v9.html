@@ -6889,8 +6889,10 @@ function pipeEditModal(dealId){
     + '<span style="font-size:15px;font-weight:700">✏️ Deal tahrirlash</span>'
     + '<button onclick="pipeDeleteDeal(\''+dealId+'\')" style="padding:4px 10px;background:#ff4d4d22;color:#ff4d4d;border:1px solid #ff4d4d44;border-radius:6px;cursor:pointer;font-size:11px">🗑 O\'chirish</button>'
     + '</div>'
-    + pipeField('Kompaniya *','pipe_company','text',d.company,true)
-    + pipeField('Mahsulot/Xizmat','pipe_product','text',d.product||'')
+    + '<datalist id="crm_companies_e">'+getSuggestCompanies(d.direction).map(function(c){ return '<option value="'+escHtml(c)+'">'; }).join('')+'</datalist>'
+    + '<datalist id="crm_products_e">'+getSuggestProducts(d.direction).map(function(p){ return '<option value="'+escHtml(p)+'">'; }).join('')+'</datalist>'
+    + pipeField('Kompaniya *','pipe_company','text',d.company,true,'list="crm_companies_e"')
+    + pipeField('Mahsulot/Xizmat','pipe_product','text',d.product||'',false,'list="crm_products_e"')
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
     + pipeSelect('Bosqich','pipe_stage',stageOpts)
     + pipeField('Summa ($)','pipe_amount','number',d.amount||0)
@@ -8883,6 +8885,24 @@ function getSuggestNames(dirId){
   var from2 = PAYROLL.filter(function(p){ return !dirId||dirId==='all'||p.dir===dirId; }).map(function(p){ return p.name||''; });
   return _uniq(from1.concat(from2)).filter(Boolean).sort();
 }
+function getSuggestCompanies(dirId){
+  var from1 = (typeof CRM_CLIENTS!=='undefined'?CRM_CLIENTS:[]).filter(function(c){ return !dirId||dirId==='all'||c.direction===dirId; }).map(function(c){ return c.company||''; });
+  var from2 = (typeof PIPELINE_DEALS!=='undefined'?PIPELINE_DEALS:[]).filter(function(d){ return !dirId||dirId==='all'||d.direction===dirId; }).map(function(d){ return d.company||''; });
+  return _uniq(from1.concat(from2)).filter(Boolean).sort();
+}
+function getSuggestProducts(dirId){
+  var from1 = (typeof PIPELINE_DEALS!=='undefined'?PIPELINE_DEALS:[]).filter(function(d){ return !dirId||dirId==='all'||d.direction===dirId; }).map(function(d){ return d.product||''; });
+  return _uniq(from1).filter(Boolean).sort();
+}
+function getSuggestCounterparties(dirId){
+  var from1 = (typeof TXNS!=='undefined'?TXNS:[]).filter(function(t){ return !dirId||dirId==='all'||t.dir===dirId; }).map(function(t){ return t.cpty||t.counterparty||''; });
+  var from2 = (typeof CRM_CLIENTS!=='undefined'?CRM_CLIENTS:[]).filter(function(c){ return !dirId||dirId==='all'||c.direction===dirId; }).map(function(c){ return c.company||''; });
+  return _uniq(from1.concat(from2)).filter(Boolean).sort();
+}
+function getSuggestVendors(){
+  var from1 = (typeof REQUESTS!=='undefined'?REQUESTS:[]).map(function(r){ return r.vendor||''; });
+  return _uniq(from1).filter(Boolean).sort();
+}
 function datalistHTML(id, items){
   return '<datalist id="'+id+'">'+items.map(function(v){ return '<option value="'+escHtml(v)+'">'; }).join('')+'</datalist>';
 }
@@ -9895,32 +9915,52 @@ function renderPayroll(focusDir){
 
 
   window.prAddNew=function(){
+    var old=document.getElementById('_prAddOv'); if(old) old.remove();
+    var fld='width:100%;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box';
+    var lbl='font-size:11px;color:var(--t3);display:block;margin-bottom:4px;font-weight:600';
+    var dirOpts=DIRS.map(function(d){ return '<option value="'+d.id+'">'+d.icon+' '+escHtml(d.name)+'</option>'; }).join('');
+    var depts=getSuggestDepts('all'); var poss=getSuggestPositions('all'); var nms=getSuggestNames('all');
+    var ov=document.createElement('div');
+    ov.id='_prAddOv';
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px';
+    ov.innerHTML='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:16px;width:100%;max-width:520px;padding:28px;max-height:90vh;overflow-y:auto">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">'
+      +'<div style="font-size:16px;font-weight:700;color:var(--t1)">👔 Yangi Xodim (Payroll)</div>'
+      +'<button onclick="document.getElementById(\'_prAddOv\').remove()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px">✕</button>'
+      +'</div>'
+      +'<datalist id="_prDl_name">'+nms.map(function(n){ return '<option value="'+escHtml(n)+'">'; }).join('')+'</datalist>'
+      +'<datalist id="_prDl_dept">'+depts.map(function(d){ return '<option value="'+escHtml(d)+'">'; }).join('')+'</datalist>'
+      +'<datalist id="_prDl_pos">'+poss.map(function(p){ return '<option value="'+escHtml(p)+'">'; }).join('')+'</datalist>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
+      +'<div style="grid-column:span 2"><label style="'+lbl+'">To\'liq ism *</label><input id="_prN_name" list="_prDl_name" autocomplete="off" placeholder="Familiya Ism" style="'+fld+'"></div>'
+      +'<div><label style="'+lbl+'">Yo\'nalish *</label><select id="_prN_dir" style="'+fld+'">'+dirOpts+'</select></div>'
+      +'<div><label style="'+lbl+'">Bo\'lim *</label><input id="_prN_dept" list="_prDl_dept" autocomplete="off" placeholder="Sotuv, Moliya..." style="'+fld+'"></div>'
+      +'<div style="grid-column:span 2"><label style="'+lbl+'">Lavozim</label><input id="_prN_pos" list="_prDl_pos" autocomplete="off" placeholder="Menejer, Xodim..." style="'+fld+'"></div>'
+      +'<div><label style="'+lbl+'">Asosiy maosh ($)</label><input id="_prN_base" type="number" min="0" placeholder="0" style="'+fld+'"></div>'
+      +'<div><label style="'+lbl+'">KPI bonus (%)</label><input id="_prN_kpi" type="number" min="0" max="100" placeholder="0" style="'+fld+'"></div>'
+      +'</div>'
+      +'<div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end">'
+      +'<button onclick="document.getElementById(\'_prAddOv\').remove()" style="padding:8px 16px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:12px">Bekor</button>'
+      +'<button onclick="prSaveNew()" style="padding:8px 20px;background:#6C8EFF;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">➕ Qo\'shish</button>'
+      +'</div></div>';
+    document.body.appendChild(ov);
+  };
 
-
-    var nm=prompt('Xodim ismi:'); if(!nm) return;
-
-
-    var base=parseFloat(prompt('Asosiy maosh ($):')||'0');
-
-
-    var dir=prompt('Yo\'nalish (cargo/logistics/exchange/procurement/holding):','cargo');
-
-
-    var dept=prompt('Bo\'lim:','Sotuv');
-
-
-    PAYROLL.push({id:PAYROLL.length+1,name:nm,dir:dir||'cargo',dept:dept||'Sotuv',pos:'Xodim',base:base,kpi:0,sales:0,allow:0,tax_pct:12});
-
-
+  window.prSaveNew=function(){
+    var nm  =(document.getElementById('_prN_name')||{}).value||'';
+    var dir =(document.getElementById('_prN_dir')||{}).value||'cargo';
+    var dept=(document.getElementById('_prN_dept')||{}).value||'';
+    var pos =(document.getElementById('_prN_pos')||{}).value||'Xodim';
+    var base=parseFloat((document.getElementById('_prN_base')||{}).value)||0;
+    var kpi =parseFloat((document.getElementById('_prN_kpi')||{}).value)||0;
+    if(!nm){ alert('To\'liq ism majburiy!'); return; }
+    if(!dept){ alert('Bo\'lim majburiy!'); return; }
+    var maxId=PAYROLL.reduce(function(m,e){ return Math.max(m,+(e.id||0)); },0);
+    PAYROLL.push({id:maxId+1,name:nm,dir:dir,dept:dept,pos:pos||'Xodim',base:base,kpi:kpi,sales:0,allow:0,tax_pct:12});
     prSave();
-
-
-    toast('✅ Xodim qo\'shildi!');
-
-
+    var ov=document.getElementById('_prAddOv'); if(ov) ov.remove();
+    toast('✅ Xodim qo\'shildi: '+nm);
     renderPayroll();
-
-
   };
 
 
@@ -12860,7 +12900,8 @@ window.openNewReqModal = function(dirId, type){
       </div>
       <div>
         <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">Yetkazib beruvchi / Vendor</label>
-        <input id="_reqVendor" placeholder="Kompaniya yoki xizmat nomi..." style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box">
+        <datalist id="_dl_reqVendor">${getSuggestVendors().map(function(v){ return '<option value="'+escHtml(v)+'">'; }).join('')}</datalist>
+        <input id="_reqVendor" list="_dl_reqVendor" autocomplete="off" placeholder="Kompaniya yoki xizmat nomi..." style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box">
       </div>
       <div>
         <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">Izoh / Asoslash</label>
