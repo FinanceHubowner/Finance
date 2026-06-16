@@ -11176,9 +11176,47 @@ function reqApprove(reqId, comment){
   if(!r.approvals) r.approvals=[];
   r.approvals.push({stage:r.status,action:'approved',by:(CUR_USER||{}).name||'Admin',at:new Date().toISOString(),comment:comment||''});
   r.status=next;
-  if(next==='approved') r.approved_at=new Date().toISOString();
+  if(next==='approved'){
+    r.approved_at=new Date().toISOString();
+    _reqCreateTxn(r);
+  }
   reqSave();
   _reqSyncSB(r);
+}
+
+// So'rov tasdiqlanganda avtomatik tranzaksiya yaratadi
+function _reqCreateTxn(r){
+  if(r.txn_id) return; // avval yaratilgan bo'lsa o'tkazib yuborish
+  var today = new Date().toISOString().slice(0,10);
+  var period = today.slice(0,7); // YYYY-MM
+  var txnType = r.type==='capex' ? 'capex' : 'expense';
+  var txn = {
+    id: 'TXN-REQ-'+r.id+'-'+Date.now(),
+    date: r.approved_at ? r.approved_at.slice(0,10) : today,
+    period: period,
+    payment_period: period,
+    accrual_period: period,
+    direction: r.direction||'holding',
+    dept: r.dept||'',
+    type: txnType,
+    subcat: r.category||'',
+    amount: -(Math.abs(r.amount||0)),  // chiqim — manfiy
+    currency: 'USD',
+    amount_orig: -(Math.abs(r.amount||0)),
+    fx_rate: 1,
+    counterparty: r.vendor||r.requested_by||'',
+    purpose: '[REQ:'+r.id+'] '+(r.title||''),
+    status: 'To\'landi',
+    note: 'Avtomatik — So\'rov #'+r.id+' tasdiqlandi. '+escHtml(r.description||''),
+    source: 'requests',
+    req_id: r.id,
+    is_capex: txnType==='capex',
+    group: txnType==='capex' ? 'Основные_средства' : 'Метод начисления',
+    coa_code: txnType==='capex' ? '21' : '41',
+  };
+  TXNS.push(txn);
+  txnsSave();
+  r.txn_id = txn.id; // so'rovga havola
 }
 
 function reqReject(reqId, reason){
