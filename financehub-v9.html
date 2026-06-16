@@ -11096,6 +11096,34 @@ var REQ_APPROVAL_CHAIN = [
   {key:'holding_head',    lbl:'Holding rahbari'},
 ];
 
+// Har bir so'rov uchun tasdiqlash zanjirini qaytaradi
+// holding + Moliya bo'limi => faqat holding_head
+// holding + boshqa bo'lim  => holding_finance -> holding_head
+// yo'nalish                => dept_head -> dir_finance -> dir_head -> holding_finance -> holding_head
+function getReqChain(req){
+  var dir  = req.direction||'';
+  var dept = (req.dept||'').toLowerCase();
+  var isHolding = (dir==='holding'||dir==='holding_kassa'||dir==='');
+  if(isHolding){
+    var isFinanceDept = dept==='moliya'||dept==='finance'||dept==='buxgalteriya'||dept==='moliya bo\'limi';
+    if(isFinanceDept){
+      return [{key:'holding_head', lbl:'Holding rahbari'}];
+    } else {
+      return [
+        {key:'holding_finance', lbl:'Holding moliyachisi'},
+        {key:'holding_head',    lbl:'Holding rahbari'},
+      ];
+    }
+  }
+  return [
+    {key:'dept_head',       lbl:"Bo'lim rahbari"},
+    {key:'dir_finance',     lbl:"Yo'nalish moliyachisi"},
+    {key:'dir_head',        lbl:"Yo'nalish rahbari"},
+    {key:'holding_finance', lbl:'Holding moliyachisi'},
+    {key:'holding_head',    lbl:'Holding rahbari'},
+  ];
+}
+
 var REQ_STATUS_META = {
   draft:                  {lbl:'Qoralama',            col:'#888'},
   pending_dept_head:      {lbl:"Bo'lim rahbari kutilmoqda",    col:'#FFB830'},
@@ -11115,10 +11143,13 @@ var REQ_TYPES = [
 var REQ_EXPENSE_CATS = ["Yoqilg'i","Transport","Ofis xarajatlari","Xodimlar harajati","Kommunal","Reklama va marketing","Texnik xizmat","Ijara","O'quv va trening","Konsalting va maslahat","Yuridik xizmatlar","Audit va buxgalteriya","Bank xizmatlari","Sug'urta","Sayohat va xizmat safari","Tadbir va konferensiya","Dasturiy ta'minot (SaaS)","Pochtа va kuryer","Xavfsizlik xizmatlari","Boshqa"];
 var REQ_CAPEX_CATS   = ["Avtopark","Asbob-uskunalar","IT jihozlar","Ko'chmas mulk","Mebel va jihozlash","Qurilish","Boshqa"];
 
-function reqNextStatus(status){
-  var order=['draft','pending_dept_head','pending_dir_finance','pending_dir_head','pending_holding_finance','pending_holding_head','approved'];
-  var i=order.indexOf(status);
-  return i>=0&&i<order.length-1 ? order[i+1] : null;
+function reqNextStatus(req){
+  var chain = getReqChain(req);
+  var keys = chain.map(function(s){ return 'pending_'+s.key; });
+  var full = ['draft'].concat(keys).concat(['approved']);
+  var cur = typeof req==='string' ? req : req.status;
+  var i = full.indexOf(cur);
+  return i>=0 && i<full.length-1 ? full[i+1] : null;
 }
 
 function canUserApprove(req){
@@ -11129,12 +11160,16 @@ function canUserApprove(req){
     dir_head:'pending_dir_head', holding_finance:'pending_holding_finance',
     holding_head:'pending_holding_head'
   };
-  return req.status === roleMap[CUR_USER.role];
+  var needed = roleMap[CUR_USER.role];
+  if(!needed || req.status!==needed) return false;
+  // Check this step is actually in this request's chain
+  var chain = getReqChain(req);
+  return chain.some(function(s){ return 'pending_'+s.key===needed; });
 }
 
 function reqApprove(reqId, comment){
   var r=REQUESTS.find(function(x){return x.id===reqId;}); if(!r) return;
-  var next=reqNextStatus(r.status); if(!next) return;
+  var next=reqNextStatus(r); if(!next) return;
   if(!r.approvals) r.approvals=[];
   r.approvals.push({stage:r.status,action:'approved',by:(CUR_USER||{}).name||'Admin',at:new Date().toISOString(),comment:comment||''});
   r.status=next;
@@ -11145,16 +11180,21 @@ function reqApprove(reqId, comment){
 
 function reqReject(reqId, reason){
   var r=REQUESTS.find(function(x){return x.id===reqId;}); if(!r) return;
+  if(!reason||!reason.trim()){ toast("Rad etish sababi majburiy!",'error'); return; }
   if(!r.approvals) r.approvals=[];
-  r.approvals.push({stage:r.status,action:'rejected',by:(CUR_USER||{}).name||'Admin',at:new Date().toISOString(),comment:reason||''});
-  r.status='rejected'; r.rejection_reason=reason||'';
+  r.approvals.push({stage:r.status,action:'rejected',by:(CUR_USER||{}).name||'Admin',at:new Date().toISOString(),comment:reason.trim()});
+  r.status='rejected'; r.rejection_reason=reason.trim(); r.rejected_by=(CUR_USER||{}).name||'Admin'; r.rejected_at=new Date().toISOString();
   reqSave();
   _reqSyncSB(r);
 }
 
 function reqSubmit(reqId){
   var r=REQUESTS.find(function(x){return x.id===reqId;}); if(!r) return;
-  if(r.status==='draft'){ r.status='pending_dept_head'; reqSave(); _reqSyncSB(r); }
+  if(r.status==='draft'){
+    var chain=getReqChain(r);
+    r.status = chain.length>0 ? 'pending_'+chain[0].key : 'approved';
+    reqSave(); _reqSyncSB(r);
+  }
 }
 
 function getPendingReqCount(){
@@ -12796,8 +12836,10 @@ function renderRequestsPage(dirId){
       var typMeta = REQ_TYPES.find(function(t){return t.id===r.type;})||{icon:'📄',lbl:r.type};
       var dObj = DIRS.find(function(d){return d.id===r.direction;})||{name:r.direction||'—',icon:''};
       var canApprove = canUserApprove(r);
-      var chainIdx = ['pending_dept_head','pending_dir_finance','pending_dir_head','pending_holding_finance','pending_holding_head'].indexOf(r.status);
-      var chainPct = r.status==='approved' ? 100 : r.status==='rejected' ? 0 : Math.round((chainIdx+1)/5*100);
+      var _rChain = getReqChain(r);
+      var _rChainKeys = _rChain.map(function(s){ return 'pending_'+s.key; });
+      var chainIdx = _rChainKeys.indexOf(r.status);
+      var chainPct = r.status==='approved' ? 100 : r.status==='rejected' ? 0 : chainIdx<0 ? 0 : Math.round((chainIdx+1)/_rChain.length*100);
       h += '<tr style="border-bottom:1px solid var(--b1);cursor:pointer'+(canApprove?';background:rgba(255,185,48,0.04)':'')+'" onclick="openReqDetail(\''+r.id+'\')">';
       h += '<td style="padding:9px 10px;font-family:var(--mono);color:var(--t3);white-space:nowrap">'+escHtml(r.id)+'</td>';
       h += '<td style="padding:9px 10px;white-space:nowrap">'+typMeta.icon+' <span style="font-size:10px;color:var(--t2)">'+typMeta.lbl+'</span></td>';
@@ -12913,12 +12955,16 @@ window.openNewReqModal = function(dirId, type){
       <div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:14px">
         <div style="font-size:11px;font-weight:600;color:var(--t2);margin-bottom:10px">📋 Tasdiqlash ketma-ketligi</div>
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          ${REQ_APPROVAL_CHAIN.map(function(s,i){
-            return '<div style="display:flex;align-items:center;gap:4px">'
-              +(i>0?'<span style="color:var(--t3);font-size:10px">→</span>':'')
-              +'<div style="padding:4px 10px;background:var(--s3);border:1px solid var(--b2);border-radius:20px;font-size:10px;color:var(--t2)">'+s.lbl+'</div>'
-              +'</div>';
-          }).join('')}
+          ${(function(){
+            var tmpReq={direction:(typeof dirId!=='undefined'?dirId:''), dept:(document.getElementById&&document.getElementById('_reqDept')?(document.getElementById('_reqDept').value||''):'')};
+            var ch=getReqChain(tmpReq);
+            return ch.map(function(s,i){
+              return '<div style="display:flex;align-items:center;gap:4px">'
+                +(i>0?'<span style="color:var(--t3);font-size:10px">→</span>':'')
+                +'<div style="padding:4px 10px;background:var(--s3);border:1px solid var(--b2);border-radius:20px;font-size:10px;color:var(--t2)">'+s.lbl+'</div>'
+                +'</div>';
+            }).join('');
+          })()}
           <span style="color:var(--t3);font-size:10px">→</span>
           <div style="padding:4px 10px;background:#17B37422;border:1px solid #17B37440;border-radius:20px;font-size:10px;color:#17B374;font-weight:600">✓ Tasdiqlandi</div>
         </div>
@@ -12951,10 +12997,14 @@ window.saveNewReq = function(type, action){
     title: title, description: desc, category: cat, amount: amount,
     vendor: vendor, requested_by: byName,
     deadline: deadline, created_at: new Date().toISOString(),
-    status: action==='submit' ? 'pending_dept_head' : 'draft',
+    status: 'draft',
     approvals: [],
   };
   REQUESTS.push(r);
+  if(action==='submit'){
+    var chain=getReqChain(r);
+    r.status = chain.length>0 ? 'pending_'+chain[0].key : 'approved';
+  }
   reqSave();
   _reqSyncSB(r);
   var ov=document.getElementById('_reqModalOv'); if(ov) ov.remove();
@@ -13045,19 +13095,37 @@ window.openReqDetail = function(reqId){
   // Approval chain timeline
   var approvedMap={};
   (r.approvals||[]).forEach(function(a){ approvedMap[a.stage]=a; });
+  var _detailChain = getReqChain(r);
   var chainHtml='<div style="margin-top:16px"><div style="font-size:11px;font-weight:600;color:var(--t2);margin-bottom:8px">📋 Tasdiqlash ketma-ketligi</div><div style="display:flex;flex-direction:column;gap:5px">';
-  REQ_APPROVAL_CHAIN.forEach(function(step){
+  // Show rejection banner if rejected
+  if(r.status==='rejected'){
+    chainHtml+='<div style="padding:10px 12px;background:#FF4D6A22;border:1px solid #FF4D6A55;border-radius:8px;margin-bottom:6px">';
+    chainHtml+='<div style="font-size:11px;font-weight:700;color:#FF4D6A">❌ Rad etildi</div>';
+    if(r.rejected_by) chainHtml+='<div style="font-size:10px;color:var(--t2);margin-top:2px">Kim: <b>'+escHtml(r.rejected_by)+'</b>'+(r.rejected_at?' · '+(r.rejected_at||'').slice(0,16).replace('T',' '):'')+'</div>';
+    if(r.rejection_reason) chainHtml+='<div style="font-size:11px;color:#FF6B6B;margin-top:4px;font-style:italic">"'+escHtml(r.rejection_reason)+'"</div>';
+    chainHtml+='</div>';
+  }
+  _detailChain.forEach(function(step){
     var appr=approvedMap['pending_'+step.key];
     var isCurrent=r.status==='pending_'+step.key;
     var isDone=appr&&appr.action==='approved';
     var isRej=appr&&appr.action==='rejected';
+    var isPending=!appr&&!isCurrent;
     var icon=isDone?'✅':isRej?'❌':isCurrent?'⏳':'⭕';
     var col=isDone?'#17B374':isRej?'#FF4D6A':isCurrent?'#FFB830':'var(--t3)';
-    chainHtml+='<div style="display:flex;align-items:flex-start;gap:10px;padding:7px 10px;background:var(--s2);border:1px solid '+(isCurrent?'#FFB83060':'var(--b1)')+';border-radius:8px">';
+    var bg=isRej?'#FF4D6A0A':isCurrent?'#FFB8300A':'var(--s2)';
+    var border=isCurrent?'#FFB83060':isRej?'#FF4D6A44':'var(--b1)';
+    chainHtml+='<div style="display:flex;align-items:flex-start;gap:10px;padding:7px 10px;background:'+bg+';border:1px solid '+border+';border-radius:8px;opacity:'+(isPending&&r.status!=='draft'?'0.5':'1')+'">';
     chainHtml+='<span style="font-size:13px;flex-shrink:0;margin-top:1px">'+icon+'</span>';
     chainHtml+='<div style="flex:1"><div style="font-size:11px;font-weight:600;color:'+col+'">'+escHtml(step.lbl)+'</div>';
-    if(appr){ chainHtml+='<div style="font-size:10px;color:var(--t3)">'+escHtml(appr.by)+' · '+(appr.at||'').slice(0,16).replace('T',' ')+(appr.comment?'<span style="font-style:italic"> · "'+escHtml(appr.comment)+'"</span>':'')+'</div>'; }
-    else if(isCurrent){ chainHtml+='<div style="font-size:10px;color:#FFB830">Tasdiqlash kutilmoqda...</div>'; }
+    if(appr){
+      chainHtml+='<div style="font-size:10px;color:var(--t3)">'+escHtml(appr.by)+' · '+(appr.at||'').slice(0,16).replace('T',' ')+'</div>';
+      if(appr.comment) chainHtml+='<div style="font-size:10px;color:'+(isRej?'#FF6B6B':'var(--t2)')+';font-style:italic;margin-top:2px">"'+escHtml(appr.comment)+'"</div>';
+    } else if(isCurrent){
+      chainHtml+='<div style="font-size:10px;color:#FFB830">Tasdiqlash kutilmoqda...</div>';
+    } else if(isPending){
+      chainHtml+='<div style="font-size:10px;color:var(--t3)">Navbat kutilmoqda</div>';
+    }
     chainHtml+='</div></div>';
   });
   chainHtml+='</div></div>';
@@ -13150,12 +13218,16 @@ window.showApproveForm = function(reqId){
 
 window.showRejectForm = function(reqId){
   var area=document.getElementById('_reqActionArea'); if(!area) return;
+  var r=REQUESTS.find(function(x){return x.id===reqId;})||{};
+  var stMeta=REQ_STATUS_META[r.status]||{lbl:r.status};
   area.innerHTML='<div style="width:100%;display:flex;flex-direction:column;gap:8px">'
-    +'<textarea id="_rejectReason" rows="2" placeholder="Rad etish sababi (majburiy)..." style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid rgba(255,77,106,0.4);border-radius:8px;color:var(--t1);font-size:12px;resize:none;box-sizing:border-box"></textarea>'
+    +'<div style="padding:8px 12px;background:#FF4D6A15;border:1px solid #FF4D6A44;border-radius:8px;font-size:10px;color:#FF6B6B">⚠️ <b>'+escHtml(stMeta.lbl)+'</b> bosqichida rad etilmoqda. Sabab barcha keyingi darajadagi shaxslarga ko\'rinadi.</div>'
+    +'<textarea id="_rejectReason" rows="3" placeholder="Rad etish sababi (majburiy) — aniq va tushunarli yozing..." style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid rgba(255,77,106,0.5);border-radius:8px;color:var(--t1);font-size:12px;resize:vertical;box-sizing:border-box"></textarea>'
     +'<div style="display:flex;gap:8px">'
-    +'<button onclick="doRejectReq(\''+reqId+'\')" style="padding:9px 18px;background:#FF4D6A;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">✗ Rad etishni tasdiqlang</button>'
+    +'<button onclick="doRejectReq(\''+reqId+'\')" style="padding:9px 18px;background:#FF4D6A;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">✗ Rad etishni tasdiqlash</button>'
     +'<button onclick="openReqDetail(\''+reqId+'\')" style="padding:9px 14px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:12px">Bekor</button>'
     +'</div></div>';
+  setTimeout(function(){ var ta=document.getElementById('_rejectReason'); if(ta) ta.focus(); },100);
 };
 
 window.doApproveReq = function(reqId){
