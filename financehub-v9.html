@@ -8871,14 +8871,16 @@ function hrmNextId(){ var mx=HRM_EMP.reduce(function(m,e){ var n=parseInt((e.id|
 // ── Universal taklif (datalist) yordamchilari ──────────────────
 function _uniq(arr){ var seen={}; return arr.filter(function(x){ if(!x||seen[x]) return false; seen[x]=true; return true; }); }
 function getSuggestDepts(dirId){
+  var base = ['Bosh ofis','Buxgalteriya','Moliya','HR','Huquq','IT','Logistika','Marketing','Ombor','Operatsion','Rahbariyat','Savdo','Sotuv','Texnik','Transport','Xavfsizlik'];
   var from1 = HRM_EMP.filter(function(e){ return !dirId||dirId==='all'||e.dir===dirId; }).map(function(e){ return e.dept||''; });
   var from2 = PAYROLL.filter(function(p){ return !dirId||dirId==='all'||p.dir===dirId; }).map(function(p){ return p.dept||''; });
-  return _uniq(from1.concat(from2)).filter(Boolean).sort();
+  return _uniq(from1.concat(from2).concat(base)).filter(Boolean).sort();
 }
 function getSuggestPositions(dirId){
+  var base = ['Baholash mutaxassisi','Bosh buxgalter','Bosh muhandis','Buxgalter','Dasturchi','Direktor','Dispetcher','Haydovchi','Hisobchi','Inspektor','Kassir','Logist','Menejer','Menejeri','Mudir','Mutaxassis','O\'rinbosar','Ofis menajeri','Operatsion menejer','Rahbar','Savdo menajeri','Sotuvchi','Texnik mutaxassis','Xodim','Yurist'];
   var from1 = HRM_EMP.filter(function(e){ return !dirId||dirId==='all'||e.dir===dirId; }).map(function(e){ return e.pos||''; });
   var from2 = PAYROLL.filter(function(p){ return !dirId||dirId==='all'||p.dir===dirId; }).map(function(p){ return p.pos||''; });
-  return _uniq(from1.concat(from2)).filter(Boolean).sort();
+  return _uniq(from1.concat(from2).concat(base)).filter(Boolean).sort();
 }
 function getSuggestNames(dirId){
   var from1 = HRM_EMP.filter(function(e){ return !dirId||dirId==='all'||e.dir===dirId; }).map(function(e){ return ((e.lname||'')+' '+(e.fname||'')).trim(); });
