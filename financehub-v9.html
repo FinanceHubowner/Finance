@@ -25974,77 +25974,208 @@ var GUIDE_TAB_DESC = {
   entry:       "Ma'lumot kiritish — tranzaksiyalar qo'lda yozilishi.",
 };
 
-var GUIDE_FEATURE_DESC = [
-  {icon:'🔐', title:'Kirish va Xavfsizlik',      body:'Har bir foydalanuvchi alohida akkaunt va roli bilan tizimga kiradi. 15 daqiqa harakatsizlikda sessiya avtomatik yopiladi.'},
-  {icon:'📅', title:'Davr filtri',                body:"Yuqori paneldagi Bugun/Hafta/Oy/Kvartal/Hammasi tugmalari yoki 'Belgilash' orqali o'zboshimcha davr tanlanadi. Barcha hisobotlar shu davrga moslashadi."},
-  {icon:'🎨', title:'Tema',                        body:'Rang temasi (qoʻngʻiroq rangi) yuqori paneldagi doiralardan tanlanadi. Tanlangan tema saqlanadi.'},
-  {icon:'📊', title:'Excel eksport',               body:"Har bir sahifaning o'ng tomonidagi 📥 Excel tugmasi orqali ma'lumotlar CSV formatda yuklab olinadi."},
-  {icon:'📝', title:"So\'rov tizimi",              body:"Harajat yoki CapEx sorovsi yaratiladi → 5 bosqichdan o'tadi (Bo'lim rahbari → Yo'nalish moliyachisi → Yo'nalish rahbari → Holding moliyachisi → Holding rahbari) → Tasdiqlanganda amalga oshirilishi mumkin."},
-  {icon:'✅', title:'Vazifalar (Task Management)', body:'Kanban, Ro\'yxat, Kalendar va Tahlil ko\'rinishlarida topshiriqlar boshqariladi. Checklist, subtask, muddati, mas\'ul xodim, ball tizimi mavjud.'},
-  {icon:'🏛️', title:"Ta'sischiga Hisobot",        body:"Holding sahifasida — barcha yo'nalishlarning konsolidatsiyalangan 3 hisobot: P&L, Cash Flow, Balans. Intercompany balanslar va CapEx ko'rsatiladi."},
-  {icon:'👥', title:'Xodimlar va Inventar',        body:"Payroll bo'limida xodim kartochkasi: ish haqi, KPI, inventar biriktirilgan. Xodim ishdan chiqarilganda inventar qaytarish ro'yxati avtomatik chiqadi."},
+var GUIDE_MODULES = [
+  {
+    icon:'🔐', title:'Tizimga kirish',
+    steps:[
+      'Brauzerda FinanceHub sahifasini oching',
+      'Email va parolni kiriting → "Kirish" tugmasini bosing',
+      'Sizning rolingizga qarab sahifalar ko\'rinadi (owner, holding_head, dir_head va h.k.)',
+      '15 daqiqa harakatsizlikda sessiya avtomatik yopiladi — qaytadan kiring',
+    ],
+    tip:"Demo rejimida 'Demo' tugmasini bosib tizimni sinab ko'rishingiz mumkin"
+  },
+  {
+    icon:'💳', title:'Kassaga tranzaksiya kiritish',
+    steps:[
+      '"Kassalar" tabiga o\'ting',
+      'Kerakli kassani tanlang (Holding, Cargo va h.k.)',
+      '"+ Tranzaksiya" tugmasini bosing',
+      'Tur tanlang: Daromad / Xarajat / Transfer / CapEx',
+      'Summa, sana, kontragent, izoh kiriting',
+      '"Saqlash" tugmasini bosing — P&L, Cash Flow, Balansga avtomatik ta\'sir qiladi',
+    ],
+    tip:'Tranzaksiya kiritilgandan so\'ng barcha moliyaviy hisobotlar avtomatik yangilanadi'
+  },
+  {
+    icon:'📝', title:'Harajat So\'rovi yuborish',
+    steps:[
+      '"So\'rovlar" tabiga o\'ting',
+      '"💸 Harajat So\'rovi" yoki "🏗️ CapEx So\'rovi" tugmasini bosing',
+      'Sarlavha, yo\'nalish, bo\'lim, kategoriya va summani to\'ldiring',
+      'Yetkazib beruvchi (Vendor) va izoh yozing',
+      '"📤 Yuborish" tugmasini bosing',
+      'So\'rov tasdiqlash zanjiriga tushadi — har bosqichda mas\'ul kishi ko\'radi',
+      'So\'nggi tasdiqlash (Holding rahbari) bo\'lganda kassada avtomatik chiqim yaratiladi',
+    ],
+    tip:'Holding Moliya bo\'limidan yuborilgan so\'rov to\'g\'ridan Holding rahbariga boradi (2 bosqich)'
+  },
+  {
+    icon:'✅', title:'So\'rovni tasdiqlash / rad etish',
+    steps:[
+      '"So\'rovlar" tabida sariq "⏳ ta tasdiqlash kutilmoqda" tugmasi ko\'rinadi',
+      'So\'rovni bosib oching',
+      'Pastdagi tasdiqlash zanjirida qaysi bosqichda ekanini ko\'ring',
+      '"✓ Tasdiqlash" — izohlangan tasdiqlash yuboring',
+      '"✗ Rad etish" — sabab yozish majburiy (bu sabab barcha keyingi bosqichlarga ko\'rinadi)',
+    ],
+    tip:'Rad etish sababi aniq va batafsil yozilsin — keyingi rahbarlarga ko\'rinadi'
+  },
+  {
+    icon:'📊', title:'Vazifa yaratish va kuzatish',
+    steps:[
+      '"Vazifalar" tabiga o\'ting',
+      '"+ Yangi Vazifa" tugmasini bosing',
+      'Sarlavha, mas\'ul xodim, muddati va prioritet kiriting',
+      'Kanban ko\'rinishda: "Yangi → Jarayonda → Tekshiruvda → Bajarildi" ustunlari bo\'ylab suring',
+      'Checklist qo\'shish: vazifa ichida "＋ Checklist" bo\'limi mavjud',
+      'Kalendar ko\'rinishi: muddatlar bo\'yicha ko\'rish uchun "📅 Kalendar" tabini tanlang',
+    ],
+    tip:'Muddati o\'tgan vazifalar qizil rangda ajralib ko\'rsatiladi'
+  },
+  {
+    icon:'👔', title:'Xodim qo\'shish (HRM)',
+    steps:[
+      '"Xodimlar" tabiga o\'ting',
+      '"+ Yangi Xodim" tugmasini bosing',
+      'Familiya, ism, yo\'nalish, bo\'lim va lavozimni kiriting (dropdown taklif qiladi)',
+      'Telefon, email, ishga qabul sanasi, ish haqi turini to\'ldiring',
+      'Holat tanlang: Ishlayapti / Sinov muddatida / Ta\'tilda va h.k.',
+      '"Saqlash" tugmasini bosing',
+      'Payroll sahifasida xodimga KPI va inventar biriktirish mumkin',
+    ],
+    tip:'Xodim bo\'shatilganda "Holat" ni "Bo\'shatilgan" ga o\'zgartiring — inventar qaytarish ro\'yxati chiqadi'
+  },
+  {
+    icon:'📈', title:'P&L va Cash Flow hisobotlarini o\'qish',
+    steps:[
+      '"P&L" tabida: Daromad − Xarajat = Foyda (sof) ko\'rsatiladi',
+      'Yuqori filtr orqali davr tanlang: Bugun / Oy / Kvartal / Hammasi',
+      '"Cash Flow" tabida: kirdi-chiqdi pul oqimi ko\'rsatiladi',
+      'Raqamga bosish (drilldown): tegishli tranzaksiyalar ro\'yxati ochiladi',
+      '"Ta\'sischiga Hisobot" — barcha yo\'nalishlar konsolidatsiyalangan holda',
+    ],
+    tip:'Barcha hisobotlar tranzaksiyalardan avtomatik hisoblanadi — qo\'lda o\'zgartirilmaydi'
+  },
+  {
+    icon:'🏗️', title:'CapEx So\'rovi va Balansga ta\'siri',
+    steps:[
+      '"So\'rovlar" → "CapEx So\'rovi" tugmasini bosing',
+      'Kategoriya: Avtopark, IT jihozlar, Ko\'chmas mulk va h.k.',
+      'Tasdiqlash zanjiridan o\'tgandan so\'ng',
+      'Balans Sheetda "Asosiy vositalar" qatorida ko\'rsatiladi',
+      '"Cash Flow" da Investitsion faoliyat sifatida aks etadi',
+    ],
+    tip:'CapEx tranzaksiyalar P&L ga xarajat sifatida kirmaydi — faqat Balans va CF ga ta\'sir qiladi'
+  },
+  {
+    icon:'💱', title:'Valyuta tranzaksiyalari (Exchange)',
+    steps:[
+      '"Exchange" yo\'nalishiga o\'ting',
+      'Kassa tabida valyutani tanlang (USD, UZS, CNY, RUB)',
+      'Kurs kiriting: masalan, 1 USD = 12 700 UZS',
+      'Operatsiya turini tanlang: Sotish / Sotib olish / O\'tkazma',
+      'FX G/L (valyuta kursi farqi) avtomatik hisoblanadi',
+    ],
+    tip:'Kurs 20% dan ko\'p og\'ishda ogohlantirish chiqadi — tekshirib tasdiqlang'
+  },
+  {
+    icon:'📥', title:'Excel eksport',
+    steps:[
+      'Istalgan sahifada yuqori o\'ng burchakdagi "📥 Excel" tugmasini bosing',
+      'CSV fayl yuklab olinadi — Excel, Google Sheets da ochiladi',
+      'Davr filtri tanlangan bo\'lsa, faqat o\'sha davr eksport qilinadi',
+    ],
+    tip:'Katta hisobotlar uchun avval "Hammasi" filtrini tanlang, keyin eksport qiling'
+  },
 ];
 
 function openGuide(){
   var old=document.getElementById('_guideOv'); if(old) old.remove();
 
-  // Auto-generate sections from SUBNAV_DEFS
+  // Tab sections from SUBNAV_DEFS
   var dirNames={l1:'Holding (Umumiy)',cargo:'Cargo',logistics:'Logistics',exchange:'Exchange',procurement:'Procurement'};
   var dirIcons={l1:'🏦',cargo:'📦',logistics:'🚛',exchange:'💱',procurement:'🏭'};
-
   var sectionsHtml='';
   Object.keys(SUBNAV_DEFS||{}).forEach(function(dirKey){
     var tabs=SUBNAV_DEFS[dirKey];
-    sectionsHtml+='<div style="margin-bottom:18px">';
-    sectionsHtml+='<div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:8px;display:flex;align-items:center;gap:6px">'
-      +'<span>'+(dirIcons[dirKey]||'📁')+'</span><span>'+(dirNames[dirKey]||dirKey)+' sahifalari</span></div>';
-    sectionsHtml+='<div style="display:flex;flex-direction:column;gap:5px">';
+    sectionsHtml+='<div style="margin-bottom:14px">';
+    sectionsHtml+='<div style="font-size:11px;font-weight:700;color:var(--t1);margin-bottom:6px;display:flex;align-items:center;gap:5px">'
+      +'<span>'+(dirIcons[dirKey]||'📁')+'</span><span>'+(dirNames[dirKey]||dirKey)+'</span></div>';
+    sectionsHtml+='<div style="display:flex;flex-direction:column;gap:3px">';
     tabs.forEach(function(tab){
       var desc=GUIDE_TAB_DESC[tab.id]||'';
-      sectionsHtml+='<div style="display:flex;gap:10px;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;align-items:flex-start">'
-        +'<span style="font-size:14px;flex-shrink:0">'+tab.icon+'</span>'
-        +'<div><div style="font-size:11px;font-weight:600;color:var(--t1)">'+escHtml(tab.lbl)+'</div>'
-        +(desc?'<div style="font-size:10px;color:var(--t3);margin-top:2px">'+desc+'</div>':'')
+      sectionsHtml+='<div style="display:flex;gap:8px;padding:6px 8px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;align-items:flex-start">'
+        +'<span style="font-size:12px;flex-shrink:0">'+tab.icon+'</span>'
+        +'<div><div style="font-size:10px;font-weight:600;color:var(--t1)">'+escHtml(tab.lbl)+'</div>'
+        +(desc?'<div style="font-size:9px;color:var(--t3);margin-top:1px">'+desc+'</div>':'')
         +'</div></div>';
     });
     sectionsHtml+='</div></div>';
   });
 
-  var featuresHtml=GUIDE_FEATURE_DESC.map(function(f){
-    return '<div style="display:flex;gap:12px;padding:12px 14px;background:var(--s2);border:1px solid var(--b1);border-radius:10px;align-items:flex-start">'
-      +'<span style="font-size:20px;flex-shrink:0">'+f.icon+'</span>'
-      +'<div><div style="font-size:12px;font-weight:600;color:var(--t1);margin-bottom:3px">'+f.title+'</div>'
-      +'<div style="font-size:11px;color:var(--t3);line-height:1.5">'+f.body+'</div></div></div>';
+  // Detailed modules
+  var modulesHtml = GUIDE_MODULES.map(function(m, mi){
+    var stepsHtml = m.steps.map(function(s, i){
+      return '<div style="display:flex;gap:8px;margin-top:5px;align-items:flex-start">'
+        +'<div style="flex-shrink:0;width:18px;height:18px;border-radius:50%;background:#6C8EFF22;border:1px solid #6C8EFF44;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#6C8EFF;margin-top:1px">'+(i+1)+'</div>'
+        +'<div style="font-size:11px;color:var(--t2);line-height:1.5">'+escHtml(s)+'</div>'
+        +'</div>';
+    }).join('');
+    var tipHtml = m.tip
+      ? '<div style="margin-top:8px;padding:6px 10px;background:#FFB83015;border-left:3px solid #FFB830;border-radius:4px;font-size:10px;color:#FFB830">💡 '+escHtml(m.tip)+'</div>'
+      : '';
+    return '<div id="gmod_'+mi+'" style="border:1px solid var(--b1);border-radius:12px;overflow:hidden;margin-bottom:8px">'
+      +'<div onclick="guideToggle('+mi+')" style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--s2);cursor:pointer;user-select:none">'
+      +'<span style="font-size:18px">'+m.icon+'</span>'
+      +'<div style="flex:1;font-size:12px;font-weight:600;color:var(--t1)">'+escHtml(m.title)+'</div>'
+      +'<span id="gmod_arr_'+mi+'" style="color:var(--t3);font-size:12px;transition:transform 0.2s">▼</span>'
+      +'</div>'
+      +'<div id="gmod_body_'+mi+'" style="padding:12px 14px;display:none">'
+      +stepsHtml+tipHtml
+      +'</div></div>';
   }).join('');
 
   var ov=document.createElement('div');
   ov.id='_guideOv';
   ov.style.cssText='position:fixed;inset:0;background:#0009;z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
   ov.innerHTML=`
-  <div style="background:var(--s1);border:1px solid var(--b1);border-radius:16px;width:100%;max-width:780px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--b1);flex-shrink:0">
+  <div style="background:var(--s1);border:1px solid var(--b1);border-radius:16px;width:100%;max-width:900px;max-height:92vh;overflow:hidden;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 24px;border-bottom:1px solid var(--b1);flex-shrink:0">
       <div>
-        <div style="font-size:17px;font-weight:700;color:var(--t1)">📖 FinanceHub — Qo'llanma</div>
-        <div style="font-size:10px;color:var(--t3);margin-top:2px">Avtomatik yangilanuvchi • Versiya: ${new Date().toLocaleDateString('uz-UZ')}</div>
+        <div style="font-size:17px;font-weight:700;color:var(--t1)">📖 FinanceHub — Foydalanish Qo'llanmasi</div>
+        <div style="font-size:10px;color:var(--t3);margin-top:2px">Qadamma-qadam ko'rsatmalar • Versiya: ${new Date().toLocaleDateString('uz-UZ')}</div>
       </div>
       <button onclick="document.getElementById('_guideOv').remove()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:20px;padding:4px">✕</button>
     </div>
     <div style="overflow-y:auto;padding:20px 24px;display:flex;gap:20px">
-      <!-- Left: Features -->
+      <!-- Left: Step-by-step modules -->
       <div style="flex:1;min-width:0">
-        <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px">Asosiy imkoniyatlar</div>
-        <div style="display:flex;flex-direction:column;gap:8px">${featuresHtml}</div>
+        <div style="font-size:11px;font-weight:700;color:var(--t3);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px">📋 Qadamma-qadam ko'rsatmalar</div>
+        <div style="font-size:10px;color:var(--t3);margin-bottom:12px">Kerakli bo'limni bosib oching ↓</div>
+        ${modulesHtml}
       </div>
       <!-- Right: Tab map -->
-      <div style="width:280px;flex-shrink:0">
-        <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px">Sahifalar xaritasi</div>
+      <div style="width:240px;flex-shrink:0">
+        <div style="font-size:11px;font-weight:700;color:var(--t3);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px">🗂️ Sahifalar xaritasi</div>
         ${sectionsHtml}
       </div>
     </div>
   </div>`;
   document.body.appendChild(ov);
   ov.addEventListener('click',function(e){if(e.target===ov) ov.remove();});
+  // Open first module by default
+  guideToggle(0);
 }
+
+window.guideToggle = function(idx){
+  var body = document.getElementById('gmod_body_'+idx);
+  var arr  = document.getElementById('gmod_arr_'+idx);
+  if(!body) return;
+  var isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  if(arr) arr.style.transform = isOpen ? '' : 'rotate(180deg)';
+};
 </script>
 
 </body>
