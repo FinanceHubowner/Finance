@@ -708,6 +708,7 @@ function showDash(profile) {
       // Exchange yo'nalishi: avval lokaldan Supabase ga push, keyin sync
       if(d === 'exchange' && EX_TXNS && EX_TXNS.length) exPushToSupabase();
       exSyncFromSupabase();
+      initRequestsFromSB();
       renderL2(d);
 
 
@@ -754,6 +755,7 @@ function showDash(profile) {
 
       buildNav();
       exSyncFromSupabase();
+      initRequestsFromSB();
       renderL1();
 
     }
@@ -1273,6 +1275,31 @@ function lsSave(key,val){try{localStorage.setItem('fh_'+key,JSON.stringify(val))
 
 
 function lsLoad(key){try{var v=localStorage.getItem('fh_'+key);return v?JSON.parse(v):null;}catch(e){return null;}}
+
+// ── Toast xabarnoma ─────────────────────────────────────────────
+function toast(msg, type, dur){
+  type = type||'info'; dur = dur||3200;
+  var col = type==='success'?'#17B374':type==='error'?'#FF4D6A':type==='warn'?'#FFB830':'#6C8EFF';
+  var icon = type==='success'?'✓':type==='error'?'✕':type==='warn'?'⚠':'ℹ';
+  var old = document.getElementById('_fh_toast');
+  if(old){ clearTimeout(old._t); old.remove(); }
+  var el = document.createElement('div');
+  el.id = '_fh_toast';
+  el.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%);z-index:99999;'
+    +'display:flex;align-items:center;gap:10px;padding:11px 20px;border-radius:10px;'
+    +'background:#1a2535;border:1px solid '+col+'55;box-shadow:0 4px 20px #0008;'
+    +'font-size:13px;color:#fff;font-family:var(--font,sans-serif);white-space:nowrap;'
+    +'animation:_fhToastIn .22s ease';
+  el.innerHTML = '<span style="color:'+col+';font-weight:700;font-size:15px">'+icon+'</span>'
+    +'<span>'+escHtml(msg)+'</span>';
+  if(!document.getElementById('_fh_toast_style')){
+    var st=document.createElement('style'); st.id='_fh_toast_style';
+    st.textContent='@keyframes _fhToastIn{from{opacity:0;transform:translateX(-50%) translateY(12px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}';
+    document.head.appendChild(st);
+  }
+  document.body.appendChild(el);
+  el._t = setTimeout(function(){ el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(function(){el.remove();},320); }, dur);
+}
 
 // XSS himoyasi — barcha innerHTML ga user input kiritishdan oldin ishlatish
 function escHtml(s){
@@ -6889,7 +6916,7 @@ function pipeSelect(label,id,opts){
 function pipeGv(id){ var e=document.getElementById(id); return e?e.value.trim():''; }
 
 function pipeSaveDeal(dealId, focusDir){
-  if(!pipeGv('pipe_company')){ alert('Kompaniya nomi majburiy!'); return; }
+  if(!pipeGv('pipe_company')){ toast("Kompaniya nomi majburiy!",'error'); return; }
   var now = new Date().toISOString().slice(0,10);
   if(dealId){
     var d = PIPELINE_DEALS.find(function(x){ return String(x.id)===String(dealId); });
@@ -8737,7 +8764,7 @@ window.openEmpInvAdd = function(empId, empName){
 
 window.empInvSaveNew = function(empId, empName){
   var name = (document.getElementById('_invName')||{}).value||'';
-  if(!name.trim()){ alert('Inventar nomini kiriting'); return; }
+  if(!name.trim()){ toast("Inventar nomini kiriting",'error'); return; }
   var item = {
     id: empInvNextId(),
     name: name.trim(),
@@ -8816,7 +8843,7 @@ window.empConfirmDismiss = function(empId){
   empInvSave();
   var ov1 = document.getElementById('_empDismissOv'); if(ov1) ov1.remove();
   var ov2 = document.getElementById('_prDetailOv'); if(ov2) ov2.remove();
-  alert('Xodim ishdan bo\'shatildi. Inventarlar "qaytarilishi kerak" holatiga o\'tkazildi.');
+  toast('Xodim ishdan bo\'shatildi. Inventarlar "qaytarilishi kerak" holatiga o\'tkazildi.','warn',5000);
 };
 
 function prSave(){lsSave('payroll',PAYROLL);}
@@ -8825,6 +8852,9 @@ function prSave(){lsSave('payroll',PAYROLL);}
 // TASK MANAGEMENT MODULE
 // ══════════════════════════════════════════════════════════════════
 var TASKS = (function(){ var s=lsLoad('tasks'); return s||[]; })();
+function getOpenTaskCount(){
+  return TASKS.filter(function(t){ return t.status && t.status!=='done' && t.status!=='bajarildi'; }).length;
+}
 function taskSave(){ lsSave('tasks', TASKS); }
 function taskNextId(){
   var max=TASKS.reduce(function(m,t){ var n=parseInt((t.id||'').replace(/\D/g,''),10)||0; return Math.max(m,n); },0);
@@ -10938,7 +10968,37 @@ const SUBNAV_DEFS = {
 // ── ZAYAVKA (REQUEST/APPROVAL) SYSTEM ─────────────────────────
 // ══════════════════════════════════════════════════════════════
 var REQUESTS = (function(){ var s=lsLoad('requests'); return s||[]; })();
+
+// ── Supabase sync ──────────────────────────────────────────────
+async function initRequestsFromSB(){
+  if(!SB||DEMO_MODE) return;
+  try {
+    var res = await SB.from('requests').select('*').order('created_at',{ascending:false}).limit(1000);
+    if(!res.error && res.data && res.data.length){
+      REQUESTS = res.data;
+      lsSave('requests', REQUESTS);
+      // Badge ni yangilash uchun navni qayta qur
+      if(typeof buildNav==='function') buildNav();
+    }
+  } catch(e){ console.warn('initRequestsFromSB:', e.message); }
+}
+
 function reqSave(){ lsSave('requests', REQUESTS); }
+
+function _reqSyncSB(req){
+  if(!SB||DEMO_MODE||!req) return;
+  var row = JSON.parse(JSON.stringify(req)); // deep copy
+  SB.from('requests').upsert([row],{onConflict:'id'}).then(function(res){
+    if(res.error) console.warn('SB req upsert:', res.error.message);
+  });
+}
+
+function _reqDeleteSB(reqId){
+  if(!SB||DEMO_MODE||!reqId) return;
+  SB.from('requests').delete().eq('id',reqId).then(function(res){
+    if(res.error) console.warn('SB req delete:', res.error.message);
+  });
+}
 function reqNextId(){
   var mx=REQUESTS.reduce(function(m,x){ var n=parseInt((x.id||'').replace(/\D/g,''),10)||0; return Math.max(m,n); },0);
   return 'REQ-'+String(mx+1).padStart(4,'0');
@@ -10996,6 +11056,7 @@ function reqApprove(reqId, comment){
   r.status=next;
   if(next==='approved') r.approved_at=new Date().toISOString();
   reqSave();
+  _reqSyncSB(r);
 }
 
 function reqReject(reqId, reason){
@@ -11004,11 +11065,12 @@ function reqReject(reqId, reason){
   r.approvals.push({stage:r.status,action:'rejected',by:(CUR_USER||{}).name||'Admin',at:new Date().toISOString(),comment:reason||''});
   r.status='rejected'; r.rejection_reason=reason||'';
   reqSave();
+  _reqSyncSB(r);
 }
 
 function reqSubmit(reqId){
   var r=REQUESTS.find(function(x){return x.id===reqId;}); if(!r) return;
-  if(r.status==='draft'){ r.status='pending_dept_head'; reqSave(); }
+  if(r.status==='draft'){ r.status='pending_dept_head'; reqSave(); _reqSyncSB(r); }
 }
 
 function getPendingReqCount(){
@@ -11137,20 +11199,19 @@ function buildNav(){
 
 
   snItems.forEach(function(s){
-
-
     var isOn = ACTV_SUB===s.id;
-
-
     var navId = topActive+':'+s.id;
-
-
+    var badge = '';
+    if(s.id==='requests'){
+      var pc=getPendingReqCount();
+      if(pc>0) badge='<span style="display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;margin-left:5px;background:#FF4D6A;color:#fff;font-size:9px;font-weight:700;border-radius:999px;line-height:1">'+pc+'</span>';
+    }
+    if(s.id==='tasks'){
+      var tc=(typeof getOpenTaskCount==='function')?getOpenTaskCount():0;
+      if(tc>0) badge='<span style="display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;margin-left:5px;background:#6C8EFF;color:#fff;font-size:9px;font-weight:700;border-radius:999px;line-height:1">'+tc+'</span>';
+    }
     h += '<button class="snbtn'+(isOn?' on':'')+'" onclick="goNav(\''+navId+'\')">'
-
-
-       + s.icon+' '+s.lbl+'</button>';
-
-
+       + s.icon+' '+s.lbl+badge+'</button>';
   });
 
   // Excel export tugmasi — o'ng tomonda
@@ -12235,8 +12296,8 @@ window.saveNewReq = function(type, action){
   var deadline= (document.getElementById('_reqDeadline')||{}).value||'';
   var vendor  = (document.getElementById('_reqVendor')||{}).value||'';
   var desc    = (document.getElementById('_reqDesc')||{}).value||'';
-  if(!title){ alert('Sarlavha kiritilishi shart!'); return; }
-  if(!amount){ alert('Miqdor kiritilishi shart!'); return; }
+  if(!title){ toast("Sarlavha kiritilishi shart!",'error'); return; }
+  if(!amount){ toast("Miqdor (USD) kiritilishi shart!",'error'); return; }
 
   var r={
     id: reqNextId(), type: type, direction: dirId, dept: dept,
@@ -12248,8 +12309,10 @@ window.saveNewReq = function(type, action){
   };
   REQUESTS.push(r);
   reqSave();
+  _reqSyncSB(r);
   var ov=document.getElementById('_reqModalOv'); if(ov) ov.remove();
   renderRequestsPage(dirId||'all');
+  toast(action==='submit'?"📤 So'rov tasdiqqa yuborildi!":'💾 Qoralama saqlandi', action==='submit'?'success':'info');
 };
 
 // ── Request Detail & Approval Modal ───────────────────────────
@@ -12316,6 +12379,7 @@ window.addReqComment = function(reqId){
   var mentions=(text.match(/@(\S+)/g)||[]).map(function(m){return m.slice(1);});
   r.comments.push({id:Date.now(),text:text,by:(CUR_USER||{}).name||'Admin',at:new Date().toISOString(),mentions:mentions});
   reqSave();
+  _reqSyncSB(r);
   ta.value='';
   var box=document.getElementById('_reqCommentsBox');
   if(box) box.innerHTML=_buildReqCommentsHtml(r);
@@ -12450,21 +12514,25 @@ window.showRejectForm = function(reqId){
 window.doApproveReq = function(reqId){
   var comment=(document.getElementById('_approveComment')||{}).value||'';
   reqApprove(reqId,comment);
+  var r=REQUESTS.find(function(x){return x.id===reqId;});
   var ov=document.getElementById('_reqDetailOv'); if(ov) ov.remove();
   renderRequestsPage(ACTV==='l1'?'all':ACTV);
+  toast(r&&r.status==='approved'?"✓ So'rov to'liq tasdiqlandi!":"✓ Bosqich tasdiqlandi — keyingi bosqichga o'tdi",'success');
 };
 
 window.doRejectReq = function(reqId){
   var reason=(document.getElementById('_rejectReason')||{}).value||'';
-  if(!reason){ alert('Rad etish sababi kiritilishi shart!'); return; }
+  if(!reason){ toast("Rad etish sababi kiritilishi shart!",'error'); return; }
   reqReject(reqId,reason);
   var ov=document.getElementById('_reqDetailOv'); if(ov) ov.remove();
   renderRequestsPage(ACTV==='l1'?'all':ACTV);
+  toast("So'rov rad etildi",'warn');
 };
 
 window.deleteReq = function(reqId){
   REQUESTS.splice(REQUESTS.findIndex(function(r){return r.id===reqId;}),1);
   reqSave();
+  _reqDeleteSB(reqId);
   var ov=document.getElementById('_reqDetailOv'); if(ov) ov.remove();
   renderRequestsPage(ACTV==='l1'?'all':ACTV);
 };
@@ -12863,8 +12931,8 @@ window.saveNewTask = function(dirId, parentId, isSubtask){
   var priority = (document.getElementById('_ti_priority')||{}).value||'O\'rta';
   var score  = parseInt((document.getElementById('_ti_score')||{}).value)||3;
 
-  if(!title.trim()){ alert('Vazifa nomini kiriting'); return; }
-  if(!deadline)     { alert('Deadline kiriting'); return; }
+  if(!title.trim()){ toast("Vazifa nomini kiriting",'error'); return; }
+  if(!deadline)     { toast("Deadline sanasini kiriting",'error'); return; }
 
   var assigneeSel = document.getElementById('_ti_assignee');
   var receiverSel = document.getElementById('_ti_receiver');
@@ -12873,11 +12941,11 @@ window.saveNewTask = function(dirId, parentId, isSubtask){
   var receiverId   = receiverSel ? parseInt(receiverSel.value)||0 : 0;
   var receiverName = receiverSel ? (receiverSel.options[receiverSel.selectedIndex]||{}).text||'' : '';
 
-  if(!assigneeId){ alert('Mas\'ul xodimni tanlang'); return; }
-  if(!receiverId){ alert('Qabul qiluvchi shaxsni tanlang'); return; }
+  if(!assigneeId){ toast("Mas'ul xodimni tanlang",'error'); return; }
+  if(!receiverId){ toast("Qabul qiluvchi shaxsni tanlang",'error'); return; }
 
   var taskDirId = (document.getElementById('_ti_dir')||{}).value || dirId;
-  if(!isSubtask && !taskDirId){ alert('Yo\'nalishni tanlang'); return; }
+  if(!isSubtask && !taskDirId){ toast("Yo'nalishni tanlang",'error'); return; }
 
   var space   = (document.getElementById('_ti_space')||{}).value||'';
   var recur   = (document.getElementById('_ti_recur')||{}).value||'';
@@ -12895,7 +12963,7 @@ window.saveNewTask = function(dirId, parentId, isSubtask){
 
   if(isSubtask && parentId){
     var parent = getTask(parentId);
-    if(!parent){ alert('Parent task topilmadi'); return; }
+    if(!parent){ toast("Parent vazifa topilmadi",'error'); return; }
     if(!parent.subtasks) parent.subtasks = [];
     var st = {
       id: 'ST-'+Date.now(),
@@ -13131,7 +13199,7 @@ window.openTaskDetail = function(taskId){
 window.changeTaskStatus = function(taskId, newStatus){
   var t = getTask(taskId); if(!t) return;
   if(isTaskBlocked(t) && newStatus==='Bajarildi'){
-    alert('Bu vazifa bloklangan! Avval bog\'liq vazifani bajaring: '+(getBlockingTask(t)||{}).title);
+    toast('🔒 Bloklangan! Avval bog\'liq vazifani bajaring: '+((getBlockingTask(t)||{}).title||''),'warn',5000);
     return;
   }
   addTaskHistory(t, 'status_change', t.status+' → '+newStatus);
@@ -13206,7 +13274,7 @@ window.openReturnModal = function(taskId){
 
 window.confirmReturn = function(taskId){
   var note = (document.getElementById('_returnNote')||{}).value||'';
-  if(!note.trim()){ alert('Qaytarish sababini kiriting'); return; }
+  if(!note.trim()){ toast("Qaytarish sababini kiriting",'error'); return; }
   var t = getTask(taskId); if(!t) return;
   addTaskHistory(t, 'returned', note.slice(0,80));
   t.status = 'Jarayonda';
@@ -23528,7 +23596,7 @@ function exClientSave() { lsSave('ex_clients', EX_CLIENTS_DATA); }
 
 // ── Universal Excel Export ─────────────────────────────────────────────
 function exportToExcel(){
-  if(typeof XLSX === 'undefined'){ alert('XLSX kutubxona yuklanmagan'); return; }
+  if(typeof XLSX === 'undefined'){ toast("XLSX kutubxona yuklanmagan",'error'); return; }
   var wb = XLSX.utils.book_new();
   var dir = ACTV; // cargo, logistics, exchange, procurement, l1
   var sub = ACTV_SUB;
@@ -23622,7 +23690,7 @@ function exportToExcel(){
     fileName = (dir==='l1'?'Holding':dir)+'_Pipeline';
 
   } else {
-    alert("Bu sahifadan Excel yuklash hali qo'shilmagan");
+    toast("Bu sahifadan Excel yuklash hali qo'shilmagan",'warn');
     return;
   }
 
