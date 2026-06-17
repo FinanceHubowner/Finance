@@ -468,7 +468,7 @@ body[style*="--is-light: 1"] .topbar,
 // avtomatik Exchange (Tangachi) yo'nalishiga yo'naltiriladi
 var FH_USER_PROFILES = {
   // === HOLDING OWNER / CONTROLLER ===
-  'chinwakil@controller.com':   {role:'holding_finance', direction:null, full_name:'Chinwakil (Controller)', dept:'moliya'},
+  'chinwakil@controller.com':   {role:'holding_fin', direction:null, full_name:'Chinwakil (Controller)', dept:'moliya'},
   'chinwakil@owner.com':        {role:'owner',           direction:null, full_name:'Chinwakil (Owner)'},
   'owner@financehub.com':       {role:'owner',       direction:null,          full_name:'Owner'},
   // Holding bo'limlari — barcha yo'nalishlar ko'rinadi
@@ -11167,7 +11167,7 @@ function canUserApprove(req){
   if(!subEmail && myName && reqBy && myName===reqBy) return false;
   var roleMap={
     dept_head:'pending_dept_head', dir_finance:'pending_dir_finance',
-    dir_head:'pending_dir_head', holding_finance:'pending_holding_finance',
+    dir_head:'pending_dir_head', holding_fin:'pending_holding_finance', holding_finance:'pending_holding_finance',
     holding_head:'pending_holding_head'
   };
   // owner roli faqat o'zi jo'natmagan so'rovlarni tasdiqlaydi
