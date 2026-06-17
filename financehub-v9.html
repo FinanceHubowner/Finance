@@ -12063,14 +12063,15 @@ function renderOrgChart(){
 
   h += '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px">';
   var stats = [
-    {lbl:"Yo'nalishlar", val:dirs.length, col:'#6C8EFF', icon:'🏢'},
-    {lbl:'Departamentlar', val:totalDepts, col:'#17B374', icon:'🏢'},
-    {lbl:"Bo'limlar",    val:totalBolims, col:'#FFB830', icon:'📂'},
-    {lbl:'Teamlar',      val:totalTeams,  col:'#00D4FF', icon:'👥'},
-    {lbl:'Lavozimlar',   val:totalLavozims,col:'#FF4D6A',icon:'🎯'},
+    {lbl:"Yo'nalishlar", val:dirs.length,      col:'#6C8EFF', icon:'🏢', tab:null},
+    {lbl:'Departamentlar',val:totalDepts,       col:'#17B374', icon:'🏢', tab:'depts'},
+    {lbl:"Bo'limlar",    val:totalBolims,       col:'#FFB830', icon:'📂', tab:'bolims'},
+    {lbl:'Teamlar',      val:totalTeams,        col:'#00D4FF', icon:'👥', tab:'teams'},
+    {lbl:'Lavozimlar',   val:totalLavozims,     col:'#FF4D6A', icon:'🎯', tab:'lavozims'},
   ];
   stats.forEach(function(s){
-    h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:12px;text-align:center">';
+    var click = s.tab ? 'onclick="window._orgTab=\''+s.tab+'\';renderOrgChart()" style="cursor:pointer"' : 'style="cursor:default"';
+    h += '<div '+click+' title="'+(s.tab?s.lbl+' ro\'yxatini ko\'rish':'')+'" style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:12px;text-align:center;transition:border-color 0.15s;user-select:none" onmouseover="if('+(s.tab?'true':'false')+')this.style.borderColor=\''+s.col+'\'" onmouseout="this.style.borderColor=\'\'"> ';
     h += '<div style="font-size:20px;margin-bottom:4px">'+s.icon+'</div>';
     h += '<div style="font-size:22px;font-weight:700;color:'+s.col+'">'+s.val+'</div>';
     h += '<div style="font-size:10px;color:var(--t3);margin-top:2px">'+s.lbl+'</div>';
