@@ -25102,9 +25102,15 @@ function renderExchangeEntry(){
   h+='</div>';
   el.innerHTML=h;
 
-  // Store client opts for forms
+  // Store client opts and names for forms
   window._exClientOpts = clientOpts;
   window._exActiveType = null;
+  // Combo dropdown uchun nom ro'yxatini saqlaymiz
+  var _names = [];
+  kontDir.forEach(function(k){ if(k.name) _names.push(k.name); });
+  crmClients.forEach(function(c){ var nm=c.company||c.name||''; if(nm && _names.indexOf(nm)<0) _names.push(nm); });
+  EX_CLIENTS_DATA.forEach(function(c){ var nm=c.name||c.company||''; if(nm && _names.indexOf(nm)<0) _names.push(nm); });
+  window._exClientNames = _names;
 }
 
 function exShowForm(type){
@@ -25131,15 +25137,9 @@ function exShowForm(type){
 
   form+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
 
-  // Combo uchun barcha mijoz nomlarini yig'amiz
-  var _exClientNames = [];
-  kontDir.forEach(function(k){ if(k.name) _exClientNames.push(k.name); });
-  crmClients.forEach(function(c){ var nm=c.company||c.name||''; if(nm && _exClientNames.indexOf(nm)<0) _exClientNames.push(nm); });
-  EX_CLIENTS_DATA.forEach(function(c){ var nm=c.name||c.company||''; if(nm && _exClientNames.indexOf(nm)<0) _exClientNames.push(nm); });
-
   // Common fields
   form+=exField('Sana','date','exF_date','date',today);
-  form+=exField('Mijoz (yoki yangi kiring)','Mijoz nomini yozing...','exF_client','combo',_exClientNames);
+  form+=exField('Mijoz (yoki yangi kiring)','Mijoz nomini yozing...','exF_client','combo',window._exClientNames||[]);
 
   if(type==='break'){
     var mid0=EX_BOC_RATE||EX_FX_RATE, buy0=exBuyRate(mid0), sell0=exSellRate(mid0);
