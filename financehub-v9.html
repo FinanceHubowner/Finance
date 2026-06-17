@@ -12024,9 +12024,10 @@ function renderOrgChart(){
   var MC = document.getElementById('pg-l1'); if(!MC) return;
   MC.classList.add('on');
 
-  var tab = window._orgTab || 'depts';
+  var tab = window._orgTab || 'dirs';
   var tabs = [
-    {id:'depts',    lbl:'Departamentlar', icon:'🏢'},
+    {id:'dirs',     lbl:"Yo'nalishlar",   icon:'🏢'},
+    {id:'depts',    lbl:'Departamentlar', icon:'🏛️'},
     {id:'bolims',   lbl:"Bo'limlar",      icon:'📂'},
     {id:'teams',    lbl:'Teamlar',        icon:'👥'},
     {id:'lavozims', lbl:'Lavozimlar',     icon:'🎯'},
@@ -12063,15 +12064,17 @@ function renderOrgChart(){
 
   h += '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px">';
   var stats = [
-    {lbl:"Yo'nalishlar", val:dirs.length,      col:'#6C8EFF', icon:'🏢', tab:null},
-    {lbl:'Departamentlar',val:totalDepts,       col:'#17B374', icon:'🏢', tab:'depts'},
-    {lbl:"Bo'limlar",    val:totalBolims,       col:'#FFB830', icon:'📂', tab:'bolims'},
-    {lbl:'Teamlar',      val:totalTeams,        col:'#00D4FF', icon:'👥', tab:'teams'},
-    {lbl:'Lavozimlar',   val:totalLavozims,     col:'#FF4D6A', icon:'🎯', tab:'lavozims'},
+    {lbl:"Yo'nalishlar",  val:dirs.length,    col:'#6C8EFF', icon:'🏢', tab:'dirs'},
+    {lbl:'Departamentlar',val:totalDepts,      col:'#17B374', icon:'🏛️', tab:'depts'},
+    {lbl:"Bo'limlar",     val:totalBolims,     col:'#FFB830', icon:'📂', tab:'bolims'},
+    {lbl:'Teamlar',       val:totalTeams,      col:'#00D4FF', icon:'👥', tab:'teams'},
+    {lbl:'Lavozimlar',    val:totalLavozims,   col:'#FF4D6A', icon:'🎯', tab:'lavozims'},
   ];
   stats.forEach(function(s){
-    var click = s.tab ? 'onclick="window._orgTab=\''+s.tab+'\';renderOrgChart()" style="cursor:pointer"' : 'style="cursor:default"';
-    h += '<div '+click+' title="'+(s.tab?s.lbl+' ro\'yxatini ko\'rish':'')+'" style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:12px;text-align:center;transition:border-color 0.15s;user-select:none" onmouseover="if('+(s.tab?'true':'false')+')this.style.borderColor=\''+s.col+'\'" onmouseout="this.style.borderColor=\'\'"> ';
+    var isActive = tab===s.tab;
+    h += '<div onclick="window._orgTab=\''+s.tab+'\';renderOrgChart()" '
+       + 'style="background:var(--s1);border:2px solid '+(isActive?s.col:'var(--b1)')+';border-radius:10px;padding:12px;text-align:center;cursor:pointer;transition:border-color 0.15s;user-select:none" '
+       + 'onmouseover="this.style.borderColor=\''+s.col+'\'" onmouseout="this.style.borderColor=\''+(isActive?s.col:'var(--b1)')+'\'">';
     h += '<div style="font-size:20px;margin-bottom:4px">'+s.icon+'</div>';
     h += '<div style="font-size:22px;font-weight:700;color:'+s.col+'">'+s.val+'</div>';
     h += '<div style="font-size:10px;color:var(--t3);margin-top:2px">'+s.lbl+'</div>';
@@ -12088,7 +12091,8 @@ function renderOrgChart(){
   h += '</div>';
 
   // Tab content
-  if(tab==='depts')    h += orgRenderDepts();
+  if(tab==='dirs')          h += orgRenderDirs();
+  else if(tab==='depts')    h += orgRenderDepts();
   else if(tab==='bolims')   h += orgRenderBolims();
   else if(tab==='teams')    h += orgRenderTeams();
   else if(tab==='lavozims') h += orgRenderLavozims();
@@ -12099,6 +12103,55 @@ function renderOrgChart(){
 
   h += '</div>';
   MC.innerHTML = h;
+}
+
+function orgRenderDirs(){
+  var dirs = DIRS||[];
+  var h = '';
+  h += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">';
+  dirs.forEach(function(d){
+    var empCount  = (HRM_EMP||[]).filter(function(e){ return e.dir===d.id && e.status==='Ishlayapti'; }).length;
+    var deptCount = ORG_DEPTS.filter(function(x){ return x.dir_id===d.id; }).length;
+    var bolimCount= ORG_BOLIMS.filter(function(x){ return x.dir_id===d.id; }).length;
+    var teamCount = ORG_TEAMS.filter(function(x){ return x.dir_id===d.id; }).length;
+    var lavCount  = ORG_LAVOZIMS.filter(function(x){ return x.dir_id===d.id; }).length;
+    var dirColors = {cargo:'#FFB830',logistics:'#17B374',exchange:'#00D4FF',procurement:'#A78BFF',l1:'#6C8EFF'};
+    var col = dirColors[d.id]||'#6C8EFF';
+    h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;overflow:hidden;transition:box-shadow 0.15s" '
+       + 'onmouseover="this.style.borderColor=\''+col+'\'" onmouseout="this.style.borderColor=\'\'">';
+    // Header
+    h += '<div style="background:'+col+'18;border-bottom:1px solid '+col+'33;padding:16px 18px;display:flex;align-items:center;gap:12px">';
+    h += '<div style="font-size:28px">'+d.icon+'</div>';
+    h += '<div><div style="font-weight:700;font-size:15px;color:var(--t1)">'+escHtml(d.name)+'</div>';
+    h += '<div style="font-size:11px;color:var(--t3);margin-top:2px">ID: '+d.id+'</div></div>';
+    h += '<div style="margin-left:auto"><button onclick="goNav(\''+d.id+'\')" '
+       + 'style="padding:5px 12px;background:'+col+';border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:11px;font-weight:600">Ko\'rish →</button></div>';
+    h += '</div>';
+    // Stats grid
+    h += '<div style="padding:14px 18px;display:grid;grid-template-columns:repeat(2,1fr);gap:10px">';
+    var rows = [
+      {lbl:'Xodimlar',     val:empCount,  icon:'👤', col:'#6C8EFF'},
+      {lbl:'Departamentlar',val:deptCount, icon:'🏛️', col:'#17B374'},
+      {lbl:"Bo'limlar",    val:bolimCount, icon:'📂', col:'#FFB830'},
+      {lbl:'Teamlar',      val:teamCount,  icon:'👥', col:'#00D4FF'},
+    ];
+    rows.forEach(function(r){
+      h += '<div style="background:var(--s2);border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:8px">';
+      h += '<span style="font-size:16px">'+r.icon+'</span>';
+      h += '<div><div style="font-size:16px;font-weight:700;color:'+r.col+'">'+r.val+'</div>';
+      h += '<div style="font-size:10px;color:var(--t3)">'+r.lbl+'</div></div>';
+      h += '</div>';
+    });
+    h += '</div>';
+    // Lavozimlar
+    h += '<div style="padding:0 18px 14px;display:flex;align-items:center;justify-content:space-between">';
+    h += '<span style="font-size:11px;color:var(--t3)">🎯 Lavozimlar</span>';
+    h += '<span style="font-size:13px;font-weight:700;color:#FF4D6A">'+lavCount+'</span>';
+    h += '</div>';
+    h += '</div>';
+  });
+  h += '</div>';
+  return h;
 }
 
 function orgRenderDepts(){
