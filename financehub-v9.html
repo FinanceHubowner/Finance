@@ -25131,9 +25131,15 @@ function exShowForm(type){
 
   form+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
 
+  // Combo uchun barcha mijoz nomlarini yig'amiz
+  var _exClientNames = [];
+  kontDir.forEach(function(k){ if(k.name) _exClientNames.push(k.name); });
+  crmClients.forEach(function(c){ var nm=c.company||c.name||''; if(nm && _exClientNames.indexOf(nm)<0) _exClientNames.push(nm); });
+  EX_CLIENTS_DATA.forEach(function(c){ var nm=c.name||c.company||''; if(nm && _exClientNames.indexOf(nm)<0) _exClientNames.push(nm); });
+
   // Common fields
   form+=exField('Sana','date','exF_date','date',today);
-  form+=exField('Mijoz','client','exF_client','select',clientOpts);
+  form+=exField('Mijoz (yoki yangi kiring)','Mijoz nomini yozing...','exF_client','combo',_exClientNames);
 
   if(type==='break'){
     var mid0=EX_BOC_RATE||EX_FX_RATE, buy0=exBuyRate(mid0), sell0=exSellRate(mid0);
@@ -25269,6 +25275,15 @@ function exField(lbl, ph, id, type, val){
     return '<div><label style="font-size:11px;color:var(--t3);font-weight:600;text-transform:uppercase;display:block;margin-bottom:4px;">'+lbl+'</label>'
       +'<select id="'+id+'" style="width:100%;padding:9px 10px;border-radius:8px;border:1px solid var(--b2);background:var(--s1);color:var(--t1);font-size:13px;">'+val+'</select></div>';
   }
+  if(type==='combo'){
+    // val = comma-separated options string or array
+    var opts = Array.isArray(val) ? val : (val||'').split('||').filter(Boolean);
+    var dlId = id+'_dl';
+    return '<div><label style="font-size:11px;color:var(--t3);font-weight:600;text-transform:uppercase;display:block;margin-bottom:4px;">'+lbl+'</label>'
+      +'<datalist id="'+dlId+'">'+opts.map(function(o){ return '<option value="'+escHtml(o)+'">'; }).join('')+'</datalist>'
+      +'<input id="'+id+'" list="'+dlId+'" type="text" placeholder="'+ph+'" autocomplete="off" '
+      +'style="width:100%;padding:9px 10px;border-radius:8px;border:1px solid var(--b2);background:var(--s1);color:var(--t1);font-size:13px;box-sizing:border-box;"></div>';
+  }
   return '<div><label style="font-size:11px;color:var(--t3);font-weight:600;text-transform:uppercase;display:block;margin-bottom:4px;">'+lbl+'</label>'
     +'<input id="'+id+'" type="'+type+'" placeholder="'+ph+'" value="'+val+'" '
     +'style="width:100%;padding:9px 10px;border-radius:8px;border:1px solid var(--b2);background:var(--s1);color:var(--t1);font-size:13px;"></div>';
@@ -25364,6 +25379,15 @@ function exSaveTxn(type){
   txn.approval_status = (CUR_USER && CUR_USER.role === 'owner') ? 'approved' : 'pending';
   EX_TXNS.push(txn);
   exSave();
+  // Yangi mijozni EX_CLIENTS_DATA ga saqlash (keyingi safar dropdown da chiqsin)
+  if(txn.client && txn.client.trim()){
+    var nm = txn.client.trim();
+    var alreadyEx = EX_CLIENTS_DATA.some(function(c){ return (c.name||c.company||'').toLowerCase()===nm.toLowerCase(); });
+    if(!alreadyEx){
+      EX_CLIENTS_DATA.push({id:'exc_'+Date.now(), name:nm, created_at:new Date().toISOString()});
+      exClientSave();
+    }
+  }
   // Exchange mijozini Kontragentlar bazasiga qo'shish
   if(txn.client) kontragentsAdd('exchange', txn.client, 'client');
   // Supabase ga saqlash + audit log
