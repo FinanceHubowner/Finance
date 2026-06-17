@@ -12355,7 +12355,7 @@ function orgOpenAdd(type){
   if(type==='dept'){
     h += '<div '+row+'><label '+lbl+'>Departament nomi *</label><input id="orgN_name" '+inp+' placeholder="Masalan: Operatsion departament"></div>';
     h += '<div '+row+'><label '+lbl+'>Kod *</label><input id="orgN_code" '+inp+' placeholder="Masalan: OPS"></div>';
-    h += '<div '+row+'><label '+lbl+">Biznes yo'nalish *</label>'+dirSelect('orgN_dir', true)+'</div>';
+    h += '<div '+row+'><label '+lbl+'>Biznes yo\'nalish *</label>'+dirSelect('orgN_dir', true)+'</div>';
     h += '<div '+row+'><label '+lbl+'>Mas\'ul direktor</label><input id="orgN_head" '+inp+' placeholder="Xodim ismi"></div>';
     h += '<div '+row+'><label '+lbl+'>Status</label>'+statusSelect('orgN_status')+'</div>';
     h += '<div '+row+'><label '+lbl+'>Izoh</label><textarea id="orgN_note" rows="2" '+inp+'></textarea></div>';
@@ -12367,7 +12367,7 @@ function orgOpenAdd(type){
   else if(type==='bolim'){
     h += '<div '+row+'><label '+lbl+">Bo'lim nomi *</label><input id=\"orgN_name\" "+inp+' placeholder="Masalan: Logistika bo\'limi"></div>';
     h += '<div '+row+'><label '+lbl+'>Kod *</label><input id="orgN_code" '+inp+' placeholder="Masalan: LOG"></div>';
-    h += '<div '+row+'><label '+lbl+">Biznes yo'nalish *</label>'+dirSelect('orgN_dir', true)+'</div>';
+    h += '<div '+row+'><label '+lbl+'>Biznes yo\'nalish *</label>'+dirSelect('orgN_dir', true)+'</div>';
     h += '<div '+row+'><label '+lbl+'>Departament (ixtiyoriy)</label>'+deptSelect('orgN_dept')+'</div>';
     h += '<div '+row+'><label '+lbl+">Bo'lim turi *</label><select id=\"orgN_bolimturi\" "+inp+'><option value="">— tanlang —</option>';
     ORG_BOLIM_TURLARI.forEach(function(t){ h += '<option value="'+t+'">'+t+'</option>'; });
@@ -12383,7 +12383,7 @@ function orgOpenAdd(type){
   else if(type==='team'){
     h += '<div '+row+'><label '+lbl+'>Team nomi *</label><input id="orgN_name" '+inp+' placeholder="Masalan: Xitoy yo\'nalishi"></div>';
     h += '<div '+row+'><label '+lbl+'>Kod (ixtiyoriy)</label><input id="orgN_code" '+inp+' placeholder="Masalan: CN"></div>';
-    h += '<div '+row+'><label '+lbl+">Yuqori bo'lim *</label>'+bolimSelect('orgN_bolim')+'</div>';
+    h += '<div '+row+'><label '+lbl+'>Yuqori bo\'lim *</label>'+bolimSelect('orgN_bolim')+'</div>';
     h += '<div '+row+'><label '+lbl+'>Team rahbari</label><input id="orgN_head" '+inp+' placeholder="Xodim ismi"></div>';
     h += '<div '+row+'><label '+lbl+'>Status</label>'+statusSelect('orgN_status')+'</div>';
     h += '<div '+row+'><label '+lbl+'>Izoh</label><textarea id="orgN_note" rows="2" '+inp+'></textarea></div>';
@@ -12398,7 +12398,7 @@ function orgOpenAdd(type){
     h += '<div><label '+lbl+'>Daraja *</label><select id="orgN_daraja" '+inp+'><option value="">— tanlang —</option>';
     ORG_LAVOZIM_DARAJALARI.forEach(function(d){ h += '<option value="'+d+'">'+d+'</option>'; });
     h += '</select></div>';
-    h += '<div><label '+lbl+">Bo'lim *</label>'+bolimSelect('orgN_bolim')+'</div>';
+    h += '<div><label '+lbl+'>Bo\'lim *</label>'+bolimSelect('orgN_bolim')+'</div>';
     h += '<div><label '+lbl+'>Team (ixtiyoriy)</label><select id="orgN_team" '+inp+'><option value="">— (ixtiyoriy) —</option>';
     ORG_TEAMS.filter(function(t){ return t.status==='Faol'; }).forEach(function(t){ h += '<option value="'+t.id+'">'+escHtml(t.name)+'</option>'; });
     h += '</select></div>';
@@ -12471,7 +12471,7 @@ function orgOpenEdit(type, id){
   if(type==='dept'){
     h += '<div '+row+'><label '+lbl+'>Departament nomi *</label><input id="orgE_name" '+inp+' value="'+escHtml(item.name)+'"></div>';
     h += '<div '+row+'><label '+lbl+'>Kod *</label><input id="orgE_code" '+inp+' value="'+escHtml(item.code||'')+'"></div>';
-    h += '<div '+row+'><label '+lbl+">Biznes yo'nalish</label>'+sel('orgE_dir', [{v:'',l:'— tanlang —'}].concat(dirs.map(function(d){return{v:d.id,l:d.icon+' '+d.name};})), item.dir_id)+'</div>';
+    h += '<div '+row+'><label '+lbl+'>Biznes yo\'nalish</label>'+sel('orgE_dir', [{v:'',l:'— tanlang —'}].concat(dirs.map(function(d){return{v:d.id,l:d.icon+' '+d.name};})), item.dir_id)+'</div>';
     h += '<div '+row+'><label '+lbl+'>Mas\'ul direktor</label><input id="orgE_head" '+inp+' value="'+escHtml(item.head||'')+'"></div>';
     h += '<div '+row+'><label '+lbl+'>Status</label>'+sel('orgE_status', statusOpts, item.status||'Faol')+'</div>';
     h += '<div '+row+'><label '+lbl+'>Izoh</label><textarea id="orgE_note" rows="2" '+inp+'>'+escHtml(item.note||'')+'</textarea></div>';
