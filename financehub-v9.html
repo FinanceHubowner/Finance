@@ -468,8 +468,8 @@ body[style*="--is-light: 1"] .topbar,
 // avtomatik Exchange (Tangachi) yo'nalishiga yo'naltiriladi
 var FH_USER_PROFILES = {
   // === HOLDING OWNER / CONTROLLER ===
-  'chinwakil@controller.com':   {role:'owner',       direction:null,          full_name:'Chinwakil (Controller)'},
-  'chinwakil@owner.com':        {role:'owner',       direction:null,          full_name:'Chinwakil (Owner)'},
+  'chinwakil@controller.com':   {role:'holding_finance', direction:null, full_name:'Chinwakil (Controller)', dept:'moliya'},
+  'chinwakil@owner.com':        {role:'owner',           direction:null, full_name:'Chinwakil (Owner)'},
   'owner@financehub.com':       {role:'owner',       direction:null,          full_name:'Owner'},
   // Holding bo'limlari — barcha yo'nalishlar ko'rinadi
   'holding@hr.com':             {role:'holding_hr',  direction:null,          full_name:'Holding HR',      dept:'hr'},
@@ -11158,13 +11158,13 @@ function reqNextStatus(req){
 function canUserApprove(req){
   if(!CUR_USER) return false;
   if(!req.status || !req.status.startsWith('pending')) return false;
-  // So'rov muallifi o'z so'rovini tasdiqlaya olmaydi
-  var myName = (CUR_USER.name||'').trim().toLowerCase();
+  // So'rov muallifi o'z so'rovini tasdiqlaya olmaydi (email yoki ism bo'yicha)
   var myEmail = (CUR_USER.email||'').trim().toLowerCase();
-  var reqBy = (req.requested_by||'').trim().toLowerCase();
-  var reqEmail = (req.requested_by_email||'').trim().toLowerCase();
-  if(myName && reqBy && myName===reqBy) return false;
-  if(myEmail && reqEmail && myEmail===reqEmail) return false;
+  var myName  = (CUR_USER.full_name||CUR_USER.name||'').trim().toLowerCase();
+  var subEmail = (req.submitted_by_email||'').trim().toLowerCase();
+  var reqBy    = (req.requested_by||'').trim().toLowerCase();
+  if(myEmail && subEmail && myEmail===subEmail) return false;
+  if(!subEmail && myName && reqBy && myName===reqBy) return false;
   var roleMap={
     dept_head:'pending_dept_head', dir_finance:'pending_dir_finance',
     dir_head:'pending_dir_head', holding_finance:'pending_holding_finance',
@@ -13050,6 +13050,8 @@ window.saveNewReq = function(type, action){
     id: reqNextId(), type: type, direction: dirId, dept: dept,
     title: title, description: desc, category: cat, amount: amount,
     vendor: vendor, requested_by: byName,
+    submitted_by_email: (CUR_USER||{}).email||'',
+    submitted_by_role: (CUR_USER||{}).role||'',
     deadline: deadline, created_at: new Date().toISOString(),
     status: 'draft',
     approvals: [],
