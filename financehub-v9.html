@@ -11147,7 +11147,7 @@ var REQ_EXPENSE_CATS = ["Yoqilg'i","Transport","Ofis xarajatlari","Xodimlar hara
 var REQ_CAPEX_CATS   = ["Avtopark","Asbob-uskunalar","IT jihozlar","Ko'chmas mulk","Mebel va jihozlash","Qurilish","Boshqa"];
 
 function reqNextStatus(req){
-  var chain = getReqChain(req);
+  var chain = getReqChain(req).filter(function(s){ return !s.display_only; });
   var keys = chain.map(function(s){ return 'pending_'+s.key; });
   var full = ['draft'].concat(keys).concat(['approved']);
   var cur = typeof req==='string' ? req : req.status;
@@ -11243,7 +11243,7 @@ function reqReject(reqId, reason){
 function reqSubmit(reqId){
   var r=REQUESTS.find(function(x){return x.id===reqId;}); if(!r) return;
   if(r.status==='draft'){
-    var chain=getReqChain(r);
+    var chain=getReqChain(r).filter(function(s){ return !s.display_only; });
     r.status = chain.length>0 ? 'pending_'+chain[0].key : 'approved';
     reqSave(); _reqSyncSB(r);
   }
@@ -13058,7 +13058,7 @@ window.saveNewReq = function(type, action){
   };
   REQUESTS.push(r);
   if(action==='submit'){
-    var chain=getReqChain(r);
+    var chain=getReqChain(r).filter(function(s){ return !s.display_only; });
     r.status = chain.length>0 ? 'pending_'+chain[0].key : 'approved';
   }
   reqSave();
