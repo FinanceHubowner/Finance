@@ -11157,15 +11157,26 @@ function reqNextStatus(req){
 
 function canUserApprove(req){
   if(!CUR_USER) return false;
-  if(CUR_USER.role==='owner') return req.status && req.status.startsWith('pending');
+  if(!req.status || !req.status.startsWith('pending')) return false;
+  // So'rov muallifi o'z so'rovini tasdiqlaya olmaydi
+  var myName = (CUR_USER.name||'').trim().toLowerCase();
+  var myEmail = (CUR_USER.email||'').trim().toLowerCase();
+  var reqBy = (req.requested_by||'').trim().toLowerCase();
+  var reqEmail = (req.requested_by_email||'').trim().toLowerCase();
+  if(myName && reqBy && myName===reqBy) return false;
+  if(myEmail && reqEmail && myEmail===reqEmail) return false;
   var roleMap={
     dept_head:'pending_dept_head', dir_finance:'pending_dir_finance',
     dir_head:'pending_dir_head', holding_finance:'pending_holding_finance',
     holding_head:'pending_holding_head'
   };
+  // owner roli faqat o'zi jo'natmagan so'rovlarni tasdiqlaydi
+  if(CUR_USER.role==='owner'){
+    var chain = getReqChain(req);
+    return chain.some(function(s){ return 'pending_'+s.key===req.status; });
+  }
   var needed = roleMap[CUR_USER.role];
   if(!needed || req.status!==needed) return false;
-  // Check this step is actually in this request's chain
   var chain = getReqChain(req);
   return chain.some(function(s){ return 'pending_'+s.key===needed; });
 }
