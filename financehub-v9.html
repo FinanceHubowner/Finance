@@ -1120,7 +1120,7 @@ window.addEventListener("load", async function() {
 <script>
 
 
-console.log('%c[FinanceHub] Fayl versiyasi: EHSON-BUILD-002','background:#6C8EFF;color:#fff;padding:4px 8px;border-radius:4px;font-weight:bold');
+console.log('%c[FinanceHub] Fayl versiyasi: EHSON-BUILD-003','background:#6C8EFF;color:#fff;padding:4px 8px;border-radius:4px;font-weight:bold');
 window.onerror=function(msg,src,line,col,err){
   // Faqat kritik SyntaxError (fayl parse) larini ko'rsat; runtime xatolarni console ga yoz
   var isSyntax = msg && msg.indexOf('SyntaxError')>=0;
@@ -8868,6 +8868,26 @@ function hrmSave(){ lsSave('hrm_emp', HRM_EMP); }
 function hrmNextTabel(){ var mx=HRM_EMP.reduce(function(m,e){ var n=parseInt((e.tabel||'').replace(/\D/g,''),10)||0; return Math.max(m,n); },0); return 'T-'+String(mx+1).padStart(4,'0'); }
 function hrmNextId(){ var mx=HRM_EMP.reduce(function(m,e){ var n=parseInt((e.id||'').replace(/\D/g,''),10)||0; return Math.max(m,n); },0); return 'EMP-'+String(mx+1).padStart(4,'0'); }
 
+// ── Tashkiliy Tuzilma Data ─────────────────────────────────────────────────
+var ORG_DEPTS    = (function(){ return lsLoad('org_depts')||[]; })();
+var ORG_BOLIMS   = (function(){ return lsLoad('org_bolims')||[]; })();
+var ORG_TEAMS    = (function(){ return lsLoad('org_teams')||[]; })();
+var ORG_LAVOZIMS = (function(){ return lsLoad('org_lavozims')||[]; })();
+function orgSave(){
+  lsSave('org_depts',    ORG_DEPTS);
+  lsSave('org_bolims',   ORG_BOLIMS);
+  lsSave('org_teams',    ORG_TEAMS);
+  lsSave('org_lavozims', ORG_LAVOZIMS);
+}
+function orgNextId(arr, prefix){
+  var mx=arr.reduce(function(m,e){ var n=parseInt((e.id||'').replace(/\D/g,''),10)||0; return Math.max(m,n); },0);
+  return prefix+'-'+String(mx+1).padStart(4,'0');
+}
+var ORG_BOLIM_TURLARI = ['Operatsion','Sotuv','Moliya','HR','Marketing','IT','Support','Call-center','Ombor','Boshqaruv','Boshqa'];
+var ORG_LAVOZIM_DARAJALARI = ['CEO','Direktor','Bosh menejer','Menejer','Katta mutaxassis','Mutaxassis','Yordamchi','Operator','Boshqa'];
+var ORG_STATUSES = ['Faol','Vaqtincha faol emas','Arxivlangan'];
+var ORG_VACANCY_STATUSES = ['Ochiq','Yopiq','Rejalashtirilgan'];
+
 // ── Universal taklif (datalist) yordamchilari ──────────────────
 function _uniq(arr){ var seen={}; return arr.filter(function(x){ if(!x||seen[x]) return false; seen[x]=true; return true; }); }
 function getSuggestDepts(dirId){
@@ -10964,15 +10984,16 @@ const NAVS=[
 
 const SUBNAV_DEFS = {
   l1: [
-    {id:'dashboard', lbl:'Dashboard',        icon:'📊'},
-    {id:'pl',        lbl:'P&L',              icon:'📈'},
-    {id:'cashflow',  lbl:'Cash Flow',        icon:'💵'},
-    {id:'balance',   lbl:'Balans Sheet',     icon:'⚖️'},
-    {id:'kassa',     lbl:'Kassalar',         icon:'💳'},
-    {id:'debcred',   lbl:'Debitor/Kreditor', icon:'📋'},
+    {id:'dashboard', lbl:'Dashboard',           icon:'📊'},
+    {id:'orgchart',  lbl:'Tashkiliy Tuzilma',   icon:'🏗️'},
+    {id:'pl',        lbl:'P&L',                 icon:'📈'},
+    {id:'cashflow',  lbl:'Cash Flow',           icon:'💵'},
+    {id:'balance',   lbl:'Balans Sheet',        icon:'⚖️'},
+    {id:'kassa',     lbl:'Kassalar',            icon:'💳'},
+    {id:'debcred',   lbl:'Debitor/Kreditor',    icon:'📋'},
     {id:'holding3s', lbl:"Ta'sischiga Hisobot", icon:'🏛️'},
     {id:'tasks',     lbl:'Vazifalar',           icon:'✅'},
-    {id:'requests',  lbl:"So'rovlar",          icon:'📝'},
+    {id:'requests',  lbl:"So'rovlar",           icon:'📝'},
     {id:'actfact',   lbl:'Actual vs Fact',      icon:'📊'},
     {id:'hrm',       lbl:'Xodimlar',            icon:'👥'},
   ],
@@ -11357,10 +11378,16 @@ function buildNav(){
 
 
   // Wrapper: flex row, tabs scrollable left part, Excel fixed right
-  var h = '<div style="display:flex;align-items:center;background:var(--s2);border-bottom:1px solid var(--b1);padding:0 24px">';
+  var h = '<div style="display:flex;align-items:center;background:var(--s2);border-bottom:1px solid var(--b1);padding:0 8px 0 24px">';
+
+  // Scroll left button
+  h += '<button id="snScrollL" onclick="(function(){var el=document.getElementById(\'snScrollArea\');el.scrollBy({left:-200,behavior:\'smooth\'});})()" '
+     + 'style="flex-shrink:0;background:none;border:none;color:var(--t3);cursor:pointer;padding:4px 6px;font-size:14px;line-height:1;display:none" '
+     + 'title="Chapga">◀</button>';
 
   // Scrollable tabs area
-  h += '<div class="subnav" style="flex:1;min-width:0;border:none;padding:6px 0;overflow-x:auto;scrollbar-width:thin">';
+  h += '<div id="snScrollArea" class="subnav" style="flex:1;min-width:0;border:none;padding:6px 0;overflow-x:auto;scrollbar-width:none" '
+     + 'onscroll="(function(){var el=document.getElementById(\'snScrollArea\');var L=document.getElementById(\'snScrollL\');var R=document.getElementById(\'snScrollR\');if(L){L.style.display=el.scrollLeft>4?\'block\':\'none\';}if(R){R.style.display=(el.scrollWidth-el.clientWidth-el.scrollLeft)>4?\'block\':\'none\';}})()">';
 
   // Direction badge
   h += '<div class="subnav-dir" style="color:'+di.col+';background:'+di.col+'11;border:1px solid '+di.col+'33;flex-shrink:0">'
@@ -11386,6 +11413,11 @@ function buildNav(){
 
   h += '</div>';
 
+  // Scroll right button
+  h += '<button id="snScrollR" onclick="(function(){var el=document.getElementById(\'snScrollArea\');el.scrollBy({left:200,behavior:\'smooth\'});})()" '
+     + 'style="flex-shrink:0;background:none;border:none;color:var(--t3);cursor:pointer;padding:4px 6px;font-size:14px;line-height:1" '
+     + 'title="O\'ngga">▶</button>';
+
   // Excel export — fixed right, never pushed out
   h += '<div style="flex-shrink:0;padding-left:8px">'
      + '<button class="snbtn" onclick="exportToExcel()" title="Excel ga yuklash" '
@@ -11400,9 +11432,15 @@ function buildNav(){
 
   // Active tab ko'rinishini ta'minlash (scroll into view)
   setTimeout(function(){
-    var activeBtn = subEl.querySelector('.snbtn.on');
+    var area = document.getElementById('snScrollArea');
+    var activeBtn = area && area.querySelector('.snbtn.on');
     if(activeBtn) activeBtn.scrollIntoView({block:'nearest',inline:'center'});
-  }, 50);
+    // Scroll tugmalar holatini yangilash
+    if(area){
+      var R = document.getElementById('snScrollR');
+      if(R) R.style.display = (area.scrollWidth - area.clientWidth) > 4 ? 'block' : 'none';
+    }
+  }, 80);
 
 }
 
@@ -11412,8 +11450,9 @@ function buildNav(){
 
 function goNav(id){
 
-  // Non-owner foydalanuvchi Holding (l1) ga kira olmaydi
-  if(id==='l1' && CUR_USER && CUR_USER.role !== 'owner') return;
+  // l1 (Holding) ga kirish: faqat yo'nalish xodimlari (dir_head, dir_finance, staff) kira olmaydi
+  var _dirOnlyRoles = ['dir_head','dir_finance','staff'];
+  if(id==='l1' && CUR_USER && _dirOnlyRoles.indexOf(CUR_USER.role) !== -1) return;
 
   // ── Parse hierarchical id: "cargo:pl" → dir="cargo", sub="pl"
 
@@ -11538,6 +11577,7 @@ function goNav(id){
     else if(subId==='requests')  renderRequestsPage('all');
     else if(subId==='actfact')   renderActualFact('all');
     else if(subId==='hrm')       renderHREmployees('all');
+    else if(subId==='orgchart')  renderOrgChart();
 
     // payroll direction-level only
 
@@ -11976,6 +12016,536 @@ function toast(msg){
 
 
 // ════════════════════════════════════════════
+
+// ── TASHKILIY TUZILMA MODULE ───────────────────────────────────────────────
+window._orgTab = window._orgTab || 'depts';
+
+function renderOrgChart(){
+  var MC = document.getElementById('pg-l1'); if(!MC) return;
+  MC.classList.add('on');
+
+  var tab = window._orgTab || 'depts';
+  var tabs = [
+    {id:'depts',    lbl:'Departamentlar', icon:'🏢'},
+    {id:'bolims',   lbl:"Bo'limlar",      icon:'📂'},
+    {id:'teams',    lbl:'Teamlar',        icon:'👥'},
+    {id:'lavozims', lbl:'Lavozimlar',     icon:'🎯'},
+    {id:'shtat',    lbl:'Shtat Jadvali',  icon:'📊'},
+  ];
+
+  var h = '<div style="padding:20px;max-width:1300px;margin:0 auto">';
+
+  // Header
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">';
+  h += '<div style="display:flex;align-items:center;gap:12px">';
+  h += '<div style="width:40px;height:40px;border-radius:10px;background:rgba(108,142,255,0.15);display:flex;align-items:center;justify-content:center;font-size:20px">🏗️</div>';
+  h += '<div><div style="font-size:18px;font-weight:700;color:var(--t1)">Tashkiliy Tuzilma</div>';
+  h += '<div style="font-size:11px;color:var(--t3)">Holding · Markaziy Sozlama Moduli</div></div></div>';
+  h += '<div style="display:flex;gap:8px">';
+  if(tab==='depts')    h += '<button onclick="orgOpenAdd(\'dept\')"    style="padding:7px 16px;background:#6C8EFF;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">+ Departament</button>';
+  if(tab==='bolims')   h += '<button onclick="orgOpenAdd(\'bolim\')"   style="padding:7px 16px;background:#6C8EFF;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">+ Bo\'lim</button>';
+  if(tab==='teams')    h += '<button onclick="orgOpenAdd(\'team\')"    style="padding:7px 16px;background:#6C8EFF;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">+ Team</button>';
+  if(tab==='lavozims') h += '<button onclick="orgOpenAdd(\'lavozim\')" style="padding:7px 16px;background:#6C8EFF;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">+ Lavozim</button>';
+  h += '</div></div>';
+
+  // Hierarchy breadcrumb
+  h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:var(--t3)">';
+  h += '🏢 <b style="color:var(--t1)">Chinwakil Holding</b> → Kompaniya/Yo\'nalish → Departament → Bo\'lim → Team → Lavozim → Xodim';
+  h += '</div>';
+
+  // Stats summary
+  var dirs = DIRS||[];
+  var totalDepts = ORG_DEPTS.length;
+  var totalBolims = ORG_BOLIMS.length;
+  var totalTeams = ORG_TEAMS.length;
+  var totalLavozims = ORG_LAVOZIMS.length;
+  var totalEmps = (HRM_EMP||[]).filter(function(e){ return e.status==='Ishlayapti'; }).length;
+
+  h += '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px">';
+  var stats = [
+    {lbl:"Yo'nalishlar", val:dirs.length, col:'#6C8EFF', icon:'🏢'},
+    {lbl:'Departamentlar', val:totalDepts, col:'#17B374', icon:'🏢'},
+    {lbl:"Bo'limlar",    val:totalBolims, col:'#FFB830', icon:'📂'},
+    {lbl:'Teamlar',      val:totalTeams,  col:'#00D4FF', icon:'👥'},
+    {lbl:'Lavozimlar',   val:totalLavozims,col:'#FF4D6A',icon:'🎯'},
+  ];
+  stats.forEach(function(s){
+    h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:12px;text-align:center">';
+    h += '<div style="font-size:20px;margin-bottom:4px">'+s.icon+'</div>';
+    h += '<div style="font-size:22px;font-weight:700;color:'+s.col+'">'+s.val+'</div>';
+    h += '<div style="font-size:10px;color:var(--t3);margin-top:2px">'+s.lbl+'</div>';
+    h += '</div>';
+  });
+  h += '</div>';
+
+  // Sub-tabs
+  h += '<div style="display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--b1);padding-bottom:0">';
+  tabs.forEach(function(t){
+    var active = t.id===tab;
+    h += '<button onclick="window._orgTab=\''+t.id+'\';renderOrgChart()" style="padding:8px 16px;border:none;border-bottom:2px solid '+(active?'#6C8EFF':'transparent')+';background:transparent;color:'+(active?'#6C8EFF':'var(--t3)')+';cursor:pointer;font-size:12px;font-weight:'+(active?'700':'500')+';transition:all 0.15s">'+t.icon+' '+t.lbl+'</button>';
+  });
+  h += '</div>';
+
+  // Tab content
+  if(tab==='depts')    h += orgRenderDepts();
+  else if(tab==='bolims')   h += orgRenderBolims();
+  else if(tab==='teams')    h += orgRenderTeams();
+  else if(tab==='lavozims') h += orgRenderLavozims();
+  else if(tab==='shtat')    h += orgRenderShtat();
+
+  // Modal
+  h += orgModalHTML();
+
+  h += '</div>';
+  MC.innerHTML = h;
+}
+
+function orgRenderDepts(){
+  var h = '';
+  if(!ORG_DEPTS.length){
+    h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:60px;text-align:center;color:var(--t3)">';
+    h += '<div style="font-size:48px;margin-bottom:12px">🏢</div>';
+    h += '<div style="font-size:16px;font-weight:600;margin-bottom:6px">Departamentlar yo\'q</div>';
+    h += '<div style="font-size:12px">+ Departament tugmasi bilan yangi departament qo\'shing</div>';
+    h += '</div>';
+    return h;
+  }
+  h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;overflow:hidden">';
+  h += '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+  h += '<thead><tr style="background:var(--s2);border-bottom:1px solid var(--b1)">';
+  ['Kod','Departament nomi',"Yo'nalish",'Rahbar','Bo\'lim soni','Status','Amal'].forEach(function(c){
+    h += '<th style="padding:10px 12px;text-align:left;color:var(--t3);font-weight:600">'+c+'</th>';
+  });
+  h += '</tr></thead><tbody>';
+  ORG_DEPTS.forEach(function(d){
+    var dir = (DIRS||[]).find(function(x){return x.id===d.dir_id;})||{name:d.dir_id||'Holding',icon:'🏢'};
+    var bolimCount = ORG_BOLIMS.filter(function(b){ return b.dept_id===d.id; }).length;
+    var statusCol = d.status==='Faol'?'#17B374':d.status==='Arxivlangan'?'#FF4D6A':'#FFB830';
+    h += '<tr style="border-bottom:1px solid var(--b1)">';
+    h += '<td style="padding:10px 12px;color:var(--t3);font-family:monospace">'+escHtml(d.code||'—')+'</td>';
+    h += '<td style="padding:10px 12px;font-weight:600;color:var(--t1)">'+escHtml(d.name)+'</td>';
+    h += '<td style="padding:10px 12px;color:var(--t2)">'+dir.icon+' '+escHtml(dir.name)+'</td>';
+    h += '<td style="padding:10px 12px;color:var(--t2)">'+escHtml(d.head||'—')+'</td>';
+    h += '<td style="padding:10px 12px;text-align:center"><span style="background:rgba(108,142,255,0.15);color:#6C8EFF;padding:2px 8px;border-radius:20px;font-size:11px">'+bolimCount+'</span></td>';
+    h += '<td style="padding:10px 12px"><span style="display:inline-block;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:600;background:'+statusCol+'22;color:'+statusCol+'">'+escHtml(d.status||'Faol')+'</span></td>';
+    h += '<td style="padding:10px 12px" onclick="event.stopPropagation()">';
+    h += '<button onclick="orgOpenEdit(\'dept\',\''+d.id+'\')" style="padding:4px 8px;background:rgba(255,184,48,0.15);border:none;border-radius:6px;color:#FFB830;cursor:pointer;font-size:12px;margin-right:4px">✏️</button>';
+    if(d.status!=='Arxivlangan') h += '<button onclick="orgArchive(\'dept\',\''+d.id+'\')" title="Arxivlash" style="padding:4px 8px;background:rgba(255,77,106,0.1);border:none;border-radius:6px;color:#FF4D6A;cursor:pointer;font-size:12px">📦</button>';
+    h += '</td></tr>';
+  });
+  h += '</tbody></table></div>';
+  return h;
+}
+
+function orgRenderBolims(){
+  var h = '';
+  if(!ORG_BOLIMS.length){
+    h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:60px;text-align:center;color:var(--t3)">';
+    h += '<div style="font-size:48px;margin-bottom:12px">📂</div>';
+    h += '<div style="font-size:16px;font-weight:600;margin-bottom:6px">Bo\'limlar yo\'q</div>';
+    h += '<div style="font-size:12px">+ Bo\'lim tugmasi bilan yangi bo\'lim qo\'shing</div>';
+    h += '</div>';
+    return h;
+  }
+  h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;overflow:hidden">';
+  h += '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+  h += '<thead><tr style="background:var(--s2);border-bottom:1px solid var(--b1)">';
+  ['Kod',"Bo'lim nomi",'Turi','Departament',"Yo'nalish",'Rahbar','Status','Amal'].forEach(function(c){
+    h += '<th style="padding:10px 12px;text-align:left;color:var(--t3);font-weight:600">'+c+'</th>';
+  });
+  h += '</tr></thead><tbody>';
+  ORG_BOLIMS.forEach(function(b){
+    var dept = ORG_DEPTS.find(function(d){ return d.id===b.dept_id; });
+    var dir = (DIRS||[]).find(function(x){return x.id===b.dir_id;})||{name:b.dir_id||'Holding',icon:'🏢'};
+    var statusCol = b.status==='Faol'?'#17B374':b.status==='Arxivlangan'?'#FF4D6A':'#FFB830';
+    h += '<tr style="border-bottom:1px solid var(--b1)">';
+    h += '<td style="padding:10px 12px;color:var(--t3);font-family:monospace">'+escHtml(b.code||'—')+'</td>';
+    h += '<td style="padding:10px 12px;font-weight:600;color:var(--t1)">'+escHtml(b.name)+'</td>';
+    h += '<td style="padding:10px 12px;color:var(--t2)">'+escHtml(b.bolim_turi||'—')+'</td>';
+    h += '<td style="padding:10px 12px;color:var(--t3)">'+escHtml(dept?dept.name:'—')+'</td>';
+    h += '<td style="padding:10px 12px;color:var(--t2)">'+dir.icon+' '+escHtml(dir.name)+'</td>';
+    h += '<td style="padding:10px 12px;color:var(--t2)">'+escHtml(b.head||'—')+'</td>';
+    h += '<td style="padding:10px 12px"><span style="display:inline-block;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:600;background:'+statusCol+'22;color:'+statusCol+'">'+escHtml(b.status||'Faol')+'</span></td>';
+    h += '<td style="padding:10px 12px" onclick="event.stopPropagation()">';
+    h += '<button onclick="orgOpenEdit(\'bolim\',\''+b.id+'\')" style="padding:4px 8px;background:rgba(255,184,48,0.15);border:none;border-radius:6px;color:#FFB830;cursor:pointer;font-size:12px;margin-right:4px">✏️</button>';
+    if(b.status!=='Arxivlangan') h += '<button onclick="orgArchive(\'bolim\',\''+b.id+'\')" style="padding:4px 8px;background:rgba(255,77,106,0.1);border:none;border-radius:6px;color:#FF4D6A;cursor:pointer;font-size:12px">📦</button>';
+    h += '</td></tr>';
+  });
+  h += '</tbody></table></div>';
+  return h;
+}
+
+function orgRenderTeams(){
+  var h = '';
+  if(!ORG_TEAMS.length){
+    h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:60px;text-align:center;color:var(--t3)">';
+    h += '<div style="font-size:48px;margin-bottom:12px">👥</div>';
+    h += '<div style="font-size:16px;font-weight:600;margin-bottom:6px">Teamlar yo\'q</div>';
+    h += '<div style="font-size:12px">+ Team tugmasi bilan ichki guruh qo\'shing</div>';
+    h += '</div>';
+    return h;
+  }
+  h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;overflow:hidden">';
+  h += '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+  h += '<thead><tr style="background:var(--s2);border-bottom:1px solid var(--b1)">';
+  ['Kod','Team nomi',"Bo'lim",'Rahbar','Status','Amal'].forEach(function(c){
+    h += '<th style="padding:10px 12px;text-align:left;color:var(--t3);font-weight:600">'+c+'</th>';
+  });
+  h += '</tr></thead><tbody>';
+  ORG_TEAMS.forEach(function(t){
+    var bolim = ORG_BOLIMS.find(function(b){ return b.id===t.bolim_id; });
+    var statusCol = t.status==='Faol'?'#17B374':t.status==='Arxivlangan'?'#FF4D6A':'#FFB830';
+    h += '<tr style="border-bottom:1px solid var(--b1)">';
+    h += '<td style="padding:10px 12px;color:var(--t3);font-family:monospace">'+escHtml(t.code||'—')+'</td>';
+    h += '<td style="padding:10px 12px;font-weight:600;color:var(--t1)">'+escHtml(t.name)+'</td>';
+    h += '<td style="padding:10px 12px;color:var(--t3)">'+escHtml(bolim?bolim.name:'—')+'</td>';
+    h += '<td style="padding:10px 12px;color:var(--t2)">'+escHtml(t.head||'—')+'</td>';
+    h += '<td style="padding:10px 12px"><span style="display:inline-block;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:600;background:'+statusCol+'22;color:'+statusCol+'">'+escHtml(t.status||'Faol')+'</span></td>';
+    h += '<td style="padding:10px 12px" onclick="event.stopPropagation()">';
+    h += '<button onclick="orgOpenEdit(\'team\',\''+t.id+'\')" style="padding:4px 8px;background:rgba(255,184,48,0.15);border:none;border-radius:6px;color:#FFB830;cursor:pointer;font-size:12px;margin-right:4px">✏️</button>';
+    if(t.status!=='Arxivlangan') h += '<button onclick="orgArchive(\'team\',\''+t.id+'\')" style="padding:4px 8px;background:rgba(255,77,106,0.1);border:none;border-radius:6px;color:#FF4D6A;cursor:pointer;font-size:12px">📦</button>';
+    h += '</td></tr>';
+  });
+  h += '</tbody></table></div>';
+  return h;
+}
+
+function orgRenderLavozims(){
+  var h = '';
+  if(!ORG_LAVOZIMS.length){
+    h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:60px;text-align:center;color:var(--t3)">';
+    h += '<div style="font-size:48px;margin-bottom:12px">🎯</div>';
+    h += '<div style="font-size:16px;font-weight:600;margin-bottom:6px">Lavozimlar yo\'q</div>';
+    h += '<div style="font-size:12px">+ Lavozim tugmasi bilan yangi lavozim qo\'shing</div>';
+    h += '</div>';
+    return h;
+  }
+  h += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;overflow:hidden">';
+  h += '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+  h += '<thead><tr style="background:var(--s2);border-bottom:1px solid var(--b1)">';
+  ['Lavozim nomi','Daraja',"Bo'lim / Team",'Shtat','Ish haqi (min–max)','Status','Amal'].forEach(function(c){
+    h += '<th style="padding:10px 12px;text-align:left;color:var(--t3);font-weight:600">'+c+'</th>';
+  });
+  h += '</tr></thead><tbody>';
+  ORG_LAVOZIMS.forEach(function(lv){
+    var bolim = ORG_BOLIMS.find(function(b){ return b.id===lv.bolim_id; });
+    var team  = ORG_TEAMS.find(function(t){ return t.id===lv.team_id; });
+    var statusCol = lv.status==='Faol'?'#17B374':lv.status==='Arxivlangan'?'#FF4D6A':'#FFB830';
+    var salary = (lv.salary_min||lv.salary_max) ? escHtml((lv.salary_min||'?')+' – '+(lv.salary_max||'?')+' $') : '—';
+    var parent = team ? (bolim?bolim.name+' / ':'')+team.name : (bolim?bolim.name:'—');
+    h += '<tr style="border-bottom:1px solid var(--b1)">';
+    h += '<td style="padding:10px 12px;font-weight:600;color:var(--t1)">'+escHtml(lv.name)+'</td>';
+    h += '<td style="padding:10px 12px;color:var(--t2)">'+escHtml(lv.daraja||'—')+'</td>';
+    h += '<td style="padding:10px 12px;color:var(--t3)">'+escHtml(parent)+'</td>';
+    h += '<td style="padding:10px 12px;text-align:center"><span style="background:rgba(108,142,255,0.15);color:#6C8EFF;padding:2px 8px;border-radius:20px;font-size:11px">'+(lv.shtat_soni||1)+'</span></td>';
+    h += '<td style="padding:10px 12px;color:var(--t3)">'+salary+'</td>';
+    h += '<td style="padding:10px 12px"><span style="display:inline-block;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:600;background:'+statusCol+'22;color:'+statusCol+'">'+escHtml(lv.status||'Faol')+'</span></td>';
+    h += '<td style="padding:10px 12px" onclick="event.stopPropagation()">';
+    h += '<button onclick="orgOpenEdit(\'lavozim\',\''+lv.id+'\')" style="padding:4px 8px;background:rgba(255,184,48,0.15);border:none;border-radius:6px;color:#FFB830;cursor:pointer;font-size:12px;margin-right:4px">✏️</button>';
+    if(lv.status!=='Arxivlangan') h += '<button onclick="orgArchive(\'lavozim\',\''+lv.id+'\')" style="padding:4px 8px;background:rgba(255,77,106,0.1);border:none;border-radius:6px;color:#FF4D6A;cursor:pointer;font-size:12px">📦</button>';
+    h += '</td></tr>';
+  });
+  h += '</tbody></table></div>';
+  return h;
+}
+
+function orgRenderShtat(){
+  var emps = HRM_EMP || [];
+  var h = '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;overflow:hidden">';
+  h += '<div style="padding:14px 16px;border-bottom:1px solid var(--b1);font-weight:600;color:var(--t1);font-size:13px">📊 Shtat Jadvali — Lavozim kesimida</div>';
+  if(!ORG_LAVOZIMS.length){
+    h += '<div style="padding:40px;text-align:center;color:var(--t3)">Lavozimlar mavjud emas. Avval lavozim qo\'shing.</div>';
+    h += '</div>';
+    return h;
+  }
+  h += '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+  h += '<thead><tr style="background:var(--s2);border-bottom:1px solid var(--b1)">';
+  ["Yo'nalish",'Departament',"Bo'lim",'Lavozim','Daraja','Reja','Band','Bo\'sh','Holat'].forEach(function(c){
+    h += '<th style="padding:10px 12px;text-align:left;color:var(--t3);font-weight:600">'+c+'</th>';
+  });
+  h += '</tr></thead><tbody>';
+  ORG_LAVOZIMS.forEach(function(lv){
+    if(lv.status==='Arxivlangan') return;
+    var bolim = ORG_BOLIMS.find(function(b){ return b.id===lv.bolim_id; });
+    var dept  = bolim ? ORG_DEPTS.find(function(d){ return d.id===bolim.dept_id; }) : null;
+    var dir   = bolim ? (DIRS||[]).find(function(x){ return x.id===bolim.dir_id; }) : null;
+    var reja  = parseInt(lv.shtat_soni)||1;
+    // count employees in this position
+    var band  = emps.filter(function(e){
+      return e.status==='Ishlayapti' && (e.pos||'').toLowerCase().indexOf((lv.name||'').toLowerCase())>=0 && (lv.bolim_id ? (e.dept||'').toLowerCase().indexOf((bolim?bolim.name:'').toLowerCase())>=0 : true);
+    }).length;
+    var bosh = Math.max(0, reja - band);
+    var holat = bosh>0 ? '<span style="color:#FFB830">Ochiq ('+bosh+')</span>' : '<span style="color:#17B374">To\'liq</span>';
+    h += '<tr style="border-bottom:1px solid var(--b1)">';
+    h += '<td style="padding:9px 12px;color:var(--t2)">'+(dir ? dir.icon+' '+escHtml(dir.name) : '🏢 Holding')+'</td>';
+    h += '<td style="padding:9px 12px;color:var(--t3)">'+escHtml(dept?dept.name:'—')+'</td>';
+    h += '<td style="padding:9px 12px;color:var(--t2)">'+escHtml(bolim?bolim.name:'—')+'</td>';
+    h += '<td style="padding:9px 12px;font-weight:600;color:var(--t1)">'+escHtml(lv.name)+'</td>';
+    h += '<td style="padding:9px 12px;color:var(--t3)">'+escHtml(lv.daraja||'—')+'</td>';
+    h += '<td style="padding:9px 12px;text-align:center;color:var(--t2)">'+reja+'</td>';
+    h += '<td style="padding:9px 12px;text-align:center;color:#17B374">'+band+'</td>';
+    h += '<td style="padding:9px 12px;text-align:center;color:#FFB830">'+bosh+'</td>';
+    h += '<td style="padding:9px 12px">'+holat+'</td>';
+    h += '</tr>';
+  });
+  h += '</tbody></table></div>';
+  return h;
+}
+
+function orgModalHTML(){
+  return '<div id="orgModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9000;display:none;align-items:center;justify-content:center">' +
+    '<div id="orgModalBody" style="background:var(--s1);border:1px solid var(--b1);border-radius:16px;padding:28px;width:560px;max-width:95vw;max-height:90vh;overflow-y:auto;position:relative"></div>' +
+    '</div>';
+}
+
+function orgShowModal(html){
+  var m = document.getElementById('orgModal');
+  var b = document.getElementById('orgModalBody');
+  if(!m||!b) return;
+  b.innerHTML = html;
+  m.style.display = 'flex';
+}
+function orgCloseModal(){
+  var m = document.getElementById('orgModal');
+  if(m) m.style.display = 'none';
+}
+
+function orgOpenAdd(type){
+  var dirs = DIRS||[];
+  var h = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">';
+  h += '<div style="font-size:16px;font-weight:700;color:var(--t1)">+ ';
+  if(type==='dept')    h += 'Yangi Departament';
+  if(type==='bolim')   h += "Yangi Bo'lim";
+  if(type==='team')    h += 'Yangi Team';
+  if(type==='lavozim') h += 'Yangi Lavozim';
+  h += '</div><button onclick="orgCloseModal()" style="background:transparent;border:none;color:var(--t3);font-size:20px;cursor:pointer">✕</button></div>';
+
+  var inp = 'style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:13px;box-sizing:border-box"';
+  var lbl = 'style="display:block;font-size:11px;color:var(--t3);margin-bottom:5px;font-weight:600"';
+  var row = 'style="margin-bottom:14px"';
+
+  function dirSelect(id, req){
+    var s = '<select id="'+id+'" '+inp+(req?' required':'')+'>';
+    s += '<option value="">— tanlang —</option>';
+    dirs.forEach(function(d){ s += '<option value="'+d.id+'">'+d.icon+' '+escHtml(d.name)+'</option>'; });
+    s += '</select>';
+    return s;
+  }
+  function deptSelect(id){
+    var s = '<select id="'+id+'" '+inp+'>';
+    s += '<option value="">— (ixtiyoriy) —</option>';
+    ORG_DEPTS.filter(function(d){ return d.status!=='Arxivlangan'; }).forEach(function(d){ s += '<option value="'+d.id+'">'+escHtml(d.name)+'</option>'; });
+    s += '</select>';
+    return s;
+  }
+  function bolimSelect(id){
+    var s = '<select id="'+id+'" '+inp+'>';
+    s += '<option value="">— tanlang —</option>';
+    ORG_BOLIMS.filter(function(b){ return b.status==='Faol'; }).forEach(function(b){ s += '<option value="'+b.id+'">'+escHtml(b.name)+'</option>'; });
+    s += '</select>';
+    return s;
+  }
+  function statusSelect(id){
+    var s = '<select id="'+id+'" '+inp+'>';
+    ORG_STATUSES.forEach(function(st,i){ s += '<option value="'+st+'"'+(i===0?' selected':'')+'>'+st+'</option>'; });
+    s += '</select>';
+    return s;
+  }
+
+  if(type==='dept'){
+    h += '<div '+row+'><label '+lbl+'>Departament nomi *</label><input id="orgN_name" '+inp+' placeholder="Masalan: Operatsion departament"></div>';
+    h += '<div '+row+'><label '+lbl+'>Kod *</label><input id="orgN_code" '+inp+' placeholder="Masalan: OPS"></div>';
+    h += '<div '+row+'><label '+lbl+">Biznes yo'nalish *</label>'+dirSelect('orgN_dir', true)+'</div>';
+    h += '<div '+row+'><label '+lbl+'>Mas\'ul direktor</label><input id="orgN_head" '+inp+' placeholder="Xodim ismi"></div>';
+    h += '<div '+row+'><label '+lbl+'>Status</label>'+statusSelect('orgN_status')+'</div>';
+    h += '<div '+row+'><label '+lbl+'>Izoh</label><textarea id="orgN_note" rows="2" '+inp+'></textarea></div>';
+    h += '<div style="display:flex;gap:8px;margin-top:20px">';
+    h += '<button onclick="orgSaveNew(\'dept\')" style="flex:1;padding:10px;background:#6C8EFF;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer">Saqlash</button>';
+    h += '<button onclick="orgCloseModal()" style="padding:10px 20px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer">Bekor</button>';
+    h += '</div>';
+  }
+  else if(type==='bolim'){
+    h += '<div '+row+'><label '+lbl+">Bo'lim nomi *</label><input id=\"orgN_name\" "+inp+' placeholder="Masalan: Logistika bo\'limi"></div>';
+    h += '<div '+row+'><label '+lbl+'>Kod *</label><input id="orgN_code" '+inp+' placeholder="Masalan: LOG"></div>';
+    h += '<div '+row+'><label '+lbl+">Biznes yo'nalish *</label>'+dirSelect('orgN_dir', true)+'</div>';
+    h += '<div '+row+'><label '+lbl+'>Departament (ixtiyoriy)</label>'+deptSelect('orgN_dept')+'</div>';
+    h += '<div '+row+'><label '+lbl+">Bo'lim turi *</label><select id=\"orgN_bolimturi\" "+inp+'><option value="">— tanlang —</option>';
+    ORG_BOLIM_TURLARI.forEach(function(t){ h += '<option value="'+t+'">'+t+'</option>'; });
+    h += '</select></div>';
+    h += '<div '+row+'><label '+lbl+">Bo'lim rahbari</label><input id=\"orgN_head\" "+inp+' placeholder="Xodim ismi"></div>';
+    h += '<div '+row+'><label '+lbl+'>Status</label>'+statusSelect('orgN_status')+'</div>';
+    h += '<div '+row+'><label '+lbl+'>Izoh</label><textarea id="orgN_note" rows="2" '+inp+'></textarea></div>';
+    h += '<div style="display:flex;gap:8px;margin-top:20px">';
+    h += '<button onclick="orgSaveNew(\'bolim\')" style="flex:1;padding:10px;background:#6C8EFF;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer">Saqlash</button>';
+    h += '<button onclick="orgCloseModal()" style="padding:10px 20px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer">Bekor</button>';
+    h += '</div>';
+  }
+  else if(type==='team'){
+    h += '<div '+row+'><label '+lbl+'>Team nomi *</label><input id="orgN_name" '+inp+' placeholder="Masalan: Xitoy yo\'nalishi"></div>';
+    h += '<div '+row+'><label '+lbl+'>Kod (ixtiyoriy)</label><input id="orgN_code" '+inp+' placeholder="Masalan: CN"></div>';
+    h += '<div '+row+'><label '+lbl+">Yuqori bo'lim *</label>'+bolimSelect('orgN_bolim')+'</div>';
+    h += '<div '+row+'><label '+lbl+'>Team rahbari</label><input id="orgN_head" '+inp+' placeholder="Xodim ismi"></div>';
+    h += '<div '+row+'><label '+lbl+'>Status</label>'+statusSelect('orgN_status')+'</div>';
+    h += '<div '+row+'><label '+lbl+'>Izoh</label><textarea id="orgN_note" rows="2" '+inp+'></textarea></div>';
+    h += '<div style="display:flex;gap:8px;margin-top:20px">';
+    h += '<button onclick="orgSaveNew(\'team\')" style="flex:1;padding:10px;background:#6C8EFF;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer">Saqlash</button>';
+    h += '<button onclick="orgCloseModal()" style="padding:10px 20px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer">Bekor</button>';
+    h += '</div>';
+  }
+  else if(type==='lavozim'){
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
+    h += '<div><label '+lbl+'>Lavozim nomi *</label><input id="orgN_name" '+inp+' placeholder="Masalan: Logistika menejeri"></div>';
+    h += '<div><label '+lbl+'>Daraja *</label><select id="orgN_daraja" '+inp+'><option value="">— tanlang —</option>';
+    ORG_LAVOZIM_DARAJALARI.forEach(function(d){ h += '<option value="'+d+'">'+d+'</option>'; });
+    h += '</select></div>';
+    h += '<div><label '+lbl+">Bo'lim *</label>'+bolimSelect('orgN_bolim')+'</div>';
+    h += '<div><label '+lbl+'>Team (ixtiyoriy)</label><select id="orgN_team" '+inp+'><option value="">— (ixtiyoriy) —</option>';
+    ORG_TEAMS.filter(function(t){ return t.status==='Faol'; }).forEach(function(t){ h += '<option value="'+t.id+'">'+escHtml(t.name)+'</option>'; });
+    h += '</select></div>';
+    h += '<div><label '+lbl+'>Min ish haqi ($)</label><input id="orgN_salmin" type="number" '+inp+' placeholder="0"></div>';
+    h += '<div><label '+lbl+'>Max ish haqi ($)</label><input id="orgN_salmax" type="number" '+inp+' placeholder="0"></div>';
+    h += '<div><label '+lbl+'>Shtat soni *</label><input id="orgN_shtat" type="number" min="1" value="1" '+inp+'></div>';
+    h += '<div><label '+lbl+'>Status</label>'+statusSelect('orgN_status')+'</div>';
+    h += '</div>';
+    h += '<div '+row+' style="margin-top:12px"><label '+lbl+'>Lavozim majburiyatlari</label><textarea id="orgN_maj" rows="2" '+inp+' placeholder="Asosiy majburiyatlar..."></textarea></div>';
+    h += '<div '+row+'><label '+lbl+'>Funksional vazifalar</label><textarea id="orgN_funk" rows="2" '+inp+' placeholder="Kundalik vazifalar..."></textarea></div>';
+    h += '<div '+row+'><label '+lbl+'>Talablar</label><textarea id="orgN_talab" rows="2" '+inp+' placeholder="Nomzodga talablar..."></textarea></div>';
+    h += '<div style="display:flex;gap:8px;margin-top:16px">';
+    h += '<button onclick="orgSaveNew(\'lavozim\')" style="flex:1;padding:10px;background:#6C8EFF;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer">Saqlash</button>';
+    h += '<button onclick="orgCloseModal()" style="padding:10px 20px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer">Bekor</button>';
+    h += '</div>';
+  }
+  orgShowModal(h);
+}
+
+function orgSaveNew(type){
+  var g = function(id){ var el=document.getElementById(id); return el?(el.value||'').trim():''; };
+  if(type==='dept'){
+    var name=g('orgN_name'), code=g('orgN_code'), dir=g('orgN_dir');
+    if(!name||!code||!dir){ alert("Majburiy maydonlarni to'ldiring"); return; }
+    ORG_DEPTS.push({id:orgNextId(ORG_DEPTS,'DEPT'), name:name, code:code, dir_id:dir, head:g('orgN_head'), status:g('orgN_status')||'Faol', note:g('orgN_note')});
+  } else if(type==='bolim'){
+    var name=g('orgN_name'), code=g('orgN_code'), dir=g('orgN_dir'), turi=g('orgN_bolimturi');
+    if(!name||!code||!dir||!turi){ alert("Majburiy maydonlarni to'ldiring"); return; }
+    ORG_BOLIMS.push({id:orgNextId(ORG_BOLIMS,'BOL'), name:name, code:code, dir_id:dir, dept_id:g('orgN_dept')||null, bolim_turi:turi, head:g('orgN_head'), status:g('orgN_status')||'Faol', note:g('orgN_note')});
+  } else if(type==='team'){
+    var name=g('orgN_name'), bolim=g('orgN_bolim');
+    if(!name||!bolim){ alert("Majburiy maydonlarni to'ldiring"); return; }
+    ORG_TEAMS.push({id:orgNextId(ORG_TEAMS,'TEAM'), name:name, code:g('orgN_code'), bolim_id:bolim, head:g('orgN_head'), status:g('orgN_status')||'Faol', note:g('orgN_note')});
+  } else if(type==='lavozim'){
+    var name=g('orgN_name'), daraja=g('orgN_daraja'), bolim=g('orgN_bolim');
+    if(!name||!daraja||!bolim){ alert("Majburiy maydonlarni to'ldiring"); return; }
+    ORG_LAVOZIMS.push({id:orgNextId(ORG_LAVOZIMS,'LAV'), name:name, daraja:daraja, bolim_id:bolim, team_id:g('orgN_team')||null, salary_min:g('orgN_salmin'), salary_max:g('orgN_salmax'), shtat_soni:parseInt(g('orgN_shtat'))||1, majburiyat:g('orgN_maj'), funksiya:g('orgN_funk'), talab:g('orgN_talab'), status:g('orgN_status')||'Faol'});
+  }
+  orgSave();
+  orgCloseModal();
+  renderOrgChart();
+}
+
+function orgOpenEdit(type, id){
+  var item;
+  if(type==='dept')    item = ORG_DEPTS.find(function(x){ return x.id===id; });
+  if(type==='bolim')   item = ORG_BOLIMS.find(function(x){ return x.id===id; });
+  if(type==='team')    item = ORG_TEAMS.find(function(x){ return x.id===id; });
+  if(type==='lavozim') item = ORG_LAVOZIMS.find(function(x){ return x.id===id; });
+  if(!item) return;
+
+  var dirs = DIRS||[];
+  var inp = 'style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:13px;box-sizing:border-box"';
+  var lbl = 'style="display:block;font-size:11px;color:var(--t3);margin-bottom:5px;font-weight:600"';
+  var row = 'style="margin-bottom:14px"';
+
+  var h = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">';
+  h += '<div style="font-size:16px;font-weight:700;color:var(--t1)">✏️ Tahrirlash</div>';
+  h += '<button onclick="orgCloseModal()" style="background:transparent;border:none;color:var(--t3);font-size:20px;cursor:pointer">✕</button></div>';
+
+  function sel(elId, options, val){
+    var s = '<select id="'+elId+'" '+inp+'>';
+    options.forEach(function(o){ var v=typeof o==='object'?o.v:o; var l=typeof o==='object'?o.l:o; s+='<option value="'+v+'"'+(v===val?' selected':'')+'>'+escHtml(l)+'</option>'; });
+    s += '</select>';
+    return s;
+  }
+
+  var statusOpts = ORG_STATUSES.map(function(s){ return {v:s,l:s}; });
+
+  if(type==='dept'){
+    h += '<div '+row+'><label '+lbl+'>Departament nomi *</label><input id="orgE_name" '+inp+' value="'+escHtml(item.name)+'"></div>';
+    h += '<div '+row+'><label '+lbl+'>Kod *</label><input id="orgE_code" '+inp+' value="'+escHtml(item.code||'')+'"></div>';
+    h += '<div '+row+'><label '+lbl+">Biznes yo'nalish</label>'+sel('orgE_dir', [{v:'',l:'— tanlang —'}].concat(dirs.map(function(d){return{v:d.id,l:d.icon+' '+d.name};})), item.dir_id)+'</div>';
+    h += '<div '+row+'><label '+lbl+'>Mas\'ul direktor</label><input id="orgE_head" '+inp+' value="'+escHtml(item.head||'')+'"></div>';
+    h += '<div '+row+'><label '+lbl+'>Status</label>'+sel('orgE_status', statusOpts, item.status||'Faol')+'</div>';
+    h += '<div '+row+'><label '+lbl+'>Izoh</label><textarea id="orgE_note" rows="2" '+inp+'>'+escHtml(item.note||'')+'</textarea></div>';
+  } else if(type==='bolim'){
+    h += '<div '+row+'><label '+lbl+">Bo'lim nomi *</label><input id=\"orgE_name\" "+inp+' value="'+escHtml(item.name)+'"></div>';
+    h += '<div '+row+'><label '+lbl+'>Kod *</label><input id="orgE_code" '+inp+' value="'+escHtml(item.code||'')+'"></div>';
+    h += '<div '+row+'><label '+lbl+">Biznes yo'nalish</label>"+sel('orgE_dir', [{v:'',l:'— tanlang —'}].concat(dirs.map(function(d){return{v:d.id,l:d.icon+' '+d.name};})), item.dir_id)+'</div>';
+    h += '<div '+row+'><label '+lbl+'>Departament</label>'+sel('orgE_dept', [{v:'',l:'— (ixtiyoriy) —'}].concat(ORG_DEPTS.map(function(d){return{v:d.id,l:d.name};})), item.dept_id||'')+'</div>';
+    h += '<div '+row+'><label '+lbl+">Bo'lim turi *</label>"+sel('orgE_turi', [{v:'',l:'— tanlang —'}].concat(ORG_BOLIM_TURLARI.map(function(t){return{v:t,l:t};})), item.bolim_turi||'')+'</div>';
+    h += '<div '+row+'><label '+lbl+'>Rahbar</label><input id="orgE_head" '+inp+' value="'+escHtml(item.head||'')+'"></div>';
+    h += '<div '+row+'><label '+lbl+'>Status</label>'+sel('orgE_status', statusOpts, item.status||'Faol')+'</div>';
+    h += '<div '+row+'><label '+lbl+'>Izoh</label><textarea id="orgE_note" rows="2" '+inp+'>'+escHtml(item.note||'')+'</textarea></div>';
+  } else if(type==='team'){
+    h += '<div '+row+'><label '+lbl+'>Team nomi *</label><input id="orgE_name" '+inp+' value="'+escHtml(item.name)+'"></div>';
+    h += '<div '+row+'><label '+lbl+'>Kod</label><input id="orgE_code" '+inp+' value="'+escHtml(item.code||'')+'"></div>';
+    h += '<div '+row+'><label '+lbl+">Bo'lim *</label>"+sel('orgE_bolim', [{v:'',l:'— tanlang —'}].concat(ORG_BOLIMS.filter(function(b){return b.status!=='Arxivlangan';}).map(function(b){return{v:b.id,l:b.name};})), item.bolim_id||'')+'</div>';
+    h += '<div '+row+'><label '+lbl+'>Rahbar</label><input id="orgE_head" '+inp+' value="'+escHtml(item.head||'')+'"></div>';
+    h += '<div '+row+'><label '+lbl+'>Status</label>'+sel('orgE_status', statusOpts, item.status||'Faol')+'</div>';
+    h += '<div '+row+'><label '+lbl+'>Izoh</label><textarea id="orgE_note" rows="2" '+inp+'>'+escHtml(item.note||'')+'</textarea></div>';
+  } else if(type==='lavozim'){
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
+    h += '<div><label '+lbl+'>Lavozim nomi *</label><input id="orgE_name" '+inp+' value="'+escHtml(item.name)+'"></div>';
+    h += '<div><label '+lbl+'>Daraja *</label>'+sel('orgE_daraja', [{v:'',l:'— tanlang —'}].concat(ORG_LAVOZIM_DARAJALARI.map(function(d){return{v:d,l:d};})), item.daraja||'')+'</div>';
+    h += '<div><label '+lbl+">Bo'lim *</label>"+sel('orgE_bolim', [{v:'',l:'— tanlang —'}].concat(ORG_BOLIMS.filter(function(b){return b.status!=='Arxivlangan';}).map(function(b){return{v:b.id,l:b.name};})), item.bolim_id||'')+'</div>';
+    h += '<div><label '+lbl+'>Team</label>'+sel('orgE_team', [{v:'',l:'— (ixtiyoriy) —'}].concat(ORG_TEAMS.filter(function(t){return t.status==='Faol';}).map(function(t){return{v:t.id,l:t.name};})), item.team_id||'')+'</div>';
+    h += '<div><label '+lbl+'>Min ish haqi ($)</label><input id="orgE_salmin" type="number" '+inp+' value="'+escHtml(item.salary_min||'')+'"></div>';
+    h += '<div><label '+lbl+'>Max ish haqi ($)</label><input id="orgE_salmax" type="number" '+inp+' value="'+escHtml(item.salary_max||'')+'"></div>';
+    h += '<div><label '+lbl+'>Shtat soni *</label><input id="orgE_shtat" type="number" min="1" '+inp+' value="'+(item.shtat_soni||1)+'"></div>';
+    h += '<div><label '+lbl+'>Status</label>'+sel('orgE_status', statusOpts, item.status||'Faol')+'</div>';
+    h += '</div>';
+    h += '<div '+row+' style="margin-top:12px"><label '+lbl+'>Majburiyatlar</label><textarea id="orgE_maj" rows="2" '+inp+'>'+escHtml(item.majburiyat||'')+'</textarea></div>';
+    h += '<div '+row+'><label '+lbl+'>Funksional vazifalar</label><textarea id="orgE_funk" rows="2" '+inp+'>'+escHtml(item.funksiya||'')+'</textarea></div>';
+    h += '<div '+row+'><label '+lbl+'>Talablar</label><textarea id="orgE_talab" rows="2" '+inp+'>'+escHtml(item.talab||'')+'</textarea></div>';
+  }
+
+  h += '<div style="display:flex;gap:8px;margin-top:20px">';
+  h += '<button onclick="orgSaveEdit(\''+type+'\',\''+id+'\')" style="flex:1;padding:10px;background:#17B374;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:600;cursor:pointer">Saqlash</button>';
+  h += '<button onclick="orgCloseModal()" style="padding:10px 20px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer">Bekor</button>';
+  h += '</div>';
+  orgShowModal(h);
+}
+
+function orgSaveEdit(type, id){
+  var g = function(elId){ var el=document.getElementById(elId); return el?(el.value||'').trim():''; };
+  var item;
+  if(type==='dept'){
+    item = ORG_DEPTS.find(function(x){ return x.id===id; }); if(!item) return;
+    if(!g('orgE_name')||!g('orgE_code')){ alert("Majburiy maydonlarni to'ldiring"); return; }
+    item.name=g('orgE_name'); item.code=g('orgE_code'); item.dir_id=g('orgE_dir'); item.head=g('orgE_head'); item.status=g('orgE_status')||'Faol'; item.note=g('orgE_note');
+  } else if(type==='bolim'){
+    item = ORG_BOLIMS.find(function(x){ return x.id===id; }); if(!item) return;
+    if(!g('orgE_name')||!g('orgE_code')||!g('orgE_turi')){ alert("Majburiy maydonlarni to'ldiring"); return; }
+    item.name=g('orgE_name'); item.code=g('orgE_code'); item.dir_id=g('orgE_dir'); item.dept_id=g('orgE_dept')||null; item.bolim_turi=g('orgE_turi'); item.head=g('orgE_head'); item.status=g('orgE_status')||'Faol'; item.note=g('orgE_note');
+  } else if(type==='team'){
+    item = ORG_TEAMS.find(function(x){ return x.id===id; }); if(!item) return;
+    if(!g('orgE_name')||!g('orgE_bolim')){ alert("Majburiy maydonlarni to'ldiring"); return; }
+    item.name=g('orgE_name'); item.code=g('orgE_code'); item.bolim_id=g('orgE_bolim'); item.head=g('orgE_head'); item.status=g('orgE_status')||'Faol'; item.note=g('orgE_note');
+  } else if(type==='lavozim'){
+    item = ORG_LAVOZIMS.find(function(x){ return x.id===id; }); if(!item) return;
+    if(!g('orgE_name')||!g('orgE_daraja')||!g('orgE_bolim')){ alert("Majburiy maydonlarni to'ldiring"); return; }
+    item.name=g('orgE_name'); item.daraja=g('orgE_daraja'); item.bolim_id=g('orgE_bolim'); item.team_id=g('orgE_team')||null; item.salary_min=g('orgE_salmin'); item.salary_max=g('orgE_salmax'); item.shtat_soni=parseInt(g('orgE_shtat'))||1; item.majburiyat=g('orgE_maj'); item.funksiya=g('orgE_funk'); item.talab=g('orgE_talab'); item.status=g('orgE_status')||'Faol';
+  }
+  orgSave();
+  orgCloseModal();
+  renderOrgChart();
+}
+
+function orgArchive(type, id){
+  var msg = "Bu elementni arxivlashni tasdiqlaysizmi?\nArvixlangan elementlarga yangi xodim yoki lavozim biriktirib bo'lmaydi.";
+  if(!confirm(msg)) return;
+  var arr = type==='dept'?ORG_DEPTS:type==='bolim'?ORG_BOLIMS:type==='team'?ORG_TEAMS:ORG_LAVOZIMS;
+  var item = arr.find(function(x){ return x.id===id; });
+  if(item){ item.status = 'Arxivlangan'; orgSave(); renderOrgChart(); }
+}
 
 // ── TA'SISCHIGA HISOBOT (Holding 3-Statement) ─────────────────────────────
 function renderHolding3S(){
