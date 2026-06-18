@@ -13490,7 +13490,7 @@ function hrmSaveForm(empId){
   hrmSave();
   hrmCloseModal();
   // Re-render current page
-  var cur = ACTV==='l1'?'all':topId;
+  var cur = ACTV==='l1'?'all':(CUR_USER&&CUR_USER.dir?CUR_USER.dir:'all');
   renderHREmployees(cur);
 }
 
@@ -13503,7 +13503,7 @@ function hrmDismiss(empId){
   emp.history.push({date:new Date().toISOString(), action:"Bo'shatildi", note:'Tizimda bo\'shatilgan deb belgilandi'});
   hrmSave();
   hrmCloseModal();
-  var cur = ACTV==='l1'?'all':topId;
+  var cur = ACTV==='l1'?'all':(CUR_USER&&CUR_USER.dir?CUR_USER.dir:'all');
   renderHREmployees(cur);
 }
 
@@ -13515,7 +13515,7 @@ function renderHRProfile(empId){
 
   var dirO = DIRS.find(function(d){return d.id===emp.dir;})||{name:emp.dir||'—',icon:''};
   var statusCol = emp.status==='Ishlayapti'?'#17B374':emp.status==='Sinov muddatida'?'#FFB830':emp.status==='Bo\'shatilgan'?'#FF4D6A':'#6C8EFF';
-  var curDir = isAll?'all':topId;
+  var curDir = isAll?'all':(CUR_USER&&CUR_USER.dir?CUR_USER.dir:'all');
 
   var h = '<div style="padding:20px;max-width:1100px;margin:0 auto">';
 
