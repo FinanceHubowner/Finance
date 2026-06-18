@@ -8899,6 +8899,15 @@ function hrmSyncFromSB(){
     });
     lsSave('hrm_emp', HRM_EMP);
     console.log('[HRM] Supabase dan', sbEmps.length, 'xodim synclandi');
+    // Lokalda bor lekin SB da yo'q xodimlarni push qil (migration)
+    var sbIds = sbEmps.map(function(e){ return e.id; });
+    var missing = HRM_EMP.filter(function(e){ return sbIds.indexOf(e.id) === -1; });
+    if(missing.length){
+      var mRows = missing.map(function(e){ return {id:e.id, data:e, dir:e.dir||null, status:e.status||'Ishlayapti'}; });
+      SB.from('hrm_employees').upsert(mRows, {onConflict:'id'}).then(function(r2){
+        if(!r2.error) console.log('[HRM] Migration:', missing.length, 'xodim SB ga yuborildi');
+      });
+    }
   });
 }
 function hrmNextTabel(){ var mx=HRM_EMP.reduce(function(m,e){ var n=parseInt((e.tabel||'').replace(/\D/g,''),10)||0; return Math.max(m,n); },0); return 'T-'+String(mx+1).padStart(4,'0'); }
