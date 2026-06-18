@@ -709,7 +709,7 @@ function showDash(profile) {
       if(d === 'exchange' && EX_TXNS && EX_TXNS.length) exPushToSupabase();
       exSyncFromSupabase();
       initRequestsFromSB();
-      hrmSyncFromSB();
+      syncAllFromSB();
       renderL2(d);
 
 
@@ -757,7 +757,7 @@ function showDash(profile) {
       buildNav();
       exSyncFromSupabase();
       initRequestsFromSB();
-      hrmSyncFromSB();
+      syncAllFromSB();
       renderL1();
 
     }
@@ -1579,7 +1579,25 @@ function pendingTxnsHTML(dir){
 var TXNS=(function(){return lsLoad('txns')||[];})();
 
 
-function txnsSave(){lsSave('txns',TXNS);}
+function txnsSave(){
+  lsSave('txns',TXNS);
+  if(!SB||!TXNS.length) return;
+  var rows=TXNS.map(function(t){return{id:t.id,data:t,dir:t.dir||null,type:t.type||null};});
+  SB.from('app_txns').upsert(rows,{onConflict:'id'}).then(function(r){if(r.error)console.warn('[TXNS] SB:',r.error.message);});
+}
+function txnsSyncFromSB(){
+  if(!SB) return;
+  SB.from('app_txns').select('data').then(function(r){
+    if(r.error){console.warn('[TXNS] sync:',r.error.message);return;}
+    var sb=(r.data||[]).map(function(x){return x.data;}).filter(Boolean);
+    var sbIds=sb.map(function(x){return x.id;});
+    sb.forEach(function(s){var i=TXNS.findIndex(function(x){return x.id===s.id;});if(i===-1)TXNS.push(s);else{if((s.updated_at||'')>(TXNS[i].updated_at||''))TXNS[i]=s;}});
+    if(sb.length)lsSave('txns',TXNS);
+    var miss=TXNS.filter(function(x){return sbIds.indexOf(x.id)===-1;});
+    if(miss.length)SB.from('app_txns').upsert(miss.map(function(t){return{id:t.id,data:t,dir:t.dir||null,type:t.type||null};}),{onConflict:'id'}).then(function(r2){if(!r2.error)console.log('[TXNS] migration:',miss.length);});
+    console.log('[TXNS] synclandi:',sb.length);
+  });
+}
 
 
 
@@ -4438,7 +4456,25 @@ const HOLD_TR_REASONS=[
 var PIPELINE_DATA = (function(){ var s=lsLoad('pipeline'); return (s&&s.length)?s:[]; })();
 
 
-function pipelineSave(){ lsSave('pipeline', PIPELINE_DATA); }
+function pipelineSave(){
+  lsSave('pipeline', PIPELINE_DATA);
+  if(!SB||!PIPELINE_DATA.length) return;
+  var rows=PIPELINE_DATA.map(function(t){return{id:t.id,data:t,dir:t.dir||null};});
+  SB.from('app_pipeline').upsert(rows,{onConflict:'id'}).then(function(r){if(r.error)console.warn('[PIPELINE] SB:',r.error.message);});
+}
+function pipelineSyncFromSB(){
+  if(!SB) return;
+  SB.from('app_pipeline').select('data').then(function(r){
+    if(r.error){console.warn('[PIPELINE] sync:',r.error.message);return;}
+    var sb=(r.data||[]).map(function(x){return x.data;}).filter(Boolean);
+    var sbIds=sb.map(function(x){return x.id;});
+    sb.forEach(function(s){var i=PIPELINE_DATA.findIndex(function(x){return x.id===s.id;});if(i===-1)PIPELINE_DATA.push(s);else{if((s.updated_at||'')>(PIPELINE_DATA[i].updated_at||''))PIPELINE_DATA[i]=s;}});
+    if(sb.length)lsSave('pipeline',PIPELINE_DATA);
+    var miss=PIPELINE_DATA.filter(function(x){return sbIds.indexOf(x.id)===-1;});
+    if(miss.length)SB.from('app_pipeline').upsert(miss.map(function(t){return{id:t.id,data:t,dir:t.dir||null};}),{onConflict:'id'}).then(function(r2){if(!r2.error)console.log('[PIPELINE] migration:',miss.length);});
+    console.log('[PIPELINE] synclandi:',sb.length);
+  });
+}
 
 
 
@@ -4474,7 +4510,34 @@ var KASSA_DATA = (function(){
 })();
 
 
-function kassaSave2(){ lsSave('kassas2', KASSA_DATA); }
+function kassaSave2(){
+  lsSave('kassas2', KASSA_DATA);
+  if(!SB||!KASSA_DATA) return;
+  var dirs=Object.keys(KASSA_DATA);
+  if(!dirs.length) return;
+  var rows=dirs.map(function(d){return{dir:d,data:KASSA_DATA[d]};});
+  SB.from('app_kassa').upsert(rows,{onConflict:'dir'}).then(function(r){if(r.error)console.warn('[KASSA] SB:',r.error.message);});
+}
+function kassaSyncFromSB(){
+  if(!SB) return;
+  SB.from('app_kassa').select('dir,data').then(function(r){
+    if(r.error){console.warn('[KASSA] sync:',r.error.message);return;}
+    var rows=(r.data||[]);
+    if(!rows.length){
+      if(KASSA_DATA&&Object.keys(KASSA_DATA).length){
+        var mRows=Object.keys(KASSA_DATA).map(function(d){return{dir:d,data:KASSA_DATA[d]};});
+        SB.from('app_kassa').upsert(mRows,{onConflict:'dir'}).then(function(r2){if(!r2.error)console.log('[KASSA] migration:',mRows.length);});
+      }
+      return;
+    }
+    if(!KASSA_DATA)KASSA_DATA={};
+    rows.forEach(function(row){
+      if(!KASSA_DATA[row.dir]) KASSA_DATA[row.dir]=row.data;
+    });
+    lsSave('kassas2',KASSA_DATA);
+    console.log('[KASSA] synclandi:',rows.length);
+  });
+}
 
 
 function ensureKassaData(){
@@ -5071,7 +5134,25 @@ const fil=(k)=>{
 
 var CRM_CLIENTS = [];
 (function(){var saved=lsLoad('crm_clients');if(saved&&saved.length)CRM_CLIENTS=saved;})();
-function crmSave(){lsSave('crm_clients',CRM_CLIENTS);}
+function crmSave(){
+  lsSave('crm_clients',CRM_CLIENTS);
+  if(!SB||!CRM_CLIENTS.length) return;
+  var rows=CRM_CLIENTS.map(function(t){return{id:t.id,data:t,dir:t.direction||null};});
+  SB.from('app_crm').upsert(rows,{onConflict:'id'}).then(function(r){if(r.error)console.warn('[CRM] SB:',r.error.message);});
+}
+function crmSyncFromSB(){
+  if(!SB) return;
+  SB.from('app_crm').select('data').then(function(r){
+    if(r.error){console.warn('[CRM] sync:',r.error.message);return;}
+    var sb=(r.data||[]).map(function(x){return x.data;}).filter(Boolean);
+    var sbIds=sb.map(function(x){return x.id;});
+    sb.forEach(function(s){var i=CRM_CLIENTS.findIndex(function(x){return x.id===s.id;});if(i===-1)CRM_CLIENTS.push(s);else{if((s.updated_at||'')>(CRM_CLIENTS[i].updated_at||''))CRM_CLIENTS[i]=s;}});
+    if(sb.length)lsSave('crm_clients',CRM_CLIENTS);
+    var miss=CRM_CLIENTS.filter(function(x){return sbIds.indexOf(x.id)===-1;});
+    if(miss.length)SB.from('app_crm').upsert(miss.map(function(t){return{id:t.id,data:t,dir:t.direction||null};}),{onConflict:'id'}).then(function(r2){if(!r2.error)console.log('[CRM] migration:',miss.length);});
+    console.log('[CRM] synclandi:',sb.length);
+  });
+}
 
 // ── Kontragentlar bazasi (har yo'nalish uchun alohida) ─────────────────────
 // Struktura: { id, name, type:'client'|'supplier'|'other', direction, inn, phone, note, usedAt }
@@ -8731,7 +8812,25 @@ var EMPLOYEE_INVENTORY = (function(){
   var saved = lsLoad('emp_inventory');
   return saved || [];
 })();
-function empInvSave(){ lsSave('emp_inventory', EMPLOYEE_INVENTORY); }
+function empInvSave(){
+  lsSave('emp_inventory', EMPLOYEE_INVENTORY);
+  if(!SB||!EMPLOYEE_INVENTORY.length) return;
+  var rows=EMPLOYEE_INVENTORY.map(function(t){return{id:t.id,data:t,dir:t.dir||null};});
+  SB.from('app_emp_inventory').upsert(rows,{onConflict:'id'}).then(function(r){if(r.error)console.warn('[INV] SB:',r.error.message);});
+}
+function empInvSyncFromSB(){
+  if(!SB) return;
+  SB.from('app_emp_inventory').select('data').then(function(r){
+    if(r.error){console.warn('[INV] sync:',r.error.message);return;}
+    var sb=(r.data||[]).map(function(x){return x.data;}).filter(Boolean);
+    var sbIds=sb.map(function(x){return x.id;});
+    sb.forEach(function(s){var i=EMPLOYEE_INVENTORY.findIndex(function(x){return x.id===s.id;});if(i===-1)EMPLOYEE_INVENTORY.push(s);else{if((s.updated_at||'')>(EMPLOYEE_INVENTORY[i].updated_at||''))EMPLOYEE_INVENTORY[i]=s;}});
+    if(sb.length)lsSave('emp_inventory',EMPLOYEE_INVENTORY);
+    var miss=EMPLOYEE_INVENTORY.filter(function(x){return sbIds.indexOf(x.id)===-1;});
+    if(miss.length)SB.from('app_emp_inventory').upsert(miss.map(function(t){return{id:t.id,data:t,dir:t.dir||null};}),{onConflict:'id'}).then(function(r2){if(!r2.error)console.log('[INV] migration:',miss.length);});
+    console.log('[INV] synclandi:',sb.length);
+  });
+}
 function empInvNextId(){
   var maxNum = EMPLOYEE_INVENTORY.reduce(function(m,x){
     var n = parseInt((x.id||'').replace(/\D/g,''),10)||0; return Math.max(m,n);
@@ -8859,7 +8958,32 @@ window.empConfirmDismiss = function(empId){
   toast('Xodim ishdan bo\'shatildi. Inventarlar "qaytarilishi kerak" holatiga o\'tkazildi.','warn',5000);
 };
 
-function prSave(){lsSave('payroll',PAYROLL);}
+function prSave(){
+  lsSave('payroll',PAYROLL);
+  if(!SB||!CUR_USER) return;
+  var dir=CUR_USER.dir||'holding';
+  SB.from('app_payroll').upsert([{dir:dir,data:PAYROLL}],{onConflict:'dir'}).then(function(r){if(r.error)console.warn('[PAYROLL] SB:',r.error.message);});
+}
+function payrollSyncFromSB(){
+  if(!SB||!CUR_USER) return;
+  SB.from('app_payroll').select('dir,data').then(function(r){
+    if(r.error){console.warn('[PAYROLL] sync:',r.error.message);return;}
+    var rows=(r.data||[]);
+    if(!rows.length) return;
+    var myDir=CUR_USER.dir||'holding';
+    var row=rows.find(function(x){return x.dir===myDir;})||rows[0];
+    if(!row||!row.data) return;
+    var sbData=row.data;
+    if(Array.isArray(sbData)&&sbData.length>PAYROLL.length){
+      PAYROLL=sbData; lsSave('payroll',PAYROLL);
+    }
+    if(!Array.isArray(sbData)&&PAYROLL.length===0){
+      var merged=Object.keys(sbData).reduce(function(a,k){return a.concat(sbData[k]||[]);},[]);
+      if(merged.length){PAYROLL=merged;lsSave('payroll',PAYROLL);}
+    }
+    console.log('[PAYROLL] synclandi');
+  });
+}
 
 // ══════════════════════════════════════════════════════════════════
 // TASK MANAGEMENT MODULE
@@ -8908,6 +9032,17 @@ function hrmSyncFromSB(){
     }
   });
 }
+function syncAllFromSB(){
+  hrmSyncFromSB();
+  txnsSyncFromSB();
+  tasksSyncFromSB();
+  orgSyncFromSB();
+  crmSyncFromSB();
+  pipelineSyncFromSB();
+  payrollSyncFromSB();
+  kassaSyncFromSB();
+  empInvSyncFromSB();
+}
 function hrmNextTabel(){ var mx=HRM_EMP.reduce(function(m,e){ var n=parseInt((e.tabel||'').replace(/\D/g,''),10)||0; return Math.max(m,n); },0); return 'T-'+String(mx+1).padStart(4,'0'); }
 function hrmNextId(){ var mx=HRM_EMP.reduce(function(m,e){ var n=parseInt((e.id||'').replace(/\D/g,''),10)||0; return Math.max(m,n); },0); return 'EMP-'+String(mx+1).padStart(4,'0'); }
 
@@ -8921,6 +9056,42 @@ function orgSave(){
   lsSave('org_bolims',   ORG_BOLIMS);
   lsSave('org_teams',    ORG_TEAMS);
   lsSave('org_lavozims', ORG_LAVOZIMS);
+  if(!SB) return;
+  var rows=[];
+  ORG_DEPTS.forEach(function(x){rows.push({id:'dept_'+x.id,org_type:'dept',data:x,dir:x.dir||null});});
+  ORG_BOLIMS.forEach(function(x){rows.push({id:'bolim_'+x.id,org_type:'bolim',data:x,dir:x.dir||null});});
+  ORG_TEAMS.forEach(function(x){rows.push({id:'team_'+x.id,org_type:'team',data:x,dir:x.dir||null});});
+  ORG_LAVOZIMS.forEach(function(x){rows.push({id:'lavozim_'+x.id,org_type:'lavozim',data:x,dir:x.dir||null});});
+  if(rows.length)SB.from('app_org').upsert(rows,{onConflict:'id'}).then(function(r){if(r.error)console.warn('[ORG] SB:',r.error.message);});
+}
+function orgSyncFromSB(){
+  if(!SB) return;
+  SB.from('app_org').select('org_type,data').then(function(r){
+    if(r.error){console.warn('[ORG] sync:',r.error.message);return;}
+    var rows=(r.data||[]);
+    var sbDepts=rows.filter(function(x){return x.org_type==='dept';}).map(function(x){return x.data;}).filter(Boolean);
+    var sbBolims=rows.filter(function(x){return x.org_type==='bolim';}).map(function(x){return x.data;}).filter(Boolean);
+    var sbTeams=rows.filter(function(x){return x.org_type==='team';}).map(function(x){return x.data;}).filter(Boolean);
+    var sbLavozims=rows.filter(function(x){return x.org_type==='lavozim';}).map(function(x){return x.data;}).filter(Boolean);
+    function mergeArr(local, sb, lsSaveKey){
+      var sbIds=sb.map(function(x){return x.id;});
+      sb.forEach(function(s){var i=local.findIndex(function(x){return x.id===s.id;});if(i===-1)local.push(s);else{if((s.updated_at||'')>(local[i].updated_at||''))local[i]=s;}});
+      if(sb.length)lsSave(lsSaveKey,local);
+      var miss=local.filter(function(x){return sbIds.indexOf(x.id)===-1;});
+      return miss;
+    }
+    var mD=mergeArr(ORG_DEPTS,sbDepts,'org_depts');
+    var mB=mergeArr(ORG_BOLIMS,sbBolims,'org_bolims');
+    var mT=mergeArr(ORG_TEAMS,sbTeams,'org_teams');
+    var mL=mergeArr(ORG_LAVOZIMS,sbLavozims,'org_lavozims');
+    var missRows=[];
+    mD.forEach(function(x){missRows.push({id:'dept_'+x.id,org_type:'dept',data:x,dir:x.dir||null});});
+    mB.forEach(function(x){missRows.push({id:'bolim_'+x.id,org_type:'bolim',data:x,dir:x.dir||null});});
+    mT.forEach(function(x){missRows.push({id:'team_'+x.id,org_type:'team',data:x,dir:x.dir||null});});
+    mL.forEach(function(x){missRows.push({id:'lavozim_'+x.id,org_type:'lavozim',data:x,dir:x.dir||null});});
+    if(missRows.length)SB.from('app_org').upsert(missRows,{onConflict:'id'}).then(function(r2){if(!r2.error)console.log('[ORG] migration:',missRows.length);});
+    console.log('[ORG] synclandi:',rows.length);
+  });
 }
 function orgNextId(arr, prefix){
   var mx=arr.reduce(function(m,e){ var n=parseInt((e.id||'').replace(/\D/g,''),10)||0; return Math.max(m,n); },0);
@@ -8977,7 +9148,25 @@ function inputWithList(id, val, listId, fldStyle){
 function getOpenTaskCount(){
   return TASKS.filter(function(t){ return t.status && t.status!=='done' && t.status!=='bajarildi'; }).length;
 }
-function taskSave(){ lsSave('tasks', TASKS); }
+function taskSave(){
+  lsSave('tasks', TASKS);
+  if(!SB||!TASKS.length) return;
+  var rows=TASKS.map(function(t){return{id:t.id,data:t,dir:t.dir||null,status:t.status||null};});
+  SB.from('app_tasks').upsert(rows,{onConflict:'id'}).then(function(r){if(r.error)console.warn('[TASKS] SB:',r.error.message);});
+}
+function tasksSyncFromSB(){
+  if(!SB) return;
+  SB.from('app_tasks').select('data').then(function(r){
+    if(r.error){console.warn('[TASKS] sync:',r.error.message);return;}
+    var sb=(r.data||[]).map(function(x){return x.data;}).filter(Boolean);
+    var sbIds=sb.map(function(x){return x.id;});
+    sb.forEach(function(s){var i=TASKS.findIndex(function(x){return x.id===s.id;});if(i===-1)TASKS.push(s);else{if((s.updated_at||'')>(TASKS[i].updated_at||''))TASKS[i]=s;}});
+    if(sb.length)lsSave('tasks',TASKS);
+    var miss=TASKS.filter(function(x){return sbIds.indexOf(x.id)===-1;});
+    if(miss.length)SB.from('app_tasks').upsert(miss.map(function(t){return{id:t.id,data:t,dir:t.dir||null,status:t.status||null};}),{onConflict:'id'}).then(function(r2){if(!r2.error)console.log('[TASKS] migration:',miss.length);});
+    console.log('[TASKS] synclandi:',sb.length);
+  });
+}
 function taskNextId(){
   var max=TASKS.reduce(function(m,t){ var n=parseInt((t.id||'').replace(/\D/g,''),10)||0; return Math.max(m,n); },0);
   return 'TSK-'+String(max+1).padStart(4,'0');
