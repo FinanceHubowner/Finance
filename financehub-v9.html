@@ -8883,21 +8883,19 @@ function hrmSyncFromSB(){
   if(!SB) return;
   SB.from('hrm_employees').select('data').then(function(r){
     if(r.error){ console.warn('[HRM] sync error:', r.error.message); return; }
-    if(!r.data || !r.data.length) return;
-    var sbEmps = r.data.map(function(row){ return row.data; }).filter(Boolean);
+    var sbEmps = (r.data||[]).map(function(row){ return row.data; }).filter(Boolean);
     // Merge: SB ustun — local da bo'lmagan yoki eskirgan bo'lsa yangilash
     sbEmps.forEach(function(sbEmp){
       var idx = HRM_EMP.findIndex(function(e){ return e.id === sbEmp.id; });
       if(idx === -1){
         HRM_EMP.push(sbEmp);
       } else {
-        // updated_at yangi bo'lsa SB versiyasini olish
         var localUpd = HRM_EMP[idx].updated_at || '';
         var sbUpd    = sbEmp.updated_at || '';
         if(sbUpd > localUpd) HRM_EMP[idx] = sbEmp;
       }
     });
-    lsSave('hrm_emp', HRM_EMP);
+    if(sbEmps.length) lsSave('hrm_emp', HRM_EMP);
     console.log('[HRM] Supabase dan', sbEmps.length, 'xodim synclandi');
     // Lokalda bor lekin SB da yo'q xodimlarni push qil (migration)
     var sbIds = sbEmps.map(function(e){ return e.id; });
