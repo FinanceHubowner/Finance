@@ -709,6 +709,7 @@ function showDash(profile) {
       if(d === 'exchange' && EX_TXNS && EX_TXNS.length) exPushToSupabase();
       exSyncFromSupabase();
       initRequestsFromSB();
+      hrmSyncFromSB();
       renderL2(d);
 
 
@@ -756,6 +757,7 @@ function showDash(profile) {
       buildNav();
       exSyncFromSupabase();
       initRequestsFromSB();
+      hrmSyncFromSB();
       renderL1();
 
     }
@@ -8864,7 +8866,41 @@ function prSave(){lsSave('payroll',PAYROLL);}
 // ══════════════════════════════════════════════════════════════════
 var TASKS = (function(){ var s=lsLoad('tasks'); return s||[]; })();
 var HRM_EMP = (function(){ var s=lsLoad('hrm_emp'); return s||[]; })();
-function hrmSave(){ lsSave('hrm_emp', HRM_EMP); }
+
+function hrmSave(){
+  lsSave('hrm_emp', HRM_EMP);
+  // Supabase ga ham saqlash (async, background)
+  if(!SB) return;
+  var rows = HRM_EMP.map(function(e){
+    return { id: e.id, data: e, dir: e.dir||null, status: e.status||'Ishlayapti' };
+  });
+  if(rows.length) SB.from('hrm_employees').upsert(rows, {onConflict:'id'}).then(function(r){
+    if(r.error) console.warn('[HRM] Supabase save error:', r.error.message);
+  });
+}
+
+function hrmSyncFromSB(){
+  if(!SB) return;
+  SB.from('hrm_employees').select('data').then(function(r){
+    if(r.error){ console.warn('[HRM] sync error:', r.error.message); return; }
+    if(!r.data || !r.data.length) return;
+    var sbEmps = r.data.map(function(row){ return row.data; }).filter(Boolean);
+    // Merge: SB ustun — local da bo'lmagan yoki eskirgan bo'lsa yangilash
+    sbEmps.forEach(function(sbEmp){
+      var idx = HRM_EMP.findIndex(function(e){ return e.id === sbEmp.id; });
+      if(idx === -1){
+        HRM_EMP.push(sbEmp);
+      } else {
+        // updated_at yangi bo'lsa SB versiyasini olish
+        var localUpd = HRM_EMP[idx].updated_at || '';
+        var sbUpd    = sbEmp.updated_at || '';
+        if(sbUpd > localUpd) HRM_EMP[idx] = sbEmp;
+      }
+    });
+    lsSave('hrm_emp', HRM_EMP);
+    console.log('[HRM] Supabase dan', sbEmps.length, 'xodim synclandi');
+  });
+}
 function hrmNextTabel(){ var mx=HRM_EMP.reduce(function(m,e){ var n=parseInt((e.tabel||'').replace(/\D/g,''),10)||0; return Math.max(m,n); },0); return 'T-'+String(mx+1).padStart(4,'0'); }
 function hrmNextId(){ var mx=HRM_EMP.reduce(function(m,e){ var n=parseInt((e.id||'').replace(/\D/g,''),10)||0; return Math.max(m,n); },0); return 'EMP-'+String(mx+1).padStart(4,'0'); }
 
