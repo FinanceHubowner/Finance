@@ -14603,9 +14603,9 @@ window.saveNewTask = function(dirId, parentId, isSubtask){
 
   var assigneeSel = document.getElementById('_ti_assignee');
   var receiverSel = document.getElementById('_ti_receiver');
-  var assigneeId   = assigneeSel ? parseInt(assigneeSel.value)||0 : 0;
+  var assigneeId   = assigneeSel ? (assigneeSel.value||'') : '';
   var assigneeName = assigneeSel ? (assigneeSel.options[assigneeSel.selectedIndex]||{}).text||'' : '';
-  var receiverId   = receiverSel ? parseInt(receiverSel.value)||0 : 0;
+  var receiverId   = receiverSel ? (receiverSel.value||'') : '';
   var receiverName = receiverSel ? (receiverSel.options[receiverSel.selectedIndex]||{}).text||'' : '';
 
   if(!assigneeId){ toast("Mas'ul xodimni tanlang",'error'); return; }
