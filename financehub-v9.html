@@ -364,6 +364,34 @@ body[style*="--is-light: 1"] .topbar,
 
 #entryArea input::placeholder{color:var(--t3)}
 
+@media (max-width: 768px) {
+  .topbar { flex-wrap: wrap; gap: 4px; padding: 6px 8px; }
+  .logo { font-size: 12px; }
+  .nav { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
+  .navbtn { min-width: 70px; font-size: 10px; padding: 6px 8px; white-space: nowrap; }
+  .subnav { overflow-x: auto; flex-wrap: nowrap; padding: 4px 8px; }
+  .snbtn { font-size: 10px; padding: 4px 8px; white-space: nowrap; }
+  .page { padding: 8px 10px !important; }
+  .card { padding: 10px !important; margin-bottom: 8px !important; }
+  .kgrid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+  .kassgrid { grid-template-columns: repeat(2, 1fr) !important; }
+  .srow { flex-wrap: wrap; gap: 8px; }
+  table { font-size: 11px; }
+  th, td { padding: 4px 6px !important; }
+  .twrap { overflow-x: auto; }
+  .flow { grid-template-columns: 70px 1fr 14px 1fr 80px 60px; gap: 4px; font-size: 11px; }
+  .dgrid { grid-template-columns: 1fr !important; }
+  .cgrid { grid-template-columns: 1fr !important; }
+  .filter-bar { flex-wrap: wrap; gap: 6px; }
+  .dbtn { font-size: 11px; padding: 5px 10px; }
+  input[type="number"], input[type="text"], select, textarea { font-size: 16px !important; }
+}
+@media (max-width: 480px) {
+  .kgrid { grid-template-columns: 1fr !important; }
+  .kassgrid { grid-template-columns: 1fr !important; }
+  .navbtn { font-size: 9px; padding: 5px 6px; }
+}
+
 
 </style>
 
@@ -1122,7 +1150,7 @@ window.addEventListener("load", async function() {
 <script>
 
 
-console.log('%c[FinanceHub] Fayl versiyasi: EHSON-BUILD-003','background:#6C8EFF;color:#fff;padding:4px 8px;border-radius:4px;font-weight:bold');
+console.log('%c[FinanceHub] Fayl versiyasi: EHSON-BUILD-004','background:#6C8EFF;color:#fff;padding:4px 8px;border-radius:4px;font-weight:bold');
 window.onerror=function(msg,src,line,col,err){
   // Faqat kritik SyntaxError (fayl parse) larini ko'rsat; runtime xatolarni console ga yoz
   var isSyntax = msg && msg.indexOf('SyntaxError')>=0;
@@ -1616,9 +1644,67 @@ function txnsSyncFromSB(){
 
 
 var BUDGET_DATA=(function(){return lsLoad('budget')||[];})();
+var BP_PLANS=(function(){return lsLoad('bp_plans')||[];})();
+var BP_LINES=(function(){return lsLoad('bp_lines')||[];})();
 
+function bpSave(){
+  lsSave('bp_plans',BP_PLANS);
+  lsSave('bp_lines',BP_LINES);
+  if(!SB) return;
+  if(BP_PLANS.length){
+    var pRows=BP_PLANS.map(function(p){return {id:p.id,data:p,dir:p.dir||'holding'};});
+    SB.from('app_bp_plans').upsert(pRows,{onConflict:'id'}).then(function(r){if(r.error)console.warn('[BP] plans SB:',r.error.message);});
+  }
+  if(BP_LINES.length){
+    var lRows=BP_LINES.map(function(l){return {id:l.id,data:l,dir:l.dir||'holding',plan_id:l.plan_id||null};});
+    SB.from('app_bp_lines').upsert(lRows,{onConflict:'id'}).then(function(r){if(r.error)console.warn('[BP] lines SB:',r.error.message);});
+  }
+}
+function bpSyncFromSB(){
+  if(!SB) return;
+  SB.from('app_bp_plans').select('data').then(function(r){
+    if(r.error){console.warn('[BP] plans sync:',r.error.message);return;}
+    var sb=(r.data||[]).map(function(x){return x.data;}).filter(Boolean);
+    sb.forEach(function(s){var i=BP_PLANS.findIndex(function(x){return x.id===s.id;});if(i===-1)BP_PLANS.push(s);else{if((s.updated_at||'')>(BP_PLANS[i].updated_at||''))BP_PLANS[i]=s;}});
+    if(sb.length)lsSave('bp_plans',BP_PLANS);
+  });
+  SB.from('app_bp_lines').select('data').then(function(r){
+    if(r.error){console.warn('[BP] lines sync:',r.error.message);return;}
+    var sb=(r.data||[]).map(function(x){return x.data;}).filter(Boolean);
+    sb.forEach(function(s){var i=BP_LINES.findIndex(function(x){return x.id===s.id;});if(i===-1)BP_LINES.push(s);else{if((s.updated_at||'')>(BP_LINES[i].updated_at||''))BP_LINES[i]=s;}});
+    if(sb.length)lsSave('bp_lines',BP_LINES);
+    console.log('[BP] synclandi: plans='+BP_PLANS.length+' lines='+BP_LINES.length);
+  });
+}
 
-function budgetSave(){lsSave('budget',BUDGET_DATA);}
+function budgetSave(){
+  lsSave('budget',BUDGET_DATA);
+  if(!SB||!BUDGET_DATA.length) return;
+  var key='budget_'+((CUR_USER&&CUR_USER.dir)||'holding');
+  SB.from('app_budget').upsert({id:key,data:BUDGET_DATA,dir:(CUR_USER&&CUR_USER.dir)||'holding'},{onConflict:'id'}).then(function(r){if(r.error)console.warn('[BUDGET] SB:',r.error.message);});
+}
+function budgetSyncFromSB(){
+  if(!SB) return;
+  SB.from('app_budget').select('id,data,dir').then(function(r){
+    if(r.error){console.warn('[BUDGET] sync:',r.error.message);return;}
+    var rows=r.data||[];
+    rows.forEach(function(row){
+      var items=row.data||[];
+      items.forEach(function(b){
+        var idx=BUDGET_DATA.findIndex(function(x){return x.period===b.period&&x.direction===b.direction&&x.type===b.type;});
+        if(idx===-1)BUDGET_DATA.push(b);
+        else{if((b.updated||'')>(BUDGET_DATA[idx].updated||''))BUDGET_DATA[idx]=b;}
+      });
+    });
+    if(rows.length)lsSave('budget',BUDGET_DATA);
+    console.log('[BUDGET] synclandi:',rows.length);
+    var missing=BUDGET_DATA.filter(function(b){return b&&b.period;});
+    if(missing.length){
+      var key='budget_'+((CUR_USER&&CUR_USER.dir)||'holding');
+      SB.from('app_budget').upsert({id:key,data:missing,dir:(CUR_USER&&CUR_USER.dir)||'holding'},{onConflict:'id'}).then(function(){});
+    }
+  });
+}
 
 
 
@@ -5174,8 +5260,34 @@ var KONTRAGENTS = {logistics:[], cargo:[], exchange:[], procurement:[], holding:
     lsSave('kontragents_migrated', 1);
   }
 })();
-function kontragentsSave(dir){ lsSave('kontragents_'+dir, KONTRAGENTS[dir]||[]); }
+function kontragentsSave(dir){
+  lsSave('kontragents_'+dir, KONTRAGENTS[dir]||[]);
+  if(!SB) return;
+  var items=KONTRAGENTS[dir]||[];
+  if(!items.length) return;
+  SB.from('app_kontragents').upsert({id:'kontr_'+dir,data:items,dir:dir},{onConflict:'id'}).then(function(r){if(r.error)console.warn('[KONTR] SB:',r.error.message);});
+}
 function kontragentsSaveAll(){ Object.keys(KONTRAGENTS).forEach(kontragentsSave); }
+function kontragentsSyncFromSB(){
+  if(!SB) return;
+  SB.from('app_kontragents').select('id,data,dir').then(function(r){
+    if(r.error){console.warn('[KONTR] sync:',r.error.message);return;}
+    var rows=r.data||[];
+    rows.forEach(function(row){
+      var dir=row.dir;
+      if(!dir) return;
+      var items=row.data||[];
+      if(!KONTRAGENTS[dir]) KONTRAGENTS[dir]=[];
+      items.forEach(function(k){
+        var idx=KONTRAGENTS[dir].findIndex(function(x){return x.id===k.id;});
+        if(idx===-1)KONTRAGENTS[dir].push(k);
+        else KONTRAGENTS[dir][idx]=k;
+      });
+      lsSave('kontragents_'+dir,KONTRAGENTS[dir]);
+    });
+    console.log('[KONTR] synclandi:',rows.length,'yo\'nalish');
+  });
+}
 function kontragentsAdd(dir, name, type){
   if(!dir||!name) return;
   var arr = KONTRAGENTS[dir]||(KONTRAGENTS[dir]=[]);
@@ -8054,7 +8166,34 @@ var _DC_DEFAULT = { debitor:[], kreditor:[] };
 var DC_DATA=(function(){var saved=lsLoad('dc_data');return saved||_DC_DEFAULT;})();
 
 
-function dcSave(){lsSave('dc_data',DC_DATA);}
+function dcSave(){
+  lsSave('dc_data',DC_DATA);
+  if(!SB) return;
+  var key='dc_'+((CUR_USER&&CUR_USER.dir)||'holding');
+  SB.from('app_dc').upsert({id:key,data:DC_DATA,dir:(CUR_USER&&CUR_USER.dir)||'holding'},{onConflict:'id'}).then(function(r){if(r.error)console.warn('[DC] SB:',r.error.message);});
+}
+function dcSyncFromSB(){
+  if(!SB) return;
+  SB.from('app_dc').select('id,data,dir').then(function(r){
+    if(r.error){console.warn('[DC] sync:',r.error.message);return;}
+    var rows=r.data||[];
+    if(!rows.length) return;
+    rows.forEach(function(row){
+      if(!row.data) return;
+      ['debitor','kreditor'].forEach(function(t){
+        var items=row.data[t]||[];
+        items.forEach(function(item){
+          var arr=DC_DATA[t];
+          var idx=arr.findIndex(function(x){return x.id===item.id&&x.dir===item.dir;});
+          if(idx===-1)arr.push(item);
+          else{if((item.updated_at||'')>(arr[idx].updated_at||''))arr[idx]=item;}
+        });
+      });
+    });
+    lsSave('dc_data',DC_DATA);
+    console.log('[DC] synclandi:',rows.length);
+  });
+}
 
 
 
@@ -9042,7 +9181,181 @@ function syncAllFromSB(){
   payrollSyncFromSB();
   kassaSyncFromSB();
   empInvSyncFromSB();
+  budgetSyncFromSB();
+  dcSyncFromSB();
+  kontragentsSyncFromSB();
+  bpSyncFromSB();
 }
+// ── Business Plan (BP) Module ────────────────────────────────────────────
+var BP_MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+var BP_CATS=[
+  {id:'rev_cargo',    label:'Cargo daromad',        group:'revenue'},
+  {id:'rev_logistics',label:'Logistics daromad',    group:'revenue'},
+  {id:'rev_exchange', label:'Exchange daromad',      group:'revenue'},
+  {id:'rev_procurement',label:'Procurement daromad',group:'revenue'},
+  {id:'cogs',         label:'Tovarlar tannarxi',     group:'cogs'},
+  {id:'salary',       label:'Ish haqi',              group:'opex'},
+  {id:'rent',         label:'Ijara',                 group:'opex'},
+  {id:'fuel',         label:'Yoqilg\'i',             group:'opex'},
+  {id:'transport',    label:'Transport',             group:'opex'},
+  {id:'marketing',    label:'Marketing',             group:'opex'},
+  {id:'admin',        label:'Admin xarajatlar',      group:'opex'},
+  {id:'other_opex',   label:'Boshqa xarajatlar',     group:'opex'},
+  {id:'capex',        label:'CapEx',                 group:'capex'},
+];
+
+function bpGetPlanForYear(year, dir){
+  return BP_PLANS.find(function(p){return p.year===year&&(p.dir===dir||(!p.dir&&dir==='holding'));});
+}
+function bpGetLineVal(planId, catId, month){
+  var l=BP_LINES.find(function(x){return x.plan_id===planId&&x.cat_id===catId&&x.month===month;});
+  return l?l.amount:0;
+}
+function bpSetLineVal(planId, catId, month, amount){
+  var idx=BP_LINES.findIndex(function(x){return x.plan_id===planId&&x.cat_id===catId&&x.month===month;});
+  var now=new Date().toISOString();
+  if(idx===-1){
+    BP_LINES.push({id:'BPL-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),plan_id:planId,cat_id:catId,month:month,amount:amount,updated_at:now});
+  } else {
+    BP_LINES[idx].amount=amount;
+    BP_LINES[idx].updated_at=now;
+  }
+  bpSave();
+}
+function bpGetActualForCat(catId, year, dir){
+  var totals={};
+  for(var m=1;m<=12;m++) totals[m]=0;
+  var isRev=catId.startsWith('rev');
+  TXNS.forEach(function(t){
+    if(!t.date) return;
+    var y=t.date.slice(0,4);
+    if(y!==String(year)) return;
+    if(dir&&dir!=='holding'&&t.direction!==dir) return;
+    var m=parseInt(t.date.slice(5,7),10);
+    if(isRev&&t.type==='income') totals[m]+=(Math.abs(t.amount)||0);
+    else if(!isRev&&t.type==='expense') totals[m]+=(Math.abs(t.amount)||0);
+  });
+  return totals;
+}
+
+function renderBP(){
+  var yearEl=document.getElementById('bpYear');
+  var year=parseInt(yearEl?yearEl.value:new Date().getFullYear());
+  var dir=(CUR_USER&&CUR_USER.dir)||'holding';
+  var plan=bpGetPlanForYear(year,dir);
+  if(!plan){
+    plan={id:'BP-'+year+'-'+dir,year:year,dir:dir,name:year+' Yillik Reja',status:'draft',updated_at:new Date().toISOString()};
+    BP_PLANS.push(plan);
+    bpSave();
+  }
+  var planId=plan.id;
+
+  var groups={revenue:'Daromadlar',cogs:'Tovarlar tannarxi',opex:'Operatsion xarajatlar',capex:'Kapital xarajatlar'};
+  var html='<div style="overflow-x:auto">';
+  html+='<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">';
+  html+='<select id="bpYear" onchange="renderBP()" style="padding:6px 10px;border-radius:6px;border:1px solid var(--b2);background:var(--s3);color:var(--t1)">';
+  var curYear=new Date().getFullYear();
+  for(var y=curYear-1;y<=curYear+2;y++) html+='<option value="'+y+'"'+(y===year?' selected':'')+'>'+y+'</option>';
+  html+='</select>';
+  html+='<span style="font-size:13px;color:var(--t3)">Yo\'nalish: <b style="color:var(--t2)">'+dir+'</b></span>';
+  html+='<button onclick="bpExportExcel()" style="margin-left:auto;padding:6px 14px;border-radius:6px;background:var(--acc);color:#fff;border:none;cursor:pointer;font-size:12px">&#x1F4E5; Excel</button>';
+  html+='</div>';
+
+  html+='<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1200px">';
+  html+='<thead><tr style="background:var(--s2)">';
+  html+='<th style="text-align:left;padding:8px;position:sticky;left:0;background:var(--s2);min-width:160px">Kategoriya</th>';
+  html+='<th style="padding:8px;color:var(--t3)">Turi</th>';
+  BP_MONTHS.forEach(function(m){ html+='<th style="padding:6px 4px;min-width:80px">'+m+'</th>'; });
+  html+='<th style="padding:8px;font-weight:600">Jami</th>';
+  html+='</tr></thead><tbody>';
+
+  var groupTotals={};
+  Object.keys(groups).forEach(function(g){groupTotals[g]={plan:new Array(12).fill(0),actual:new Array(12).fill(0)};});
+
+  BP_CATS.forEach(function(cat){
+    var actual=bpGetActualForCat(cat.id,year,dir);
+    var planTotal=0, actualTotal=0;
+    html+='<tr style="border-bottom:1px solid var(--b1)">';
+    html+='<td style="padding:7px 8px;position:sticky;left:0;background:var(--s1);font-size:12px">'+cat.label+'</td>';
+    html+='<td style="padding:4px;font-size:11px;color:var(--t3);text-align:center"><span style="background:var(--s2);padding:2px 6px;border-radius:4px">Plan</span></td>';
+    for(var mi=1;mi<=12;mi++){
+      var pv=bpGetLineVal(planId,cat.id,mi);
+      planTotal+=pv;
+      groupTotals[cat.group].plan[mi-1]+=pv;
+      html+='<td style="padding:2px"><input type="number" value="'+(pv||'')+'" min="0" step="100" data-plan="'+planId+'" data-cat="'+cat.id+'" data-month="'+mi+'" onchange="bpCellChange(this)" style="width:72px;padding:3px 4px;border:1px solid var(--b2);border-radius:4px;background:var(--s3);color:var(--t1);font-size:11px;text-align:right"></td>';
+    }
+    html+='<td style="padding:6px 8px;font-weight:500;text-align:right">$'+fmtN(planTotal)+'</td>';
+    html+='</tr>';
+    html+='<tr style="border-bottom:2px solid var(--b1)">';
+    html+='<td style="padding:2px 8px;position:sticky;left:0;background:var(--s1)"></td>';
+    html+='<td style="padding:4px;font-size:11px;color:var(--t3);text-align:center"><span style="background:rgba(0,229,160,0.1);color:var(--grn);padding:2px 6px;border-radius:4px">Fact</span></td>';
+    for(var mi2=1;mi2<=12;mi2++){
+      var av=actual[mi2]||0;
+      actualTotal+=av;
+      groupTotals[cat.group].actual[mi2-1]+=av;
+      var pv2=bpGetLineVal(planId,cat.id,mi2);
+      var clr=pv2===0?'var(--t2)':(Math.abs((av-pv2)/pv2)<0.05?'var(--grn)':(Math.abs((av-pv2)/pv2)<0.2?'var(--amb)':'var(--red)'));
+      html+='<td style="padding:4px;text-align:right;font-size:11px"><span style="color:'+clr+'">$'+fmtN(av)+'</span></td>';
+    }
+    html+='<td style="padding:6px 8px;font-size:12px;text-align:right;color:var(--grn)">$'+fmtN(actualTotal)+'</td>';
+    html+='</tr>';
+  });
+
+  Object.keys(groups).forEach(function(g){
+    var gt=groupTotals[g];
+    var pSum=gt.plan.reduce(function(a,b){return a+b;},0);
+    var aSum=gt.actual.reduce(function(a,b){return a+b;},0);
+    html+='<tr style="background:var(--s2);font-weight:600;border-top:2px solid var(--b2)">';
+    html+='<td style="padding:8px;position:sticky;left:0;background:var(--s2)">'+groups[g]+' JAMI</td>';
+    html+='<td></td>';
+    for(var mi3=0;mi3<12;mi3++){
+      var pv3=gt.plan[mi3],av3=gt.actual[mi3];
+      var ok=pv3===0?'var(--t3)':(av3>=pv3?'var(--grn)':'var(--red)');
+      html+='<td style="padding:4px;text-align:right;font-size:11px"><div>$'+fmtN(pv3)+'</div><div style="color:'+ok+'">$'+fmtN(av3)+'</div></td>';
+    }
+    html+='<td style="padding:8px;text-align:right"><div>$'+fmtN(pSum)+'</div><div style="color:'+(aSum>=pSum?'var(--grn)':'var(--red)')+'">$'+fmtN(aSum)+'</div></td>';
+    html+='</tr>';
+  });
+
+  html+='</tbody></table></div>';
+  var cont=document.getElementById('bpContainer');
+  if(cont) cont.innerHTML=html;
+}
+
+function bpCellChange(input){
+  var planId=input.dataset.plan;
+  var catId=input.dataset.cat;
+  var month=parseInt(input.dataset.month);
+  var amount=parseFloat(input.value)||0;
+  bpSetLineVal(planId,catId,month,amount);
+}
+
+function bpExportExcel(){
+  var yearEl=document.getElementById('bpYear');
+  var year=parseInt(yearEl?yearEl.value:new Date().getFullYear());
+  var dir=(CUR_USER&&CUR_USER.dir)||'holding';
+  var plan=bpGetPlanForYear(year,dir);
+  if(!plan){toast('Reja topilmadi','error');return;}
+  var rows=[['Kategoriya','Tur','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jami']];
+  BP_CATS.forEach(function(cat){
+    var planRow=[cat.label,'Plan'];
+    var total=0;
+    for(var m=1;m<=12;m++){var v=bpGetLineVal(plan.id,cat.id,m);planRow.push(v);total+=v;}
+    planRow.push(total);
+    rows.push(planRow);
+    var actual=bpGetActualForCat(cat.id,year,dir);
+    var actRow=[cat.label,'Fact'];
+    var aTotal=0;
+    for(var m2=1;m2<=12;m2++){var av=actual[m2]||0;actRow.push(av);aTotal+=av;}
+    actRow.push(aTotal);
+    rows.push(actRow);
+  });
+  csvDownload(rows,'BusinessPlan_'+year+'_'+dir+'.csv');
+}
+
+function renderBudgetEntry(){renderBP();}
+// ── End BP Module ─────────────────────────────────────────────────────────
+
 function hrmNextTabel(){ var mx=HRM_EMP.reduce(function(m,e){ var n=parseInt((e.tabel||'').replace(/\D/g,''),10)||0; return Math.max(m,n); },0); return 'T-'+String(mx+1).padStart(4,'0'); }
 function hrmNextId(){ var mx=HRM_EMP.reduce(function(m,e){ var n=parseInt((e.id||'').replace(/\D/g,''),10)||0; return Math.max(m,n); },0); return 'EMP-'+String(mx+1).padStart(4,'0'); }
 
@@ -10207,8 +10520,8 @@ function renderPayroll(focusDir){
     var pos =(document.getElementById('_prN_pos')||{}).value||'Xodim';
     var base=parseFloat((document.getElementById('_prN_base')||{}).value)||0;
     var kpi =parseFloat((document.getElementById('_prN_kpi')||{}).value)||0;
-    if(!nm){ alert('To\'liq ism majburiy!'); return; }
-    if(!dept){ alert('Bo\'lim majburiy!'); return; }
+    if(!nm){ toast('To\'liq ism majburiy!','error'); return; }
+    if(!dept){ toast('Bo\'lim majburiy!','error'); return; }
     var maxId=PAYROLL.reduce(function(m,e){ return Math.max(m,+(e.id||0)); },0);
     PAYROLL.push({id:maxId+1,name:nm,dir:dir,dept:dept,pos:pos||'Xodim',base:base,kpi:kpi,sales:0,allow:0,tax_pct:12});
     prSave();
@@ -12722,19 +13035,19 @@ function orgSaveNew(type){
   var g = function(id){ var el=document.getElementById(id); return el?(el.value||'').trim():''; };
   if(type==='dept'){
     var name=g('orgN_name'), code=g('orgN_code'), dir=g('orgN_dir');
-    if(!name||!code||!dir){ alert("Majburiy maydonlarni to'ldiring"); return; }
+    if(!name||!code||!dir){ toast("Majburiy maydonlarni to'ldiring",'error'); return; }
     ORG_DEPTS.push({id:orgNextId(ORG_DEPTS,'DEPT'), name:name, code:code, dir_id:dir, head:g('orgN_head'), status:g('orgN_status')||'Faol', note:g('orgN_note')});
   } else if(type==='bolim'){
     var name=g('orgN_name'), code=g('orgN_code'), dir=g('orgN_dir'), turi=g('orgN_bolimturi');
-    if(!name||!code||!dir||!turi){ alert("Majburiy maydonlarni to'ldiring"); return; }
+    if(!name||!code||!dir||!turi){ toast("Majburiy maydonlarni to'ldiring",'error'); return; }
     ORG_BOLIMS.push({id:orgNextId(ORG_BOLIMS,'BOL'), name:name, code:code, dir_id:dir, dept_id:g('orgN_dept')||null, bolim_turi:turi, head:g('orgN_head'), status:g('orgN_status')||'Faol', note:g('orgN_note')});
   } else if(type==='team'){
     var name=g('orgN_name'), bolim=g('orgN_bolim');
-    if(!name||!bolim){ alert("Majburiy maydonlarni to'ldiring"); return; }
+    if(!name||!bolim){ toast("Majburiy maydonlarni to'ldiring",'error'); return; }
     ORG_TEAMS.push({id:orgNextId(ORG_TEAMS,'TEAM'), name:name, code:g('orgN_code'), bolim_id:bolim, head:g('orgN_head'), status:g('orgN_status')||'Faol', note:g('orgN_note')});
   } else if(type==='lavozim'){
     var name=g('orgN_name'), daraja=g('orgN_daraja'), bolim=g('orgN_bolim'), dir=g('orgN_dir');
-    if(!name||!daraja||!bolim||!dir){ alert("Majburiy maydonlarni to'ldiring (Yo'nalish, Lavozim nomi, Daraja, Bo'lim)"); return; }
+    if(!name||!daraja||!bolim||!dir){ toast("Majburiy maydonlarni to'ldiring (Yo'nalish, Lavozim nomi, Daraja, Bo'lim)",'error'); return; }
     ORG_LAVOZIMS.push({id:orgNextId(ORG_LAVOZIMS,'LAV'), name:name, daraja:daraja, dir_id:dir, bolim_id:bolim, team_id:g('orgN_team')||null, salary_min:g('orgN_salmin'), salary_max:g('orgN_salmax'), shtat_soni:parseInt(g('orgN_shtat'))||1, majburiyat:g('orgN_maj'), funksiya:g('orgN_funk'), talab:g('orgN_talab'), status:g('orgN_status')||'Faol'});
   }
   orgSave();
@@ -12822,19 +13135,19 @@ function orgSaveEdit(type, id){
   var item;
   if(type==='dept'){
     item = ORG_DEPTS.find(function(x){ return x.id===id; }); if(!item) return;
-    if(!g('orgE_name')||!g('orgE_code')){ alert("Majburiy maydonlarni to'ldiring"); return; }
+    if(!g('orgE_name')||!g('orgE_code')){ toast("Majburiy maydonlarni to'ldiring",'error'); return; }
     item.name=g('orgE_name'); item.code=g('orgE_code'); item.dir_id=g('orgE_dir'); item.head=g('orgE_head'); item.status=g('orgE_status')||'Faol'; item.note=g('orgE_note');
   } else if(type==='bolim'){
     item = ORG_BOLIMS.find(function(x){ return x.id===id; }); if(!item) return;
-    if(!g('orgE_name')||!g('orgE_code')||!g('orgE_turi')){ alert("Majburiy maydonlarni to'ldiring"); return; }
+    if(!g('orgE_name')||!g('orgE_code')||!g('orgE_turi')){ toast("Majburiy maydonlarni to'ldiring",'error'); return; }
     item.name=g('orgE_name'); item.code=g('orgE_code'); item.dir_id=g('orgE_dir'); item.dept_id=g('orgE_dept')||null; item.bolim_turi=g('orgE_turi'); item.head=g('orgE_head'); item.status=g('orgE_status')||'Faol'; item.note=g('orgE_note');
   } else if(type==='team'){
     item = ORG_TEAMS.find(function(x){ return x.id===id; }); if(!item) return;
-    if(!g('orgE_name')||!g('orgE_bolim')){ alert("Majburiy maydonlarni to'ldiring"); return; }
+    if(!g('orgE_name')||!g('orgE_bolim')){ toast("Majburiy maydonlarni to'ldiring",'error'); return; }
     item.name=g('orgE_name'); item.code=g('orgE_code'); item.bolim_id=g('orgE_bolim'); item.head=g('orgE_head'); item.status=g('orgE_status')||'Faol'; item.note=g('orgE_note');
   } else if(type==='lavozim'){
     item = ORG_LAVOZIMS.find(function(x){ return x.id===id; }); if(!item) return;
-    if(!g('orgE_name')||!g('orgE_daraja')||!g('orgE_bolim')||!g('orgE_dir')){ alert("Majburiy maydonlarni to'ldiring (Yo'nalish, Lavozim nomi, Daraja, Bo'lim)"); return; }
+    if(!g('orgE_name')||!g('orgE_daraja')||!g('orgE_bolim')||!g('orgE_dir')){ toast("Majburiy maydonlarni to'ldiring (Yo'nalish, Lavozim nomi, Daraja, Bo'lim)",'error'); return; }
     item.name=g('orgE_name'); item.daraja=g('orgE_daraja'); item.dir_id=g('orgE_dir'); item.bolim_id=g('orgE_bolim'); item.team_id=g('orgE_team')||null; item.salary_min=g('orgE_salmin'); item.salary_max=g('orgE_salmax'); item.shtat_soni=parseInt(g('orgE_shtat'))||1; item.majburiyat=g('orgE_maj'); item.funksiya=g('orgE_funk'); item.talab=g('orgE_talab'); item.status=g('orgE_status')||'Faol';
   }
   orgSave();
@@ -13432,13 +13745,13 @@ function hrmSaveForm(empId){
   var hdate   = (document.getElementById('hHireDate')||{}).value||'';
   var passport= (document.getElementById('hPassport')||{}).value||'';
 
-  if(!lname||!fname){ alert('Ism va Familiya majburiy!'); return; }
-  if(!phone){ alert('Telefon raqami majburiy!'); return; }
-  if(!dir){ alert('Yo\'nalishni tanlang!'); return; }
-  if(!dept){ alert('Bo\'lim nomi majburiy!'); return; }
-  if(!pos){ alert('Lavozim majburiy!'); return; }
-  if(!hdate){ alert('Ishga qabul sanasini kiriting!'); return; }
-  if(!passport){ alert('Pasport seriya va raqami majburiy!'); return; }
+  if(!lname||!fname){ toast('Ism va Familiya majburiy!','error'); return; }
+  if(!phone){ toast('Telefon raqami majburiy!','error'); return; }
+  if(!dir){ toast('Yo\'nalishni tanlang!','error'); return; }
+  if(!dept){ toast('Bo\'lim nomi majburiy!','error'); return; }
+  if(!pos){ toast('Lavozim majburiy!','error'); return; }
+  if(!hdate){ toast('Ishga qabul sanasini kiriting!','error'); return; }
+  if(!passport){ toast('Pasport seriya va raqami majburiy!','error'); return; }
 
   var isEdit = !!empId;
   var now = new Date().toISOString();
@@ -13525,7 +13838,7 @@ function hrmDismiss(empId){
 }
 
 function renderHRProfile(empId){
-  var emp = HRM_EMP.find(function(e){return e.id===empId;}); if(!emp){ alert('Xodim topilmadi!'); return; }
+  var emp = HRM_EMP.find(function(e){return e.id===empId;}); if(!emp){ toast('Xodim topilmadi!','error'); return; }
   var isAll = ACTV==='l1';
   var MC = document.getElementById(isAll?'pg-l1':'pg-l2'); if(!MC) return;
   MC.classList.add('on');
@@ -17798,6 +18111,9 @@ function renderPL(focusDir){
   headerH += tabBtn('budget','🎯 Budget vs Aktual');
 
 
+  headerH += tabBtn('bp','📋 Biznes Reja');
+
+
   headerH += '<div style="margin-left:auto;display:flex;align-items:center;gap:8px">';
 
 
@@ -18855,12 +19171,14 @@ function renderPL(focusDir){
 
 
   else if(PL_TAB==='budget')  body=budgetTabHTML();
+  else if(PL_TAB==='bp')      body='<div id="bpContainer" style="padding:4px"></div>';
 
 
 
 
 
   el.innerHTML = headerH + kpiStrip() + body;
+  if(PL_TAB==='bp'){ setTimeout(function(){ renderBP(); },10); }
 
 
 
