@@ -12595,6 +12595,21 @@ function orgCloseModal(){
   var m = document.getElementById('orgModal');
   if(m) m.style.display = 'none';
 }
+function orgFilterBolimsByDir(dirId, mode){
+  var pfx = mode==='edit' ? 'orgE' : 'orgN';
+  var bolimSel = document.getElementById(pfx+'_bolim');
+  var teamSel  = document.getElementById(pfx+'_team');
+  if(!bolimSel) return;
+  var bolims = dirId ? ORG_BOLIMS.filter(function(b){ return b.dir_id===dirId && b.status!=='Arxivlangan'; }) : [];
+  var bolimIds = bolims.map(function(b){ return b.id; });
+  var teams  = dirId ? ORG_TEAMS.filter(function(t){ return bolimIds.indexOf(t.bolim_id)!==-1 && t.status==='Faol'; }) : [];
+  bolimSel.innerHTML = '<option value="">'+(dirId?'— tanlang —':'— avval yo\'nalish tanlang —')+'</option>';
+  bolims.forEach(function(b){ bolimSel.innerHTML += '<option value="'+b.id+'">'+escHtml(b.name)+'</option>'; });
+  if(teamSel){
+    teamSel.innerHTML = '<option value="">— (ixtiyoriy) —</option>';
+    teams.forEach(function(t){ teamSel.innerHTML += '<option value="'+t.id+'">'+escHtml(t.name)+'</option>'; });
+  }
+}
 
 function orgOpenAdd(type){
   var dirs = DIRS||[];
@@ -12679,15 +12694,14 @@ function orgOpenAdd(type){
     h += '</div>';
   }
   else if(type==='lavozim'){
+    h += '<div '+row+'><label '+lbl+'>Biznes yo\'nalish *</label>'+dirSelect('orgN_dir', true).replace('>','onchange="orgFilterBolimsByDir(this.value,\'new\')" >')+'</div>';
     h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
     h += '<div><label '+lbl+'>Lavozim nomi *</label><input id="orgN_name" '+inp+' placeholder="Masalan: Logistika menejeri"></div>';
     h += '<div><label '+lbl+'>Daraja *</label><select id="orgN_daraja" '+inp+'><option value="">— tanlang —</option>';
     ORG_LAVOZIM_DARAJALARI.forEach(function(d){ h += '<option value="'+d+'">'+d+'</option>'; });
     h += '</select></div>';
-    h += '<div><label '+lbl+'>Bo\'lim *</label>'+bolimSelect('orgN_bolim')+'</div>';
-    h += '<div><label '+lbl+'>Team (ixtiyoriy)</label><select id="orgN_team" '+inp+'><option value="">— (ixtiyoriy) —</option>';
-    ORG_TEAMS.filter(function(t){ return t.status==='Faol'; }).forEach(function(t){ h += '<option value="'+t.id+'">'+escHtml(t.name)+'</option>'; });
-    h += '</select></div>';
+    h += '<div><label '+lbl+'>Bo\'lim *</label><select id="orgN_bolim" '+inp+'><option value="">— avval yo\'nalish tanlang —</option></select></div>';
+    h += '<div><label '+lbl+'>Team (ixtiyoriy)</label><select id="orgN_team" '+inp+'><option value="">— (ixtiyoriy) —</option></select></div>';
     h += '<div><label '+lbl+'>Min ish haqi ($)</label><input id="orgN_salmin" type="number" '+inp+' placeholder="0"></div>';
     h += '<div><label '+lbl+'>Max ish haqi ($)</label><input id="orgN_salmax" type="number" '+inp+' placeholder="0"></div>';
     h += '<div><label '+lbl+'>Shtat soni *</label><input id="orgN_shtat" type="number" min="1" value="1" '+inp+'></div>';
@@ -12719,9 +12733,9 @@ function orgSaveNew(type){
     if(!name||!bolim){ alert("Majburiy maydonlarni to'ldiring"); return; }
     ORG_TEAMS.push({id:orgNextId(ORG_TEAMS,'TEAM'), name:name, code:g('orgN_code'), bolim_id:bolim, head:g('orgN_head'), status:g('orgN_status')||'Faol', note:g('orgN_note')});
   } else if(type==='lavozim'){
-    var name=g('orgN_name'), daraja=g('orgN_daraja'), bolim=g('orgN_bolim');
-    if(!name||!daraja||!bolim){ alert("Majburiy maydonlarni to'ldiring"); return; }
-    ORG_LAVOZIMS.push({id:orgNextId(ORG_LAVOZIMS,'LAV'), name:name, daraja:daraja, bolim_id:bolim, team_id:g('orgN_team')||null, salary_min:g('orgN_salmin'), salary_max:g('orgN_salmax'), shtat_soni:parseInt(g('orgN_shtat'))||1, majburiyat:g('orgN_maj'), funksiya:g('orgN_funk'), talab:g('orgN_talab'), status:g('orgN_status')||'Faol'});
+    var name=g('orgN_name'), daraja=g('orgN_daraja'), bolim=g('orgN_bolim'), dir=g('orgN_dir');
+    if(!name||!daraja||!bolim||!dir){ alert("Majburiy maydonlarni to'ldiring (Yo'nalish, Lavozim nomi, Daraja, Bo'lim)"); return; }
+    ORG_LAVOZIMS.push({id:orgNextId(ORG_LAVOZIMS,'LAV'), name:name, daraja:daraja, dir_id:dir, bolim_id:bolim, team_id:g('orgN_team')||null, salary_min:g('orgN_salmin'), salary_max:g('orgN_salmax'), shtat_soni:parseInt(g('orgN_shtat'))||1, majburiyat:g('orgN_maj'), funksiya:g('orgN_funk'), talab:g('orgN_talab'), status:g('orgN_status')||'Faol'});
   }
   orgSave();
   orgCloseModal();
@@ -12778,11 +12792,14 @@ function orgOpenEdit(type, id){
     h += '<div '+row+'><label '+lbl+'>Status</label>'+sel('orgE_status', statusOpts, item.status||'Faol')+'</div>';
     h += '<div '+row+'><label '+lbl+'>Izoh</label><textarea id="orgE_note" rows="2" '+inp+'>'+escHtml(item.note||'')+'</textarea></div>';
   } else if(type==='lavozim'){
+    h += '<div '+row+'><label '+lbl+'>Biznes yo\'nalish *</label>'+sel('orgE_dir', [{v:'',l:'— tanlang —'}].concat(dirs.map(function(d){return{v:d.id,l:d.icon+' '+d.name};})), item.dir_id||'').replace('>','onchange="orgFilterBolimsByDir(this.value,\'edit\')" >')+'</div>';
     h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
     h += '<div><label '+lbl+'>Lavozim nomi *</label><input id="orgE_name" '+inp+' value="'+escHtml(item.name)+'"></div>';
     h += '<div><label '+lbl+'>Daraja *</label>'+sel('orgE_daraja', [{v:'',l:'— tanlang —'}].concat(ORG_LAVOZIM_DARAJALARI.map(function(d){return{v:d,l:d};})), item.daraja||'')+'</div>';
-    h += '<div><label '+lbl+">Bo'lim *</label>"+sel('orgE_bolim', [{v:'',l:'— tanlang —'}].concat(ORG_BOLIMS.filter(function(b){return b.status!=='Arxivlangan';}).map(function(b){return{v:b.id,l:b.name};})), item.bolim_id||'')+'</div>';
-    h += '<div><label '+lbl+'>Team</label>'+sel('orgE_team', [{v:'',l:'— (ixtiyoriy) —'}].concat(ORG_TEAMS.filter(function(t){return t.status==='Faol';}).map(function(t){return{v:t.id,l:t.name};})), item.team_id||'')+'</div>';
+    var filtBolims=item.dir_id?ORG_BOLIMS.filter(function(b){return b.dir_id===item.dir_id&&b.status!=='Arxivlangan';}):ORG_BOLIMS.filter(function(b){return b.status!=='Arxivlangan';});
+    var filtTeams=item.dir_id?ORG_TEAMS.filter(function(t){return t.dir_id===item.dir_id&&t.status==='Faol';}):ORG_TEAMS.filter(function(t){return t.status==='Faol';});
+    h += '<div><label '+lbl+">Bo'lim *</label>"+sel('orgE_bolim', [{v:'',l:'— tanlang —'}].concat(filtBolims.map(function(b){return{v:b.id,l:b.name};})), item.bolim_id||'')+'</div>';
+    h += '<div><label '+lbl+'>Team</label>'+sel('orgE_team', [{v:'',l:'— (ixtiyoriy) —'}].concat(filtTeams.map(function(t){return{v:t.id,l:t.name};})), item.team_id||'')+'</div>';
     h += '<div><label '+lbl+'>Min ish haqi ($)</label><input id="orgE_salmin" type="number" '+inp+' value="'+escHtml(item.salary_min||'')+'"></div>';
     h += '<div><label '+lbl+'>Max ish haqi ($)</label><input id="orgE_salmax" type="number" '+inp+' value="'+escHtml(item.salary_max||'')+'"></div>';
     h += '<div><label '+lbl+'>Shtat soni *</label><input id="orgE_shtat" type="number" min="1" '+inp+' value="'+(item.shtat_soni||1)+'"></div>';
@@ -12817,8 +12834,8 @@ function orgSaveEdit(type, id){
     item.name=g('orgE_name'); item.code=g('orgE_code'); item.bolim_id=g('orgE_bolim'); item.head=g('orgE_head'); item.status=g('orgE_status')||'Faol'; item.note=g('orgE_note');
   } else if(type==='lavozim'){
     item = ORG_LAVOZIMS.find(function(x){ return x.id===id; }); if(!item) return;
-    if(!g('orgE_name')||!g('orgE_daraja')||!g('orgE_bolim')){ alert("Majburiy maydonlarni to'ldiring"); return; }
-    item.name=g('orgE_name'); item.daraja=g('orgE_daraja'); item.bolim_id=g('orgE_bolim'); item.team_id=g('orgE_team')||null; item.salary_min=g('orgE_salmin'); item.salary_max=g('orgE_salmax'); item.shtat_soni=parseInt(g('orgE_shtat'))||1; item.majburiyat=g('orgE_maj'); item.funksiya=g('orgE_funk'); item.talab=g('orgE_talab'); item.status=g('orgE_status')||'Faol';
+    if(!g('orgE_name')||!g('orgE_daraja')||!g('orgE_bolim')||!g('orgE_dir')){ alert("Majburiy maydonlarni to'ldiring (Yo'nalish, Lavozim nomi, Daraja, Bo'lim)"); return; }
+    item.name=g('orgE_name'); item.daraja=g('orgE_daraja'); item.dir_id=g('orgE_dir'); item.bolim_id=g('orgE_bolim'); item.team_id=g('orgE_team')||null; item.salary_min=g('orgE_salmin'); item.salary_max=g('orgE_salmax'); item.shtat_soni=parseInt(g('orgE_shtat'))||1; item.majburiyat=g('orgE_maj'); item.funksiya=g('orgE_funk'); item.talab=g('orgE_talab'); item.status=g('orgE_status')||'Faol';
   }
   orgSave();
   orgCloseModal();
