@@ -4698,11 +4698,26 @@ function kassaSyncFromSB(){
     }
     if(!KASSA_DATA)KASSA_DATA={};
     rows.forEach(function(row){
-      // Yangroq ma'lumot bilan yangilash (merge)
+      // SB dan kelgan data bilan localnikini kalit bo'yicha birlashtirish
+      // Har bir kalit uchun: ikkalasida bor bo'lsa — balans kattarog'ini ol
       if(!KASSA_DATA[row.dir]){
         KASSA_DATA[row.dir]=row.data;
       } else {
-        Object.assign(KASSA_DATA[row.dir], row.data);
+        var sbData=row.data||{};
+        var localData=KASSA_DATA[row.dir];
+        Object.keys(sbData).forEach(function(key){
+          if(!localData[key]){
+            localData[key]=sbData[key];
+          } else {
+            // updated_at yo'q bo'lsa SB ustunlik qilmaydi — local saqlanadi
+            // Faqat SB da balance>0, localda 0 bo'lsa SB dan ol
+            var sbBal=sbData[key].balance||0;
+            var lcBal=localData[key].balance||0;
+            if(lcBal===0 && sbBal!==0){
+              localData[key]=sbData[key];
+            }
+          }
+        });
       }
     });
     lsSave('kassas2',KASSA_DATA);
