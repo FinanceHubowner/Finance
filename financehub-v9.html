@@ -4618,7 +4618,8 @@ function bankAccSyncFromSB(){
     // Kiritish formasidagi kassa dropdown ni yangilash
     var sel = document.getElementById('ef_kassa_type');
     if(sel){
-      var entDir = (CUR_USER&&CUR_USER.dir)||'holding';
+      // Formadagi aktiv yo'nalish tugmasidan entDir ni ol
+      var entDir = window._entCurDir || (CUR_USER&&CUR_USER.dir) || 'holding';
       var bankList = bankAccList(entDir);
       // Bank options ni yangilash
       var toRemove = [];
@@ -24707,7 +24708,7 @@ function renderEntry(focusDir){
 
 
   window.entSetDir=function(d){
-
+    window._entCurDir=d;
 
     entDir=d;
 
