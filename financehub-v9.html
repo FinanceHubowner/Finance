@@ -24018,6 +24018,10 @@ function renderEntry(focusDir){
           : '');
 
 
+      var canDelete = CUR_USER && (CUR_USER.role==='owner' || CUR_USER.role==='holding_fin');
+      var delBtn = canDelete
+        ? '<button onclick="txnDelete(\''+t.id+'\')" title="Transaksiyani o\'chirish (faqat admin)" style="background:rgba(255,77,106,0.15);border:1px solid rgba(255,77,106,0.4);color:var(--red);border-radius:4px;padding:2px 6px;font-size:10px;cursor:pointer;line-height:1">🗑</button>'
+        : '';
       return '<tr>'
 
 
@@ -24041,6 +24045,7 @@ function renderEntry(focusDir){
 
         +'<td style="color:'+stCol+';font-size:10px">'+t.status+'</td>'
 
+        +'<td>'+delBtn+'</td>'
 
         +'</tr>';
 
@@ -24048,7 +24053,8 @@ function renderEntry(focusDir){
     }).join('');
 
 
-    return '<table><thead><tr><th>Sana</th><th>Yo\'nalish</th><th>Kategoriya</th><th>Kontragent</th><th>Summa</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    var canDel = CUR_USER && (CUR_USER.role==='owner' || CUR_USER.role==='holding_fin');
+    return '<table><thead><tr><th>Sana</th><th>Yo\'nalish</th><th>Kategoriya</th><th>Kontragent</th><th>Summa</th><th>Status</th>'+(canDel?'<th></th>':'')+'</tr></thead><tbody>'+rows+'</tbody></table>';
 
 
   }
@@ -25237,6 +25243,65 @@ function renderEntry(focusDir){
 
 
 
+
+function txnDelete(txnId){
+  if(!CUR_USER||(CUR_USER.role!=='owner'&&CUR_USER.role!=='holding_fin')){
+    toast('Faqat admin o\'chira oladi!','error'); return;
+  }
+  var idx=TXNS.findIndex(function(t){return t.id===txnId;});
+  if(idx===-1){toast('Transaksiya topilmadi','error');return;}
+  var t=TXNS[idx];
+  if(!confirm('O\'chirish: '+t.date+' | '+(t.direction||'')+' | $'+fS(Math.abs(t.amount))+'\n\nDavom etasizmi?')) return;
+
+  // Kassa balansini teskari qaytarish
+  var kassaType=t.kassa_type||'Naqd';
+  var cur=t.currency||'USD';
+  var key=cur+'_'+kassaType;
+  var origAmt=Math.abs(t.amount_orig||t.amount||0);
+  ensureKassaData();
+  var dir=t.direction||'holding';
+  if(KASSA_DATA[dir]&&KASSA_DATA[dir][key]){
+    var cell=KASSA_DATA[dir][key];
+    cell.prev=cell.balance;
+    if(t.type==='income'){ cell.balance-=origAmt; cell.in=Math.max(0,(cell.in||0)-origAmt); }
+    else { cell.balance+=origAmt; cell.out=Math.max(0,(cell.out||0)-origAmt); }
+    kassaSave2();
+  }
+
+  // TXNS dan o'chirish
+  TXNS.splice(idx,1);
+  txnsSave();
+
+  // Supabase dan ham o'chirish
+  if(SB) SB.from('app_txns').delete().eq('id',txnId).then(function(r){
+    if(r.error) console.warn('[TXNS] delete SB:',r.error.message);
+  });
+
+  // Panelni yangilash
+  var tc=document.getElementById('txnCount');
+  if(tc) tc.textContent=TXNS.length;
+  var rt=document.getElementById('entRecentTxns');
+  if(rt){
+    var canDel2=CUR_USER&&(CUR_USER.role==='owner'||CUR_USER.role==='holding_fin');
+    var rows2=TXNS.slice(-15).reverse().map(function(tx){
+      var isInc2=tx.type==='income',isTr2=tx.type==='transfer';
+      var aCol2=isInc2?'var(--grn)':isTr2?'var(--tel)':'var(--red)';
+      var aSign2=isInc2?'+':isTr2?'↔':'-';
+      var dCol2={cargo:'var(--cargo)',logistics:'var(--log)',exchange:'var(--exc)',procurement:'var(--proc)',holding:'var(--hold)'}[tx.direction]||'var(--acc)';
+      var stCol2=tx.status==="To'langan"?'var(--grn)':tx.status==='Kutilmoqda'?'var(--amb)':'var(--t3)';
+      var del2=canDel2?'<button onclick="txnDelete(\''+tx.id+'\')" title="O\'chirish" style="background:rgba(255,77,106,0.15);border:1px solid rgba(255,77,106,0.4);color:var(--red);border-radius:4px;padding:2px 6px;font-size:10px;cursor:pointer">🗑</button>':'';
+      return '<tr><td style="font-family:var(--mono);font-size:10px;color:var(--t3)">'+tx.date+'</td>'
+        +'<td><span style="color:'+dCol2+';font-size:10px;font-family:var(--mono)">'+tx.direction.toUpperCase()+'</span><br><span style="color:var(--t3);font-size:10px">'+tx.dept+'</span></td>'
+        +'<td style="font-size:11px">'+tx.subcat+'</td>'
+        +'<td style="font-size:11px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+tx.counterparty+'</td>'
+        +'<td style="font-family:var(--mono);color:'+aCol2+';font-weight:600">'+aSign2+'$'+fS(tx.amount)+'</td>'
+        +'<td style="color:'+stCol2+';font-size:10px">'+tx.status+'</td>'
+        +'<td>'+del2+'</td></tr>';
+    }).join('');
+    rt.innerHTML='<table><thead><tr><th>Sana</th><th>Yo\'nalish</th><th>Kategoriya</th><th>Kontragent</th><th>Summa</th><th>Status</th>'+(canDel2?'<th></th>':'')+'</tr></thead><tbody>'+rows2+'</tbody></table>';
+  }
+  toast('Transaksiya o\'chirildi','success');
+}
 
 // ════════════════════════════════════════════
 
