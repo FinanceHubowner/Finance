@@ -9284,7 +9284,7 @@ function renderBP(){
       groupTotals[cat.group].plan[mi-1]+=pv;
       html+='<td style="padding:2px"><input type="number" value="'+(pv||'')+'" min="0" step="100" data-plan="'+planId+'" data-cat="'+cat.id+'" data-month="'+mi+'" onchange="bpCellChange(this)" style="width:72px;padding:3px 4px;border:1px solid var(--b2);border-radius:4px;background:var(--s3);color:var(--t1);font-size:11px;text-align:right"></td>';
     }
-    html+='<td style="padding:6px 8px;font-weight:500;text-align:right">$'+fmtN(planTotal)+'</td>';
+    html+='<td style="padding:6px 8px;font-weight:500;text-align:right">$'+fS(planTotal)+'</td>';
     html+='</tr>';
     html+='<tr style="border-bottom:2px solid var(--b1)">';
     html+='<td style="padding:2px 8px;position:sticky;left:0;background:var(--s1)"></td>';
@@ -9295,9 +9295,9 @@ function renderBP(){
       groupTotals[cat.group].actual[mi2-1]+=av;
       var pv2=bpGetLineVal(planId,cat.id,mi2);
       var clr=pv2===0?'var(--t2)':(Math.abs((av-pv2)/pv2)<0.05?'var(--grn)':(Math.abs((av-pv2)/pv2)<0.2?'var(--amb)':'var(--red)'));
-      html+='<td style="padding:4px;text-align:right;font-size:11px"><span style="color:'+clr+'">$'+fmtN(av)+'</span></td>';
+      html+='<td style="padding:4px;text-align:right;font-size:11px"><span style="color:'+clr+'">$'+fS(av)+'</span></td>';
     }
-    html+='<td style="padding:6px 8px;font-size:12px;text-align:right;color:var(--grn)">$'+fmtN(actualTotal)+'</td>';
+    html+='<td style="padding:6px 8px;font-size:12px;text-align:right;color:var(--grn)">$'+fS(actualTotal)+'</td>';
     html+='</tr>';
   });
 
@@ -9311,9 +9311,9 @@ function renderBP(){
     for(var mi3=0;mi3<12;mi3++){
       var pv3=gt.plan[mi3],av3=gt.actual[mi3];
       var ok=pv3===0?'var(--t3)':(av3>=pv3?'var(--grn)':'var(--red)');
-      html+='<td style="padding:4px;text-align:right;font-size:11px"><div>$'+fmtN(pv3)+'</div><div style="color:'+ok+'">$'+fmtN(av3)+'</div></td>';
+      html+='<td style="padding:4px;text-align:right;font-size:11px"><div>$'+fS(pv3)+'</div><div style="color:'+ok+'">$'+fS(av3)+'</div></td>';
     }
-    html+='<td style="padding:8px;text-align:right"><div>$'+fmtN(pSum)+'</div><div style="color:'+(aSum>=pSum?'var(--grn)':'var(--red)')+'">$'+fmtN(aSum)+'</div></td>';
+    html+='<td style="padding:8px;text-align:right"><div>$'+fS(pSum)+'</div><div style="color:'+(aSum>=pSum?'var(--grn)':'var(--red)')+'">$'+fS(aSum)+'</div></td>';
     html+='</tr>';
   });
 
