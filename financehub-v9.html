@@ -4676,6 +4676,8 @@ var KASSA_DATA = (function(){
 
 function kassaSave2(){
   lsSave('kassas2', KASSA_DATA);
+  // DATA.kassas ni ham yangilash
+  if(DATA&&DATA.kassas) DIRS.forEach(function(d){ DATA.kassas[d.id]=KASSA_DATA[d.id]||{}; });
   if(!SB||!KASSA_DATA) return;
   var dirs=Object.keys(KASSA_DATA);
   if(!dirs.length) return;
@@ -4696,9 +4698,16 @@ function kassaSyncFromSB(){
     }
     if(!KASSA_DATA)KASSA_DATA={};
     rows.forEach(function(row){
-      if(!KASSA_DATA[row.dir]) KASSA_DATA[row.dir]=row.data;
+      // Yangroq ma'lumot bilan yangilash (merge)
+      if(!KASSA_DATA[row.dir]){
+        KASSA_DATA[row.dir]=row.data;
+      } else {
+        Object.assign(KASSA_DATA[row.dir], row.data);
+      }
     });
     lsSave('kassas2',KASSA_DATA);
+    // DATA.kassas ni ham yangilash
+    if(DATA&&DATA.kassas) DIRS.forEach(function(d){ DATA.kassas[d.id]=KASSA_DATA[d.id]||{}; });
     console.log('[KASSA] synclandi:',rows.length);
   });
 }
