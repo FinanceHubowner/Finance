@@ -9185,6 +9185,30 @@ function syncAllFromSB(){
   dcSyncFromSB();
   kontragentsSyncFromSB();
   bpSyncFromSB();
+  aiKeySyncFromSB();
+}
+
+// ── AI Key — Supabase orqali barcha userlarga tarqatish ──────────────────
+function aiKeySyncFromSB(){
+  if(!SB) return;
+  SB.from('app_settings').select('value').eq('key','ai_key').then(function(r){
+    if(r.error||!r.data||!r.data.length) return;
+    var key=(r.data[0].value||'').trim();
+    if(key){
+      window.AI_KEY=key;
+      localStorage.setItem('fh_ai_key',key);
+      var setup=document.getElementById('aiKeySetup');
+      if(setup) setup.style.display='none';
+      console.log('[AI] API key Supabase dan yuklandi');
+    }
+  });
+}
+function aiKeySaveToSB(key){
+  if(!SB) return;
+  SB.from('app_settings').upsert({key:'ai_key',value:key},{onConflict:'key'}).then(function(r){
+    if(r.error) console.warn('[AI] key SB saqlash xato:',r.error.message);
+    else console.log('[AI] API key Supabase ga saqlandi — barcha userlarga tarqaladi');
+  });
 }
 // ── Business Plan (BP) Module ────────────────────────────────────────────
 var BP_MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -27403,7 +27427,15 @@ O'CHIRISH: Faqat holding_fin yoki owner o'chira oladi. Kiritish tabida transaksi
   window.aiCheckKey = function(){
     var setup=document.getElementById('aiKeySetup');
     if(!setup) return;
-    setup.style.display = window.AI_KEY ? 'none' : 'block';
+    var isAdmin=window.CUR_USER&&(CUR_USER.role==='owner'||CUR_USER.role==='holding_fin');
+    if(window.AI_KEY){
+      setup.style.display='none';
+    } else if(isAdmin){
+      setup.style.display='block';
+    } else {
+      setup.innerHTML='<div style="font-size:12px;color:var(--amb);padding:4px 0">⏳ AI sozlanmagan. Admin (Controller) bilan bog\'laning.</div>';
+      setup.style.display='block';
+    }
   };
 
   window.aiKeySave = function(){
@@ -27411,8 +27443,9 @@ O'CHIRISH: Faqat holding_fin yoki owner o'chira oladi. Kiritish tabida transaksi
     if(!inp||!inp.value.trim()){toast('API key kiriting','error');return;}
     window.AI_KEY = inp.value.trim();
     localStorage.setItem('fh_ai_key', window.AI_KEY);
+    if(typeof aiKeySaveToSB==='function') aiKeySaveToSB(window.AI_KEY);
     document.getElementById('aiKeySetup').style.display='none';
-    toast('AI API key saqlandi ✓','success');
+    toast('AI API key saqlandi — barcha foydalanuvchilarga tarqaladi ✓','success');
   };
 
   window.aiAddMsg = function(text, role){
