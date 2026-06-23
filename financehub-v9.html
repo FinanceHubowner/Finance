@@ -27258,6 +27258,232 @@ function logDeleteShipment(id){
 
 </script>
 
+<!-- ── AI Yordamchi Widget ─────────────────────────────────────────── -->
+<div id="aiChatWidget" style="position:fixed;bottom:20px;right:20px;z-index:9500;display:flex;flex-direction:column;align-items:flex-end;gap:10px;font-family:var(--sans)">
+
+  <!-- Chat panel -->
+  <div id="aiChatPanel" style="display:none;width:360px;background:var(--s1);border:1px solid var(--b2);border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.4)">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#6C8EFF22,#A78BFF22);border-bottom:1px solid var(--b2);padding:14px 16px;display:flex;align-items:center;gap:10px">
+      <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#6C8EFF,#A78BFF);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">🤖</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600;color:var(--t1)">FinanceHub AI Yordamchi</div>
+        <div style="font-size:10px;color:var(--grn)">● Faol — savollaringizga javob beraman</div>
+      </div>
+      <button onclick="aiChatClose()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px;padding:2px 6px;border-radius:6px" title="Yopish">×</button>
+    </div>
+
+    <!-- API key setup (agar key yo'q bo'lsa) -->
+    <div id="aiKeySetup" style="display:none;padding:16px;border-bottom:1px solid var(--b1)">
+      <div style="font-size:12px;color:var(--amb);margin-bottom:8px">⚠️ AI ishlashi uchun Anthropic API key kerak:</div>
+      <div style="display:flex;gap:6px">
+        <input id="aiKeyInput" type="password" placeholder="sk-ant-..." style="flex:1;padding:7px 10px;border-radius:7px;border:1px solid var(--b2);background:var(--s2);color:var(--t1);font-size:12px">
+        <button onclick="aiKeySave()" style="padding:7px 12px;border-radius:7px;background:var(--acc);color:#fff;border:none;cursor:pointer;font-size:12px;white-space:nowrap">Saqlash</button>
+      </div>
+      <div style="font-size:10px;color:var(--t3);margin-top:6px">Key faqat sizning brauzeringizda saqlanadi. console.anthropic.com dan oling.</div>
+    </div>
+
+    <!-- Messages -->
+    <div id="aiMessages" style="height:320px;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px">
+      <div class="ai-msg ai" style="background:var(--s2);border-radius:10px 10px 10px 2px;padding:10px 12px;font-size:12px;color:var(--t2);max-width:90%;line-height:1.6">
+        Salom! Men FinanceHub yordamchisiman. Dasturdan foydalanishda qiyinchilik bo'lsa yoki biror narsani tushunmasangiz — so'rang! 😊<br><br>
+        <span style="color:var(--t3);font-size:11px">Masalan: "P&L qanday o'qiladi?", "Tranzaksiya qanday kiritilar?", "Kassa va Kiritish farqi nima?"</span>
+      </div>
+    </div>
+
+    <!-- Input -->
+    <div style="padding:10px 12px;border-top:1px solid var(--b1);display:flex;gap:8px;align-items:flex-end">
+      <textarea id="aiInput" placeholder="Savolingizni yozing..." rows="2" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();aiSend();}" style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--t1);font-size:12px;resize:none;font-family:var(--sans);line-height:1.5"></textarea>
+      <button onclick="aiSend()" id="aiSendBtn" style="padding:8px 14px;border-radius:8px;background:var(--acc);color:#fff;border:none;cursor:pointer;font-size:13px;flex-shrink:0;align-self:flex-end">➤</button>
+    </div>
+  </div>
+
+  <!-- Floating button -->
+  <button onclick="aiChatToggle()" id="aiFloatBtn" style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#6C8EFF,#A78BFF);border:none;cursor:pointer;font-size:22px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(108,142,255,0.5);transition:transform .2s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">🤖</button>
+</div>
+
+<style>
+.ai-msg.user{background:rgba(108,142,255,0.18);border-radius:10px 10px 2px 10px;padding:10px 12px;font-size:12px;color:var(--t1);align-self:flex-end;max-width:90%;line-height:1.6}
+.ai-msg.ai{background:var(--s2);border-radius:10px 10px 10px 2px;padding:10px 12px;font-size:12px;color:var(--t2);max-width:92%;line-height:1.6}
+.ai-msg.typing{color:var(--t3);font-style:italic}
+#aiMessages::-webkit-scrollbar{width:4px}
+#aiMessages::-webkit-scrollbar-thumb{background:var(--b2);border-radius:4px}
+</style>
+
+<script>
+(function(){
+  var AI_SYSTEM = `Siz FinanceHub — korporativ moliyaviy boshqaruv tizimi uchun yordamchi assistantsiz.
+
+MUHIM QOIDALAR:
+1. FAQAT FinanceHub dan foydalanish bo'yicha yordam bering
+2. Texnik (dasturlash, kod yozish) savollarga: "Bu savol mening doiramdan tashqarida" deying
+3. Moliyaviy maslahat (investitsiya, kredit) bermang
+4. Qisqa, amaliy, o'zbek tilida javob bering
+
+TIZIM HAQIDA:
+FinanceHub — 5 yo'nalishni (Cargo, Logistics, Exchange, Procurement, Holding) birlashtirgan moliyaviy tizim. GitHub Pages da ishlaydi, Supabase da ma'lumotlar saqlanadi.
+
+ROLLAR:
+- owner: hamma narsani ko'radi
+- holding_head: konsolidatsiya, so'rovlar tasdiqlash
+- holding_fin: P&L, CF, Balans, barcha yo'nalishlar (Controller)
+- dir_head: o'z yo'nalishi barcha tablari
+- dir_finance: moliyaviy tablari
+- staff: faqat Payroll va o'z vazifalari
+
+MODULLAR:
+📊 Dashboard — KPI kartochkalar, grafik, yo'nalish bo'yicha daromad/xarajat/foyda. Filtr: Bugun/Hafta/Oy/Kvartal/Hammasi/Belgilash.
+
+📈 P&L (Foyda va Zarar) — Daromad→Gross Profit→EBITDA→Net Income. Subnavlar: Umumiy P&L, Davr P&L, Oylik Trend, Budget vs Aktual, Biznes Reja.
+
+💵 Cash Flow — Pul oqimi: Operating/Investing/Financing. IAS 7 standartiga mos.
+
+⚖️ Balans Sheet — Aktivlar (joriy+uzoq muddatli), Passivlar (kreditorlar+qarzlar), Kapital.
+
+💳 Kassa — Har yo'nalish uchun 9 kassa (USD/RMB/UZS × Naqd/Karta/Bank). Balans, kirdi-chiqdi, tranzaksiyalar.
+
+📦 Inventar — Xodimlar inventari (transport, kompyuter va h.k.)
+
+📋 Debitor/Kreditor — AR/AP qarzlar, muddatlilik tahlili.
+
+👥 Mijozlar (CRM) — Kontragentlar bazasi.
+
+📊 Pipeline — Sotuv bosqichlari: Lead→Pricing→Contracting→Acceptance→Shipment→Delivery→Final Acceptance→Rescue.
+
+💼 Payroll — Xodimlar ish haqi, KPI bonus, bank rekvizitlari.
+
+👔 Xodimlar (HRM) — Profil, lavozim, bo'lim, yo'nalish, tabel raqami.
+
+✅ Vazifalar — Kanban (Yangi/Jarayonda/Tekshiruvda/Bajarildi), Kalendar, Tahlil.
+
+📝 So'rovlar — 5 bosqichli tasdiqlash zanjiri: bo'lim rahbari→yo'nalish moliyachisi→yo'nalish rahbari→holding moliyachisi→holding rahbari.
+
+📊 Actual vs Fact (CFP) — Tasdiqlangan so'rovlar (Byudjet) vs haqiqiy tranzaksiyalar taqqoslash.
+
+✏️ Kiritish — Ma'lumot kiritish formasi. To'lov sanasi, hisoblanish davri, summa, valyuta, kassa turi, kategoriya (COA), kontragent, maqsad.
+
+📋 Biznes Reja — Yillik reja kiritish, oylik breakdown, Plan vs Fact.
+
+TASHKILIY TUZILMA:
+Yo'nalish → Bo'lim → Team → Lavozim ierarxiyasi. Org modulida boshqariladi.
+
+EXCEL EKSPORT: Har bir modulda 📥 Excel tugmasi mavjud.
+
+DEMO REJIM: "Demo" tugmasi — real ma'lumotlarsiz sinab ko'rish.
+
+FILTR TIZIMI: Bugun/Hafta/Oy/Kvartal/Hammasi — barcha hisobotlarga ta'sir qiladi. "Belgilash" — o'zboshimcha sana.
+
+TRANZAKSIYA KIRITISH:
+1. Kiritish tabi → yo'nalish va bo'lim tanlash
+2. Kategoriya: Daromad/COGS/OpEx/CapEx/Transfer va h.k.
+3. To'lov sanasi (kassadan o'tgan kun) vs Hisoblanish davri (P&L qaysi oyga)
+4. Summa + valyuta + kassa turi (Naqd/Karta/Bank)
+5. COA kodi (Статья) tanlash
+6. Kontragent va maqsad
+7. Saqlash tugmasi
+
+O'CHIRISH: Faqat holding_fin yoki owner o'chira oladi. Kiritish tabida transaksiyaga bosib, modal ichida "O'chirish" tugmasi.`;
+
+  window.AI_KEY = localStorage.getItem('fh_ai_key')||'';
+  window.AI_HISTORY = [];
+
+  window.aiChatToggle = function(){
+    var p=document.getElementById('aiChatPanel');
+    if(!p) return;
+    if(p.style.display==='none'||!p.style.display){
+      p.style.display='block';
+      aiCheckKey();
+      setTimeout(function(){var inp=document.getElementById('aiInput');if(inp)inp.focus();},100);
+    } else {
+      p.style.display='none';
+    }
+  };
+  window.aiChatClose = function(){ var p=document.getElementById('aiChatPanel'); if(p) p.style.display='none'; };
+
+  window.aiCheckKey = function(){
+    var setup=document.getElementById('aiKeySetup');
+    if(!setup) return;
+    setup.style.display = window.AI_KEY ? 'none' : 'block';
+  };
+
+  window.aiKeySave = function(){
+    var inp=document.getElementById('aiKeyInput');
+    if(!inp||!inp.value.trim()){toast('API key kiriting','error');return;}
+    window.AI_KEY = inp.value.trim();
+    localStorage.setItem('fh_ai_key', window.AI_KEY);
+    document.getElementById('aiKeySetup').style.display='none';
+    toast('AI API key saqlandi ✓','success');
+  };
+
+  window.aiAddMsg = function(text, role){
+    var box=document.getElementById('aiMessages');
+    if(!box) return;
+    var div=document.createElement('div');
+    div.className='ai-msg '+(role==='user'?'user':'ai');
+    div.innerHTML=text.replace(/\n/g,'<br>');
+    box.appendChild(div);
+    box.scrollTop=box.scrollHeight;
+    return div;
+  };
+
+  window.aiSend = async function(){
+    if(!window.AI_KEY){ toast('Avval API key kiriting','error'); aiCheckKey(); return; }
+    var inp=document.getElementById('aiInput');
+    var btn=document.getElementById('aiSendBtn');
+    if(!inp||!btn) return;
+    var text=(inp.value||'').trim();
+    if(!text) return;
+    inp.value='';
+    aiAddMsg(text,'user');
+    window.AI_HISTORY.push({role:'user',content:text});
+
+    // Kontekst: joriy foydalanuvchi va tab
+    var ctx='';
+    if(window.CUR_USER) ctx+='[Foydalanuvchi: '+(CUR_USER.full_name||CUR_USER.email)+', rol: '+CUR_USER.role+(CUR_USER.dir?', yo\'nalish: '+CUR_USER.dir:'')+']';
+
+    btn.disabled=true; btn.textContent='...';
+    var typing=aiAddMsg('⏳ Javob tayyorlanmoqda...','ai');
+    if(typing) typing.className='ai-msg ai typing';
+
+    try{
+      var messages = window.AI_HISTORY.slice(-10).map(function(m){return{role:m.role,content:m.content};});
+      var resp = await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'x-api-key': window.AI_KEY,
+          'anthropic-version':'2023-06-01',
+          'anthropic-dangerous-direct-browser-access':'true'
+        },
+        body: JSON.stringify({
+          model:'claude-haiku-4-5-20251001',
+          max_tokens:600,
+          system: AI_SYSTEM + (ctx?'\n\nJoriy kontekst: '+ctx:''),
+          messages: messages
+        })
+      });
+      var data=await resp.json();
+      if(data.error){ throw new Error(data.error.message); }
+      var answer=(data.content&&data.content[0]&&data.content[0].text)||'Javob olishda xato';
+      window.AI_HISTORY.push({role:'assistant',content:answer});
+      if(typing) typing.remove();
+      aiAddMsg(answer,'ai');
+    } catch(e){
+      if(typing) typing.remove();
+      var errMsg = e.message||'Xato';
+      if(errMsg.includes('401')||errMsg.includes('auth')||errMsg.toLowerCase().includes('api key')||errMsg.toLowerCase().includes('invalid')){
+        window.AI_KEY=''; localStorage.removeItem('fh_ai_key');
+        aiAddMsg('❌ API key noto\'g\'ri. Qaytadan kiriting.','ai');
+        aiCheckKey();
+      } else {
+        aiAddMsg('❌ Xato: '+errMsg,'ai');
+      }
+    }
+    btn.disabled=false; btn.textContent='➤';
+  };
+})();
+</script>
+
 <!-- Floating Qo'llanma button -->
 <button onclick="openGuide()" style="position:fixed;bottom:20px;left:20px;z-index:8000;background:#1e3a8a;color:#fff;border-radius:12px;padding:10px 16px;font-size:12px;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;gap:7px;box-shadow:0 4px 16px rgba(30,58,138,0.45);font-family:var(--sans)">
   📖 Qo'llanma
