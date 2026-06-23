@@ -9350,7 +9350,9 @@ function bpExportExcel(){
     actRow.push(aTotal);
     rows.push(actRow);
   });
-  csvDownload(rows,'BusinessPlan_'+year+'_'+dir+'.csv');
+  var csv=rows.map(function(r){return r.map(function(c){return '"'+String(c||'').replace(/"/g,'""')+'"';}).join(',');}).join('\n');
+  var blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='BusinessPlan_'+year+'_'+dir+'.csv';a.click();
 }
 
 function renderBudgetEntry(){renderBP();}
