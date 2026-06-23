@@ -4615,6 +4615,31 @@ function bankAccSyncFromSB(){
     if(r.error){ console.warn('[BANK_ACC] sync:', r.error.message); return; }
     (r.data||[]).forEach(function(row){ BANK_ACCOUNTS[row.dir] = row.data; });
     lsSave('bank_accounts', BANK_ACCOUNTS);
+    // Kiritish formasidagi kassa dropdown ni yangilash
+    var sel = document.getElementById('ef_kassa_type');
+    if(sel){
+      var entDir = (CUR_USER&&CUR_USER.dir)||'holding';
+      var bankList = bankAccList(entDir);
+      // Bank options ni yangilash
+      var toRemove = [];
+      for(var i=0;i<sel.options.length;i++){
+        var v=sel.options[i].value;
+        if(v==='Bank'||v.startsWith('Bank_')) toRemove.push(i);
+      }
+      toRemove.reverse().forEach(function(i){ sel.remove(i); });
+      if(!bankList.length){
+        var opt=document.createElement('option');
+        opt.value='Bank'; opt.text='🏛️ Bank o\'tkazma';
+        sel.appendChild(opt);
+      } else {
+        bankList.forEach(function(acc){
+          var opt=document.createElement('option');
+          opt.value='Bank_'+acc.id; opt.text='🏦 '+acc.name;
+          sel.appendChild(opt);
+        });
+      }
+    }
+    console.log('[BANK_ACC] synclandi');
   });
 }
 function bankAccList(dir){
@@ -20088,14 +20113,14 @@ function renderKassa(focusDir){
               var ch=b.balance-b.prev;
               var tc=tp==='Naqd'?'#17B374':'#4A7FF5';
               var inputId='ki_'+d.id+'_'+cur+'_'+tp;
-              cards+=`<div class="kcard${b.balance<0?' neg':''}">
+              cards+=`<div class="kcard${b.balance<0?' neg':''}" style="cursor:pointer" onclick="kassaTxnModal('${d.id}','${cur}','${tp}','${cur} ${tp}')">
                 <div style="display:flex;justify-content:space-between;margin-bottom:6px">
                   <div style="font-family:var(--mono);font-size:10px;color:var(--t3)">${cur} ${tp.toUpperCase()}</div>
                   <span style="background:${tc}18;color:${tc};border:1px solid ${tc}33;font-size:10px;padding:1px 5px;border-radius:3px">${tp}</span>
                 </div>
                 <div style="font-family:var(--mono);font-size:16px;font-weight:600;color:${b.balance<0?'#E83535':'var(--t1)'};margin-bottom:4px">${sym(cur)}${fmt(b.balance)}</div>
                 <div style="font-size:10px;color:${ch>=0?'#17B374':'#E83535'};margin-bottom:6px">${ch>=0?'▲':'▼'} ${sym(cur)}${fmt(Math.abs(ch))}</div>
-                <div style="display:flex;gap:4px">
+                <div style="display:flex;gap:4px" onclick="event.stopPropagation()">
                   <input id="${inputId}" type="number" value="${b.balance}" placeholder="Yangi balans" style="flex:1;min-width:0;background:var(--bg);border:1px solid var(--b2);border-radius:4px;padding:3px 6px;color:var(--t1);font-size:10px;font-family:var(--mono);outline:none">
                   <button onclick="updateKassaBalance('${d.id}','${cur}','${tp}')" style="padding:3px 7px;border-radius:4px;border:none;background:var(--acc);color:#fff;font-size:10px;cursor:pointer">✓</button>
                 </div>
@@ -20132,7 +20157,7 @@ function renderKassa(focusDir){
                 var b=kas[key]||{balance:0,prev:0};
                 var ch=b.balance-b.prev;
                 var inputId='ki_'+d.id+'_'+cur+'_Bank_'+acc.id;
-                cards+=`<div class="kcard${b.balance<0?' neg':''}">
+                cards+=`<div class="kcard${b.balance<0?' neg':''}" style="cursor:pointer" onclick="kassaTxnModal('${d.id}','${cur}','Bank_${acc.id}','${escHtml(acc.name)}')">
                   <div style="display:flex;justify-content:space-between;margin-bottom:4px">
                     <div style="font-family:var(--mono);font-size:10px;color:var(--t3)">${cur}</div>
                     <span style="background:#7B55F518;color:#7B55F5;border:1px solid #7B55F533;font-size:9px;padding:1px 5px;border-radius:3px">🏦 Bank</span>
@@ -20141,7 +20166,7 @@ function renderKassa(focusDir){
                   ${acc.note?`<div style="font-size:9px;color:var(--t3);margin-bottom:3px">${escHtml(acc.note)}</div>`:''}
                   <div style="font-family:var(--mono);font-size:15px;font-weight:600;color:${b.balance<0?'#E83535':'var(--t1)'};margin-bottom:4px">${sym(cur)}${fmt(b.balance)}</div>
                   <div style="font-size:10px;color:${ch>=0?'#17B374':'#E83535'};margin-bottom:6px">${ch>=0?'▲':'▼'} ${sym(cur)}${fmt(Math.abs(ch))}</div>
-                  <div style="display:flex;gap:4px">
+                  <div style="display:flex;gap:4px" onclick="event.stopPropagation()">
                     <input id="${inputId}" type="number" value="${b.balance}" placeholder="Yangi balans" style="flex:1;min-width:0;background:var(--bg);border:1px solid var(--b2);border-radius:4px;padding:3px 6px;color:var(--t1);font-size:10px;font-family:var(--mono);outline:none">
                     <button onclick="updateKassaBalance('${d.id}','${cur}','Bank_${acc.id}')" style="padding:3px 7px;border-radius:4px;border:none;background:var(--acc);color:#fff;font-size:10px;cursor:pointer">✓</button>
                     <button onclick="bankAccDelete('${d.id}','${acc.id}')" style="padding:3px 6px;border-radius:4px;border:none;background:#E8353520;color:#E83535;font-size:10px;cursor:pointer" title="O'chirish">🗑</button>
@@ -25428,6 +25453,49 @@ function txnShowDetail(txnId){
 function txnModalClose(){
   var ov=document.getElementById('txnDetailModal');
   if(ov) ov.style.display='none';
+}
+
+function kassaTxnModal(dir, cur, kassaKey, kassaName){
+  var txns=TXNS.filter(function(t){
+    return t.direction===dir && (t.currency||'USD')===cur && (t.kassa_type||'Naqd')===kassaKey;
+  }).sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+
+  var canDel=CUR_USER&&(CUR_USER.role==='owner'||CUR_USER.role==='holding_fin');
+  var sym2={'USD':'$','RMB':'¥','UZS':'so\'m'}[cur]||'$';
+
+  var rows='';
+  if(!txns.length){
+    rows='<div style="text-align:center;color:var(--t3);padding:30px">Tranzaksiya yo\'q</div>';
+  } else {
+    txns.forEach(function(t){
+      var isInc=t.type==='income';
+      var amt=Math.abs(t.amount||0);
+      rows+='<div onclick="txnShowDetail(\''+t.id+'\')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--b1);cursor:pointer;transition:background 0.15s" onmouseover="this.style.background=\'var(--s2)\'" onmouseout="this.style.background=\'\'">'
+        +'<div style="font-size:18px">'+(isInc?'📥':'📤')+'</div>'
+        +'<div style="flex:1;min-width:0">'
+          +'<div style="font-size:12px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(t.category||t.type||'')+'</div>'
+          +'<div style="font-size:11px;color:var(--t3)">'+escHtml(t.date||'')+' · '+escHtml(t.note||t.description||'—')+'</div>'
+        +'</div>'
+        +'<div style="font-size:13px;font-weight:700;color:'+(isInc?'var(--grn)':'var(--red)')+'">'+( isInc?'+':'-')+sym2+fS(amt)+'</div>'
+        +(canDel?'<button onclick="event.stopPropagation();txnDelete(\''+t.id+'\')" style="background:rgba(255,77,106,0.15);border:1px solid rgba(255,77,106,0.4);color:#ff4d6a;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer">🗑</button>':'')
+        +'</div>';
+    });
+  }
+
+  var ov=document.getElementById('kassaTxnModal');
+  if(!ov){ ov=document.createElement('div'); ov.id='kassaTxnModal'; document.body.appendChild(ov); }
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9800;display:flex;align-items:center;justify-content:center';
+  ov.innerHTML='<div style="background:var(--s1);border:1px solid var(--b2);border-radius:14px;width:500px;max-width:95vw;max-height:80vh;display:flex;flex-direction:column;overflow:hidden">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--b1)">'
+      +'<div>'
+        +'<div style="font-size:14px;font-weight:700">🏦 '+escHtml(kassaName)+'</div>'
+        +'<div style="font-size:11px;color:var(--t3)">'+escHtml(dir)+' · '+cur+' · '+txns.length+' ta tranzaksiya</div>'
+      +'</div>'
+      +'<button onclick="document.getElementById(\'kassaTxnModal\').style.display=\'none\'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2)">×</button>'
+    +'</div>'
+    +'<div style="overflow-y:auto;flex:1">'+rows+'</div>'
+    +'</div>';
+  ov.onclick=function(e){ if(e.target===ov) ov.style.display='none'; };
 }
 
 function txnDelete(txnId){
