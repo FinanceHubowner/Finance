@@ -24310,6 +24310,14 @@ function renderEntry(focusDir){
 
 
 
+    // Kassa turi (Naqd / Karta / Bank)
+    h+='<div><div style="font-size:10px;color:var(--t3);margin-bottom:3px">🏦 To\'lov turi (Kassa) <span style="color:var(--red)">*</span></div>';
+    h+='<select id="ef_kassa_type" style="width:100%;background:var(--s3);color:var(--t1);border:1px solid rgba(108,142,255,0.4);border-radius:6px;padding:7px;font-size:13px">';
+    h+='<option value="Naqd">💵 Naqd (Cash)</option>';
+    h+='<option value="Karta">💳 Karta (Card)</option>';
+    h+='<option value="Bank">🏛️ Bank o\'tkazma</option>';
+    h+='</select></div>';
+
     // Период (kun oralig'i, Sheets bilan mos)
 
 
@@ -24932,6 +24940,7 @@ function renderEntry(focusDir){
       counterparty:counterparty, purpose:purpose,
 
 
+      kassa_type: (document.getElementById('ef_kassa_type')||{}).value||'Naqd',
       status:status, note:note, to_dir:toDir,
 
 
