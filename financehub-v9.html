@@ -23971,90 +23971,27 @@ function renderEntry(focusDir){
 
 
   function recentTxnsHTML(){
-
-
     if(!TXNS.length) return '<div style="text-align:center;color:var(--t3);padding:20px;font-size:12px">Hali transaksiya kiritilmagan</div>';
-
-
-    var rows=TXNS.slice(-15).reverse().map(function(t){
-
-
-      var isInc=t.type==='income';
-
-
-      var isTr=t.type==='transfer';
-
-
-      var aCol=isInc?'var(--grn)':isTr?'var(--tel)':'var(--red)';
-
-
-      var aSign=isInc?'+':isTr?'↔':'-';
-
-
-      var dColMap={cargo:'var(--cargo)',logistics:'var(--log)',exchange:'var(--exc)',procurement:'var(--proc)',holding:'var(--hold)'};
-
-
-      var dCol=dColMap[t.direction]||'var(--acc)';
-
-
-      var stCol=t.status==="To'langan"?'var(--grn)':t.status==='Kutilmoqda'?'var(--amb)':'var(--t3)';
-
-
-      // Accrual indicator: show when P&L period ≠ cash payment period
-
-
-      var hasAccrualDiff = t.accrual_period && t.payment_period && t.accrual_period !== t.payment_period;
-
-
-      var dateCell = t.date
-
-
-        +(hasAccrualDiff
-
-
-          ? '<br><span title="P&L davri: '+t.accrual_period+' | To\'lov: '+t.payment_period+'" style="font-size:9px;color:var(--amb)">📌 P&L: '+t.accrual_period+'</span>'
-
-
-          : '');
-
-
-      var canDelete = CUR_USER && (CUR_USER.role==='owner' || CUR_USER.role==='holding_fin');
-      var delBtn = canDelete
-        ? '<button onclick="txnDelete(\''+t.id+'\')" title="Transaksiyani o\'chirish (faqat admin)" style="background:rgba(255,77,106,0.15);border:1px solid rgba(255,77,106,0.4);color:var(--red);border-radius:4px;padding:2px 6px;font-size:10px;cursor:pointer;line-height:1">🗑</button>'
-        : '';
-      return '<tr>'
-
-
-        +'<td style="font-family:var(--mono);font-size:10px;color:var(--t3)">'+dateCell+'</td>'
-
-
-        +'<td><span style="color:'+dCol+';font-size:10px;font-family:var(--mono)">'+t.direction.toUpperCase()+'</span><br>'
-
-
-        +'<span style="color:var(--t3);font-size:10px">'+t.dept+'</span></td>'
-
-
-        +'<td style="font-size:11px">'+t.subcat+'</td>'
-
-
-        +'<td style="font-size:11px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+t.counterparty+'</td>'
-
-
-        +'<td style="font-family:var(--mono);color:'+aCol+';font-weight:600">'+aSign+'$'+fS(t.amount)+'</td>'
-
-
-        +'<td style="color:'+stCol+';font-size:10px">'+t.status+'</td>'
-
-        +'<td>'+delBtn+'</td>'
-
-        +'</tr>';
-
-
-    }).join('');
-
-
     var canDel = CUR_USER && (CUR_USER.role==='owner' || CUR_USER.role==='holding_fin');
-    return '<table><thead><tr><th>Sana</th><th>Yo\'nalish</th><th>Kategoriya</th><th>Kontragent</th><th>Summa</th><th>Status</th>'+(canDel?'<th></th>':'')+'</tr></thead><tbody>'+rows+'</tbody></table>';
+    var dColMap={cargo:'var(--cargo)',logistics:'var(--log)',exchange:'var(--exc)',procurement:'var(--proc)',holding:'var(--hold)'};
+    var rows=TXNS.slice(-20).reverse().map(function(t){
+      var isInc=t.type==='income', isTr=t.type==='transfer';
+      var aCol=isInc?'var(--grn)':isTr?'var(--tel)':'var(--red)';
+      var aSign=isInc?'+':isTr?'↔':'-';
+      var dCol=dColMap[t.direction]||'var(--acc)';
+      var stCol=t.status==="To'langan"?'var(--grn)':t.status==='Kutilmoqda'?'var(--amb)':'var(--t3)';
+      var delPart = canDel
+        ? ' <button onclick="event.stopPropagation();txnDelete(\''+t.id+'\')" title="O\'chirish" style="background:rgba(255,77,106,0.18);border:1px solid rgba(255,77,106,0.5);color:#ff4d6a;border-radius:4px;padding:1px 7px;font-size:11px;cursor:pointer;margin-left:4px;vertical-align:middle">🗑</button>'
+        : '';
+      return '<div onclick="txnShowDetail(\''+t.id+'\')" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--b1);cursor:pointer;border-radius:6px;transition:background .15s" onmouseover="this.style.background=\'var(--s2)\'" onmouseout="this.style.background=\'\'">'
+        +'<span style="font-family:var(--mono);font-size:10px;color:var(--t3);min-width:54px">'+t.date+'</span>'
+        +'<span style="color:'+dCol+';font-size:10px;font-family:var(--mono);min-width:58px">'+t.direction.toUpperCase()+'</span>'
+        +'<span style="font-size:11px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t2)">'+t.subcat+(t.counterparty&&t.counterparty!=='—'?' · <span style="color:var(--t3)">'+t.counterparty+'</span>':'')+'</span>'
+        +'<span style="font-family:var(--mono);color:'+aCol+';font-weight:600;white-space:nowrap">'+aSign+'$'+fS(Math.abs(t.amount))+'</span>'
+        +(canDel ? delPart : '')
+        +'</div>';
+    }).join('');
+    return '<div>'+rows+'</div>';
 
 
   }
@@ -25244,6 +25181,74 @@ function renderEntry(focusDir){
 
 
 
+function txnRefreshPanel(){
+  var rt=document.getElementById('entRecentTxns');
+  if(rt) rt.innerHTML=(function(){
+    if(!TXNS.length) return '<div style="text-align:center;color:var(--t3);padding:20px;font-size:12px">Hali transaksiya kiritilmagan</div>';
+    var canDel=CUR_USER&&(CUR_USER.role==='owner'||CUR_USER.role==='holding_fin');
+    var dColMap={cargo:'var(--cargo)',logistics:'var(--log)',exchange:'var(--exc)',procurement:'var(--proc)',holding:'var(--hold)'};
+    var rows=TXNS.slice(-20).reverse().map(function(t){
+      var isInc=t.type==='income',isTr=t.type==='transfer';
+      var aCol=isInc?'var(--grn)':isTr?'var(--tel)':'var(--red)';
+      var aSign=isInc?'+':isTr?'↔':'-';
+      var dCol=dColMap[t.direction]||'var(--acc)';
+      var delPart=canDel?'<button onclick="event.stopPropagation();txnDelete(\''+t.id+'\')" title="O\'chirish" style="background:rgba(255,77,106,0.18);border:1px solid rgba(255,77,106,0.5);color:#ff4d6a;border-radius:4px;padding:1px 7px;font-size:11px;cursor:pointer;margin-left:4px">🗑</button>':'';
+      return '<div onclick="txnShowDetail(\''+t.id+'\')" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--b1);cursor:pointer;border-radius:6px;transition:background .15s" onmouseover="this.style.background=\'var(--s2)\'" onmouseout="this.style.background=\'\'">'
+        +'<span style="font-family:var(--mono);font-size:10px;color:var(--t3);min-width:54px">'+t.date+'</span>'
+        +'<span style="color:'+dCol+';font-size:10px;font-family:var(--mono);min-width:58px">'+t.direction.toUpperCase()+'</span>'
+        +'<span style="font-size:11px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t2)">'+t.subcat+'</span>'
+        +'<span style="font-family:var(--mono);color:'+aCol+';font-weight:600;white-space:nowrap">'+aSign+'$'+fS(Math.abs(t.amount))+'</span>'
+        +delPart+'</div>';
+    }).join('');
+    return '<div>'+rows+'</div>';
+  })();
+  var tc=document.getElementById('txnCount');
+  if(tc) tc.textContent=TXNS.length;
+}
+
+function txnShowDetail(txnId){
+  var t=TXNS.find(function(x){return x.id===txnId;});
+  if(!t) return;
+  var canDel=CUR_USER&&(CUR_USER.role==='owner'||CUR_USER.role==='holding_fin');
+  var isInc=t.type==='income',isTr=t.type==='transfer';
+  var aCol=isInc?'#17b374':isTr?'#00d4ff':'#ff4d6a';
+  var aSign=isInc?'+':isTr?'↔':'-';
+  var rows=[
+    ['📅 Sana',t.date],
+    ['🗓 P&L davri',t.accrual_period||t.period||'—'],
+    ['🚛 Yo\'nalish',(t.direction||'').toUpperCase()+' / '+(t.dept||'')],
+    ['📋 Kategoriya',t.subcat||'—'],
+    ['🏢 Kontragent',t.counterparty||'—'],
+    ['📝 Maqsad',t.purpose||'—'],
+    ['💵 Summa','<span style="color:'+aCol+';font-weight:600;font-family:monospace">'+aSign+'$'+fS(Math.abs(t.amount))+(t.currency&&t.currency!=='USD'?' ('+t.currency+' '+fS(Math.abs(t.amount_orig||t.amount))+')':'')+'</span>'],
+    ['🏦 Kassa turi',t.kassa_type||'Naqd'],
+    ['✅ Holat',t.status||'—'],
+    ['👤 Kiritdi',t.created_by||'—'],
+    ['🆔 ID','<span style="font-family:monospace;font-size:11px;color:var(--t3)">'+t.id+'</span>'],
+  ].map(function(r){return '<tr><td style="padding:6px 10px;color:var(--t3);font-size:12px;white-space:nowrap;border-bottom:1px solid var(--b1)">'+r[0]+'</td><td style="padding:6px 10px;font-size:12px;border-bottom:1px solid var(--b1)">'+r[1]+'</td></tr>';}).join('');
+  var delBtn=canDel?'<button onclick="txnDelete(\''+t.id+'\');txnModalClose()" style="background:rgba(255,77,106,0.15);border:1px solid rgba(255,77,106,0.5);color:#ff4d6a;border-radius:6px;padding:7px 18px;font-size:13px;cursor:pointer">🗑 O\'chirish</button>':'';
+  var html='<div style="background:var(--s1);border:1px solid var(--b2);border-radius:14px;padding:24px;width:420px;max-width:95vw;position:relative">'
+    +'<div style="font-size:15px;font-weight:600;margin-bottom:14px">📄 Transaksiya tafsiloti</div>'
+    +'<table style="width:100%;border-collapse:collapse">'+rows+'</table>'
+    +'<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--b1);display:flex;justify-content:flex-end;gap:8px">'
+    +'<button onclick="txnModalClose()" style="background:var(--s2);border:1px solid var(--b2);color:var(--t2);border-radius:6px;padding:7px 18px;font-size:13px;cursor:pointer">Yopish</button>'
+    +delBtn+'</div></div>';
+  var ov=document.getElementById('txnDetailModal');
+  if(!ov){
+    ov=document.createElement('div');
+    ov.id='txnDetailModal';
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center';
+    ov.onclick=function(e){if(e.target===ov)txnModalClose();};
+    document.body.appendChild(ov);
+  }
+  ov.innerHTML=html;
+  ov.style.display='flex';
+}
+function txnModalClose(){
+  var ov=document.getElementById('txnDetailModal');
+  if(ov) ov.style.display='none';
+}
+
 function txnDelete(txnId){
   if(!CUR_USER||(CUR_USER.role!=='owner'&&CUR_USER.role!=='holding_fin')){
     toast('Faqat admin o\'chira oladi!','error'); return;
@@ -25277,29 +25282,7 @@ function txnDelete(txnId){
     if(r.error) console.warn('[TXNS] delete SB:',r.error.message);
   });
 
-  // Panelni yangilash
-  var tc=document.getElementById('txnCount');
-  if(tc) tc.textContent=TXNS.length;
-  var rt=document.getElementById('entRecentTxns');
-  if(rt){
-    var canDel2=CUR_USER&&(CUR_USER.role==='owner'||CUR_USER.role==='holding_fin');
-    var rows2=TXNS.slice(-15).reverse().map(function(tx){
-      var isInc2=tx.type==='income',isTr2=tx.type==='transfer';
-      var aCol2=isInc2?'var(--grn)':isTr2?'var(--tel)':'var(--red)';
-      var aSign2=isInc2?'+':isTr2?'↔':'-';
-      var dCol2={cargo:'var(--cargo)',logistics:'var(--log)',exchange:'var(--exc)',procurement:'var(--proc)',holding:'var(--hold)'}[tx.direction]||'var(--acc)';
-      var stCol2=tx.status==="To'langan"?'var(--grn)':tx.status==='Kutilmoqda'?'var(--amb)':'var(--t3)';
-      var del2=canDel2?'<button onclick="txnDelete(\''+tx.id+'\')" title="O\'chirish" style="background:rgba(255,77,106,0.15);border:1px solid rgba(255,77,106,0.4);color:var(--red);border-radius:4px;padding:2px 6px;font-size:10px;cursor:pointer">🗑</button>':'';
-      return '<tr><td style="font-family:var(--mono);font-size:10px;color:var(--t3)">'+tx.date+'</td>'
-        +'<td><span style="color:'+dCol2+';font-size:10px;font-family:var(--mono)">'+tx.direction.toUpperCase()+'</span><br><span style="color:var(--t3);font-size:10px">'+tx.dept+'</span></td>'
-        +'<td style="font-size:11px">'+tx.subcat+'</td>'
-        +'<td style="font-size:11px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+tx.counterparty+'</td>'
-        +'<td style="font-family:var(--mono);color:'+aCol2+';font-weight:600">'+aSign2+'$'+fS(tx.amount)+'</td>'
-        +'<td style="color:'+stCol2+';font-size:10px">'+tx.status+'</td>'
-        +'<td>'+del2+'</td></tr>';
-    }).join('');
-    rt.innerHTML='<table><thead><tr><th>Sana</th><th>Yo\'nalish</th><th>Kategoriya</th><th>Kontragent</th><th>Summa</th><th>Status</th>'+(canDel2?'<th></th>':'')+'</tr></thead><tbody>'+rows2+'</tbody></table>';
-  }
+  txnRefreshPanel();
   toast('Transaksiya o\'chirildi','success');
 }
 
