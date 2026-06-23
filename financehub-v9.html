@@ -24969,6 +24969,28 @@ function renderEntry(focusDir){
     TXNS.push(txn);
     txnsSave();
 
+    // ── KASSA_DATA balansini avtomatik yangilash ──────────────────────────
+    (function(){
+      var kassaType = txn.kassa_type || 'Naqd';
+      var cur = txn.currency || 'USD';
+      var key = cur + '_' + kassaType;
+      var origAmt = Math.abs(txn.amount_orig || txn.amount || 0);
+      ensureKassaData();
+      if(!KASSA_DATA[entDir]) KASSA_DATA[entDir] = {};
+      if(!KASSA_DATA[entDir][key]) KASSA_DATA[entDir][key] = {balance:0,prev:0,in:0,out:0};
+      var cell = KASSA_DATA[entDir][key];
+      cell.prev = cell.balance;
+      if(txn.type === 'income'){
+        cell.balance += origAmt;
+        cell.in = (cell.in||0) + origAmt;
+      } else {
+        cell.balance -= origAmt;
+        cell.out = (cell.out||0) + origAmt;
+      }
+      kassaSave2();
+    })();
+    // ─────────────────────────────────────────────────────────────────────
+
     // Kontragentni avtomatik bazaga qo'shish
     if(counterparty && counterparty !== '—'){
       var kType = entType==='income' ? 'client' : entType==='opex'||entType==='cogs' ? 'supplier' : 'other';
