@@ -1227,6 +1227,7 @@ const CURS=['USD','RMB','UZS'];
 
 
 const KTYPES=['Naqd','Karta','Bank'];
+const KTYPES_BASE=['Naqd','Karta']; // Bank alohida nomlanadi
 
 
 const CLIENTS=['Alibaba Co.','Huawei Ltd.','BYD Group','Midea Corp.','Haier Inc.','SAIC Motor'];
@@ -1646,6 +1647,8 @@ function txnsSyncFromSB(){
 var BUDGET_DATA=(function(){return lsLoad('budget')||[];})();
 var BP_PLANS=(function(){return lsLoad('bp_plans')||[];})();
 var BP_LINES=(function(){return lsLoad('bp_lines')||[];})();
+var BP_CAPEX=(function(){return lsLoad('bp_capex')||[];})();
+var BP_ACTIVE_TAB='pl';
 
 function bpSave(){
   lsSave('bp_plans',BP_PLANS);
@@ -4574,6 +4577,60 @@ function pipelineSyncFromSB(){
 
 // ════════════════════════════════════════════
 
+
+// Nomlangan bank hisoblar: {dir: [{id, name, note, currency}]}
+var BANK_ACCOUNTS = (function(){ return lsLoad('bank_accounts') || {}; })();
+
+function bankAccSave(){
+  lsSave('bank_accounts', BANK_ACCOUNTS);
+  if(!SB) return;
+  var rows = Object.keys(BANK_ACCOUNTS).map(function(d){ return {dir:d, data:BANK_ACCOUNTS[d]}; });
+  if(!rows.length) return;
+  SB.from('app_bank_accounts').upsert(rows, {onConflict:'dir'}).then(function(r){ if(r.error) console.warn('[BANK_ACC] SB:', r.error.message); });
+}
+function bankAccSyncFromSB(){
+  if(!SB) return;
+  SB.from('app_bank_accounts').select('dir,data').then(function(r){
+    if(r.error){ console.warn('[BANK_ACC] sync:', r.error.message); return; }
+    (r.data||[]).forEach(function(row){ BANK_ACCOUNTS[row.dir] = row.data; });
+    lsSave('bank_accounts', BANK_ACCOUNTS);
+  });
+}
+function bankAccList(dir){
+  return BANK_ACCOUNTS[dir] || [];
+}
+function bankAccAdd(dir, name, note){
+  if(!name||!name.trim()){ toast('Bank hisob nomi kiriting','error'); return; }
+  if(!BANK_ACCOUNTS[dir]) BANK_ACCOUNTS[dir] = [];
+  var id = 'ba_' + Date.now() + '_' + Math.random().toString(36).slice(2,5);
+  BANK_ACCOUNTS[dir].push({id:id, name:name.trim(), note:(note||'').trim()});
+  bankAccSave();
+  ensureKassaData();
+  CURS.forEach(function(cur){
+    if(!KASSA_DATA[dir]) KASSA_DATA[dir] = {};
+    if(!KASSA_DATA[dir][cur+'_Bank_'+id]) KASSA_DATA[dir][cur+'_Bank_'+id] = {balance:0,prev:0,in:0,out:0};
+  });
+  kassaSave2();
+  toast('Bank hisob qo\'shildi: '+name.trim(), 'success');
+  renderKassa(dir !== 'holding' ? dir : undefined);
+}
+function bankAccDelete(dir, id){
+  if(!BANK_ACCOUNTS[dir]) return;
+  var acc = BANK_ACCOUNTS[dir].find(function(a){ return a.id===id; });
+  if(!acc) return;
+  if(!confirm('"'+acc.name+'" bank hisobini o\'chirasizmi? Balans ma\'lumotlari ham o\'chadi!')) return;
+  BANK_ACCOUNTS[dir] = BANK_ACCOUNTS[dir].filter(function(a){ return a.id!==id; });
+  if(KASSA_DATA[dir]) CURS.forEach(function(cur){ delete KASSA_DATA[dir][cur+'_Bank_'+id]; });
+  bankAccSave(); kassaSave2();
+  toast('Bank hisob o\'chirildi', 'success');
+  renderKassa(dir !== 'holding' ? dir : undefined);
+}
+function bankAccGetAll(dir){
+  // Barcha bank hisoblar kalit ro'yxati: [{key, name}]
+  var list = bankAccList(dir);
+  if(!list.length) return [{key:'Bank', name:'Bank'}]; // default backward compat
+  return list.map(function(a){ return {key:'Bank_'+a.id, name:a.name}; });
+}
 
 var KASSA_DATA = (function(){
 
@@ -9180,6 +9237,7 @@ function syncAllFromSB(){
   pipelineSyncFromSB();
   payrollSyncFromSB();
   kassaSyncFromSB();
+  bankAccSyncFromSB();
   empInvSyncFromSB();
   budgetSyncFromSB();
   dcSyncFromSB();
@@ -9225,7 +9283,34 @@ var BP_CATS=[
   {id:'marketing',    label:'Marketing',             group:'opex'},
   {id:'admin',        label:'Admin xarajatlar',      group:'opex'},
   {id:'other_opex',   label:'Boshqa xarajatlar',     group:'opex'},
-  {id:'capex',        label:'CapEx',                 group:'capex'},
+  {id:'capex_pl',     label:'CapEx (amortizatsiya)', group:'capex'},
+];
+var BP_CF_CATS=[
+  {id:'cf_net_income',   label:'Sof foyda (Net Income)',        group:'operating'},
+  {id:'cf_depreciation', label:'Amortizatsiya',                  group:'operating'},
+  {id:'cf_receivables',  label:'Debitorlik o\'zgarishi',         group:'operating'},
+  {id:'cf_payables',     label:'Kreditorlik o\'zgarishi',        group:'operating'},
+  {id:'cf_inventory',    label:'Inventar o\'zgarishi',           group:'operating'},
+  {id:'cf_capex_inv',    label:'CapEx xaridlari',                group:'investing'},
+  {id:'cf_asset_sales',  label:'Aktiv sotilishi',                group:'investing'},
+  {id:'cf_loans_in',     label:'Kredit olindi',                  group:'financing'},
+  {id:'cf_loans_out',    label:'Kredit to\'landi',               group:'financing'},
+  {id:'cf_dividends',    label:'Dividendlar to\'landi',          group:'financing'},
+];
+var BP_BS_CATS=[
+  {id:'bs_cash',         label:'Kassa va bank',                  group:'current_assets'},
+  {id:'bs_receivables',  label:'Debitorlar',                     group:'current_assets'},
+  {id:'bs_inventory',    label:'Inventar (tovarlar)',             group:'current_assets'},
+  {id:'bs_prepaid',      label:'Avans to\'lovlar',               group:'current_assets'},
+  {id:'bs_fixed_assets', label:'Asosiy vositalar (yalpi)',       group:'noncurrent_assets'},
+  {id:'bs_accum_depr',   label:'Yig\'ilgan amortizatsiya (-)',   group:'noncurrent_assets'},
+  {id:'bs_intangibles',  label:'Nomoddiy aktivlar',              group:'noncurrent_assets'},
+  {id:'bs_payables',     label:'Kreditorlar',                    group:'current_liab'},
+  {id:'bs_short_loans',  label:'Qisqa muddatli kreditlar',       group:'current_liab'},
+  {id:'bs_accruals',     label:'Hisoblangan majburiyatlar',      group:'current_liab'},
+  {id:'bs_long_loans',   label:'Uzoq muddatli kreditlar',        group:'noncurrent_liab'},
+  {id:'bs_share_cap',    label:'Ustav kapitali',                 group:'equity'},
+  {id:'bs_retained',     label:'Taqsimlanmagan foyda',          group:'equity'},
 ];
 
 function bpGetPlanForYear(year, dir){
@@ -19949,68 +20034,86 @@ function renderKassa(focusDir){
 
 
       <div class="kassgrid">
-
-
-        ${CURS.flatMap(cur=>KTYPES.map(tp=>{
-
-
-          const b=kas[`${cur}_${tp}`]||{balance:0,prev:0};
-
-
-          const ch=b.balance-b.prev;
-
-
-          const tc={Naqd:'#17B374',Karta:'#4A7FF5',Bank:'#7B55F5'}[tp];
-
-
-          const inputId='ki_'+d.id+'_'+cur+'_'+tp;
-
-
-          return`<div class="kcard${b.balance<0?' neg':''}">
-
-
-            <div style="display:flex;justify-content:space-between;margin-bottom:6px">
-
-
-              <div style="font-family:var(--mono);font-size:10px;color:var(--t3)">${cur} ${tp.toUpperCase()}</div>
-
-
-              <span style="background:${tc}18;color:${tc};border:1px solid ${tc}33;font-size:10px;padding:1px 5px;border-radius:3px">${tp}</span>
-
-
-            </div>
-
-
-            <div style="font-family:var(--mono);font-size:16px;font-weight:600;color:${b.balance<0?'#E83535':'var(--t1)'};margin-bottom:4px">${sym(cur)}${fmt(b.balance)}</div>
-
-
-            <div style="font-size:10px;color:${ch>=0?'#17B374':'#E83535'};margin-bottom:6px">${ch>=0?'▲':'▼'} ${sym(cur)}${fmt(Math.abs(ch))}</div>
-
-
-            <div style="display:flex;gap:4px">
-
-
-              <input id="${inputId}" type="number" value="${b.balance}" placeholder="Yangi balans"
-
-
-                style="flex:1;min-width:0;background:var(--bg);border:1px solid var(--b2);border-radius:4px;padding:3px 6px;color:var(--t1);font-size:10px;font-family:var(--mono);outline:none">
-
-
-              <button onclick="updateKassaBalance('${d.id}','${cur}','${tp}')"
-
-
-                style="padding:3px 7px;border-radius:4px;border:none;background:var(--acc);color:#fff;font-size:10px;cursor:pointer">✓</button>
-
-
-            </div>
-
-
+        ${(function(){
+          var cards='';
+          // Naqd + Karta kartochkalari
+          CURS.forEach(function(cur){
+            KTYPES_BASE.forEach(function(tp){
+              var b=kas[cur+'_'+tp]||{balance:0,prev:0};
+              var ch=b.balance-b.prev;
+              var tc=tp==='Naqd'?'#17B374':'#4A7FF5';
+              var inputId='ki_'+d.id+'_'+cur+'_'+tp;
+              cards+=`<div class="kcard${b.balance<0?' neg':''}">
+                <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+                  <div style="font-family:var(--mono);font-size:10px;color:var(--t3)">${cur} ${tp.toUpperCase()}</div>
+                  <span style="background:${tc}18;color:${tc};border:1px solid ${tc}33;font-size:10px;padding:1px 5px;border-radius:3px">${tp}</span>
+                </div>
+                <div style="font-family:var(--mono);font-size:16px;font-weight:600;color:${b.balance<0?'#E83535':'var(--t1)'};margin-bottom:4px">${sym(cur)}${fmt(b.balance)}</div>
+                <div style="font-size:10px;color:${ch>=0?'#17B374':'#E83535'};margin-bottom:6px">${ch>=0?'▲':'▼'} ${sym(cur)}${fmt(Math.abs(ch))}</div>
+                <div style="display:flex;gap:4px">
+                  <input id="${inputId}" type="number" value="${b.balance}" placeholder="Yangi balans" style="flex:1;min-width:0;background:var(--bg);border:1px solid var(--b2);border-radius:4px;padding:3px 6px;color:var(--t1);font-size:10px;font-family:var(--mono);outline:none">
+                  <button onclick="updateKassaBalance('${d.id}','${cur}','${tp}')" style="padding:3px 7px;border-radius:4px;border:none;background:var(--acc);color:#fff;font-size:10px;cursor:pointer">✓</button>
+                </div>
+              </div>`;
+            });
+          });
+          // Bank hisoblar — nomlangan
+          var bankList=bankAccList(d.id);
+          if(!bankList.length){
+            // Eski "Bank" kalit mavjud bo'lsa ko'rsatish (backward compat)
+            CURS.forEach(function(cur){
+              var b=kas[cur+'_Bank']||{balance:0,prev:0};
+              if(b.balance!==0||b.in||b.out){
+                var ch=b.balance-b.prev;
+                var inputId='ki_'+d.id+'_'+cur+'_Bank';
+                cards+=`<div class="kcard${b.balance<0?' neg':''}">
+                  <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+                    <div style="font-family:var(--mono);font-size:10px;color:var(--t3)">${cur} BANK</div>
+                    <span style="background:#7B55F518;color:#7B55F5;border:1px solid #7B55F533;font-size:10px;padding:1px 5px;border-radius:3px">Bank</span>
+                  </div>
+                  <div style="font-family:var(--mono);font-size:16px;font-weight:600;color:${b.balance<0?'#E83535':'var(--t1)'};margin-bottom:4px">${sym(cur)}${fmt(b.balance)}</div>
+                  <div style="font-size:10px;color:${ch>=0?'#17B374':'#E83535'};margin-bottom:6px">${ch>=0?'▲':'▼'} ${sym(cur)}${fmt(Math.abs(ch))}</div>
+                  <div style="display:flex;gap:4px">
+                    <input id="${inputId}" type="number" value="${b.balance}" placeholder="Yangi balans" style="flex:1;min-width:0;background:var(--bg);border:1px solid var(--b2);border-radius:4px;padding:3px 6px;color:var(--t1);font-size:10px;font-family:var(--mono);outline:none">
+                    <button onclick="updateKassaBalance('${d.id}','${cur}','Bank')" style="padding:3px 7px;border-radius:4px;border:none;background:var(--acc);color:#fff;font-size:10px;cursor:pointer">✓</button>
+                  </div>
+                </div>`;
+              }
+            });
+          } else {
+            bankList.forEach(function(acc){
+              CURS.forEach(function(cur){
+                var key=cur+'_Bank_'+acc.id;
+                var b=kas[key]||{balance:0,prev:0};
+                var ch=b.balance-b.prev;
+                var inputId='ki_'+d.id+'_'+cur+'_Bank_'+acc.id;
+                cards+=`<div class="kcard${b.balance<0?' neg':''}">
+                  <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                    <div style="font-family:var(--mono);font-size:10px;color:var(--t3)">${cur}</div>
+                    <span style="background:#7B55F518;color:#7B55F5;border:1px solid #7B55F533;font-size:9px;padding:1px 5px;border-radius:3px">🏦 Bank</span>
+                  </div>
+                  <div style="font-size:11px;font-weight:600;color:var(--t1);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(acc.name)}">${escHtml(acc.name)}</div>
+                  ${acc.note?`<div style="font-size:9px;color:var(--t3);margin-bottom:3px">${escHtml(acc.note)}</div>`:''}
+                  <div style="font-family:var(--mono);font-size:15px;font-weight:600;color:${b.balance<0?'#E83535':'var(--t1)'};margin-bottom:4px">${sym(cur)}${fmt(b.balance)}</div>
+                  <div style="font-size:10px;color:${ch>=0?'#17B374':'#E83535'};margin-bottom:6px">${ch>=0?'▲':'▼'} ${sym(cur)}${fmt(Math.abs(ch))}</div>
+                  <div style="display:flex;gap:4px">
+                    <input id="${inputId}" type="number" value="${b.balance}" placeholder="Yangi balans" style="flex:1;min-width:0;background:var(--bg);border:1px solid var(--b2);border-radius:4px;padding:3px 6px;color:var(--t1);font-size:10px;font-family:var(--mono);outline:none">
+                    <button onclick="updateKassaBalance('${d.id}','${cur}','Bank_${acc.id}')" style="padding:3px 7px;border-radius:4px;border:none;background:var(--acc);color:#fff;font-size:10px;cursor:pointer">✓</button>
+                    <button onclick="bankAccDelete('${d.id}','${acc.id}')" style="padding:3px 6px;border-radius:4px;border:none;background:#E8353520;color:#E83535;font-size:10px;cursor:pointer" title="O'chirish">🗑</button>
+                  </div>
+                </div>`;
+              });
+            });
+          }
+          // Bank hisob qo'shish tugmasi
+          cards+=`<div class="kcard" style="border:2px dashed var(--b2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:120px">
+            <div style="font-size:11px;color:var(--t3);text-align:center">🏦 Yangi bank hisob</div>
+            <input id="newBankName_${d.id}" placeholder="Bank nomi (masalan: Xinwoqi)" style="width:100%;padding:4px 8px;border:1px solid var(--b2);border-radius:4px;background:var(--bg);color:var(--t1);font-size:11px;box-sizing:border-box">
+            <input id="newBankNote_${d.id}" placeholder="Izoh (ixtiyoriy)" style="width:100%;padding:4px 8px;border:1px solid var(--b2);border-radius:4px;background:var(--bg);color:var(--t1);font-size:11px;box-sizing:border-box">
+            <button onclick="bankAccAdd('${d.id}',document.getElementById('newBankName_${d.id}').value,document.getElementById('newBankNote_${d.id}').value)" style="padding:5px 12px;border-radius:4px;border:none;background:var(--acc);color:#fff;font-size:11px;cursor:pointer;width:100%">+ Qo'shish</button>
           </div>`;
-
-
-        })).join('')}
-
-
+          return cards;
+        })()}
       </div>
 
 
@@ -24279,12 +24382,21 @@ function renderEntry(focusDir){
 
 
 
-    // Kassa turi (Naqd / Karta / Bank)
+    // Kassa turi (Naqd / Karta / Bank — nomlangan)
     h+='<div><div style="font-size:10px;color:var(--t3);margin-bottom:3px">🏦 To\'lov turi (Kassa) <span style="color:var(--red)">*</span></div>';
     h+='<select id="ef_kassa_type" style="width:100%;background:var(--s3);color:var(--t1);border:1px solid rgba(108,142,255,0.4);border-radius:6px;padding:7px;font-size:13px">';
     h+='<option value="Naqd">💵 Naqd (Cash)</option>';
     h+='<option value="Karta">💳 Karta (Card)</option>';
-    h+='<option value="Bank">🏛️ Bank o\'tkazma</option>';
+    (function(){
+      var bankList=bankAccList(entDir);
+      if(!bankList.length){
+        h+='<option value="Bank">🏛️ Bank o\'tkazma</option>';
+      } else {
+        bankList.forEach(function(acc){
+          h+='<option value="Bank_'+acc.id+'">🏦 '+escHtml(acc.name)+'</option>';
+        });
+      }
+    })();
     h+='</select></div>';
 
     // Период (kun oralig'i, Sheets bilan mos)

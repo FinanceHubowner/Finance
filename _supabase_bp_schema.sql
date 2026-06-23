@@ -50,3 +50,12 @@ union all select 'app_bp_lines', count(*) from public.app_bp_lines
 union all select 'app_budget', count(*) from public.app_budget
 union all select 'app_dc', count(*) from public.app_dc
 union all select 'app_kontragents', count(*) from public.app_kontragents;
+
+-- Bank hisoblar (nomlangan bank kassalar)
+CREATE TABLE IF NOT EXISTS app_bank_accounts (
+  dir TEXT PRIMARY KEY,
+  data JSONB DEFAULT '[]'::jsonb,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE app_bank_accounts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "auth users" ON app_bank_accounts FOR ALL USING (auth.uid() IS NOT NULL);
