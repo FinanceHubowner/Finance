@@ -680,7 +680,7 @@ function showDash(profile) {
 
 
 
-    var DIR_LBL = {cargo:"Cargo",logistics:"Logistics",exchange:"Exchange",procurement:"Procurement",holding:"Holding Kassa"};
+    var DIR_LBL = {cargo:"Cargo",logistics:"Logistics",exchange:"Exchange",procurement:"Procurement",holding:"Holding"};
 
 
     var DIR_ICO = {cargo:"📦",logistics:"🚛",exchange:"💱",procurement:"🏭",holding:"🏦"};
@@ -13875,7 +13875,7 @@ function hrmFormHTML(emp, defaultDir){
   // Row 3
   h += '<div><label style="'+lblStyle+'">Yo\'nalish *</label><select id="hDir" style="'+fldStyle+'">';
   h += '<option value="">— Tanlang —</option>';
-  DIRS.forEach(function(d){ h+='<option value="'+d.id+'"'+((e.dir||defaultDir)===d.id?' selected':'')+'>'+d.icon+' '+d.name+'</option>'; });
+  DIRS.forEach(function(d){ h+='<option value="'+d.id+'"'+((e.dir||defaultDir)===d.id?' selected':'') +'>'+(d.e||d.icon||'')+' '+d.name+'</option>'; });
   h += '</select></div>';
   var _sugDepts = getSuggestDepts(defaultDir);
   var _sugPos   = getSuggestPositions(defaultDir);
