@@ -27351,18 +27351,28 @@ window.openExchOpModal = function(clientId, prefillType){
     // Maqsad hisob (jo'natishda)
     +'<div id="_eOTargetBlock" style="display:none"><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Maqsad hisob / Oluvchi</label>'
     +'<input id="_eOTgt" placeholder="Hisob raqam, ism yoki bank..." style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box"></div>'
-    // Kanal va Hamkor
-    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
-    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Kanal</label>'
+    // Kanal bloki — jo'natishda 2 ta, boshqalarda 1 ta
+    +'<div id="_eOChanBlock">'
+    // Chiqim kanali (barcha turlarda)
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px" id="_eOCHLbl">Chiqim kanali</label>'
     +'<select id="_eOCH" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px">'
     +'<option value="">— Tanlanmagan —</option>'
-    +EXCH_CHANNELS.map(function(ch){var ct=EXCH_CHAN_TYPES.find(function(t){return t.id===ch.type;})||{icon:'?'};return '<option value="'+ch.id+'">'+ct.icon+' '+escHtml(ch.name)+'</option>';}).join('')
+    +EXCH_CHANNELS.map(function(ch){var d=exchChanDisplay(ch);return '<option value="'+ch.id+'">'+d.icon+' '+escHtml(ch.name)+'</option>';}).join('')
     +'</select></div>'
     +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Hamkor</label>'
     +'<select id="_eOPAR" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px">'
     +'<option value="">— Tanlanmagan —</option>'
     +EXCH_PARTNERS.map(function(p){return '<option value="'+p.id+'">🤝 '+escHtml(p.name)+'</option>';}).join('')
     +'</select></div></div>'
+    // Kirim kanali — faqat Jo'natish turida ko'rinadi
+    +'<div id="_eOCHInBlock" style="display:none;background:rgba(23,179,116,0.06);border:1px solid rgba(23,179,116,0.25);border-radius:8px;padding:10px">'
+    +'<label style="font-size:11px;color:#17B374;display:block;margin-bottom:4px;font-weight:600">💵 Kirim kanali (naqd/platform qabul qilindi)</label>'
+    +'<select id="_eOCHIn" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px">'
+    +'<option value="">— Tanlanmagan —</option>'
+    +EXCH_CHANNELS.map(function(ch){var d=exchChanDisplay(ch);return '<option value="'+ch.id+'">'+d.icon+' '+escHtml(ch.name)+'</option>';}).join('')
+    +'</select></div>'
+    +'</div>'
     // Izoh
     +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Izoh</label>'
     +'<input id="_eON" placeholder="Qo\'shimcha ma\'lumot..." style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box"></div>'
@@ -27384,22 +27394,32 @@ window.exchOpTypeChange = function(){
   var amtLbl=document.getElementById('_eOAmtLbl');
   var kursBlock=document.getElementById('_eOKursBlock');
   if(!outBlock) return;
+  var chanInBlock=document.getElementById('_eOCHInBlock');
+  var chanLbl=document.getElementById('_eOCHLbl');
   if(t==='kirim'){
     outBlock.style.display='none'; if(tgtBlock) tgtBlock.style.display='none';
+    if(chanInBlock) chanInBlock.style.display='none';
     if(amtLbl) amtLbl.textContent='Kirim miqdori *';
+    if(chanLbl) chanLbl.textContent='Kirim kanali';
   } else if(t==='jonatish'){
     outBlock.style.display='block'; if(tgtBlock) tgtBlock.style.display='block';
+    if(chanInBlock) chanInBlock.style.display='block';
     if(outLbl) outLbl.textContent='Jo\'natiladigan valyuta va miqdor';
-    if(amtLbl) amtLbl.textContent='Debited (mijoz hisobidan) *';
+    if(amtLbl) amtLbl.textContent='Mijoz hisobidan (debit) *';
     if(kursBlock) kursBlock.style.display='none';
+    if(chanLbl) chanLbl.textContent='Chiqim kanali (pul qayerdan ketdi)';
   } else if(t==='konversiya'){
     outBlock.style.display='block'; if(tgtBlock) tgtBlock.style.display='none';
+    if(chanInBlock) chanInBlock.style.display='none';
     if(outLbl) outLbl.textContent='Konversiya natijasi (mijozga yoziladi)';
     if(amtLbl) amtLbl.textContent='Kirdi valyuta miqdori *';
     if(kursBlock) kursBlock.style.display='block';
+    if(chanLbl) chanLbl.textContent='Kanal';
   } else if(t==='qaytarish'){
     outBlock.style.display='none'; if(tgtBlock) tgtBlock.style.display='block';
+    if(chanInBlock) chanInBlock.style.display='none';
     if(amtLbl) amtLbl.textContent='Qaytarilgan miqdor *';
+    if(chanLbl) chanLbl.textContent='Chiqim kanali (qaytarish kanali)';
   }
 };
 
@@ -27414,8 +27434,9 @@ window.saveExchOp = function(){
   var kurs  =parseFloat((document.getElementById('_eOK')||{}).value)||0;
   var target =(document.getElementById('_eOTgt')||{}).value||'';
   var note   =(document.getElementById('_eON')||{}).value||'';
-  var chanId =(document.getElementById('_eOCH')||{}).value||'';
-  var partId =(document.getElementById('_eOPAR')||{}).value||'';
+  var chanId   =(document.getElementById('_eOCH')||{}).value||'';
+  var chanInId =(document.getElementById('_eOCHIn')||{}).value||'';
+  var partId   =(document.getElementById('_eOPAR')||{}).value||'';
 
   if(!cliId){toast('Mijoz tanlanishi shart!','error');return;}
   if(!amtIn||amtIn<=0){toast('Miqdor 0 dan katta bo\'lishi kerak!','error');return;}
@@ -27436,8 +27457,9 @@ window.saveExchOp = function(){
     rate: kurs||0,
     target: target.trim(),
     note: note.trim(),
-    channel_id: chanId,
-    partner_id: partId,
+    channel_id:    chanId,
+    channel_in_id: chanInId,
+    partner_id:    partId,
     created_at: new Date().toISOString(),
     created_by: (CUR_USER&&CUR_USER.name)||''
   };
