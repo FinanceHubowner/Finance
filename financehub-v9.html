@@ -26439,6 +26439,7 @@ function exportToExcel(){
   if(dir === 'exchange' && (sub === 'dashboard' || sub === 'entry')){
     var rows = EX_TXNS.map(function(t){
       return {
+        'Manba': 'Eski tizim',
         'Sana': t.date||'', 'Tur': t.type||'', 'Mijoz': t.client||'',
         'USD': +(t.usd||0), 'CNY': +(t.cny||0), 'Kurs': +(t.fx_rate||0),
         'Komissiya': +(t.commission||0), 'Komissiya %': +(t.comm_rate||0),
@@ -26446,6 +26447,22 @@ function exportToExcel(){
         'Kirituvchi': t.created_by||''
       };
     });
+    // Yangi EXCH_CLIENT_TXNS ni ham qo'shamiz
+    var typeMap={transfer:'Transfer xizmati',kirim:'Kirim',jonatish:"Jo'natish",konversiya:'Konversiya',qaytarish:'Qaytarish'};
+    EXCH_CLIENT_TXNS.forEach(function(t){
+      var cli=EXCH_CLIENTS.find(function(c){return c.id===t.client_id;})||{};
+      rows.push({
+        'Manba': 'Yangi tizim',
+        'Sana': t.date||'', 'Tur': typeMap[t.type]||t.type, 'Mijoz': cli.name||'',
+        'USD': t.currency_in==='USD'?+(t.amount_in||0):(t.currency_out==='USD'?+(t.amount_out||0):0),
+        'CNY': t.currency_in==='CNY'?+(t.amount_in||0):(t.currency_out==='CNY'?+(t.amount_out||0):0),
+        'Kurs': +(t.rate||0),
+        'Komissiya': +(t.commission_amount||0), 'Komissiya valyuta': t.commission_currency||'',
+        'Maqsad': t.target||'', 'Izoh': t.note||'',
+        'Kirituvchi': t.created_by||''
+      });
+    });
+    rows.sort(function(a,b){return (b['Sana']||'').localeCompare(a['Sana']||'');});
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Transaksiyalar');
     fileName = 'Exchange_Transaksiyalar';
 
@@ -27728,7 +27745,10 @@ function renderExchangeDash(){
   var todayStr = (new Date()).toISOString().slice(0,10);
   var todayTxns = EX_TXNS.filter(function(t){ return t.date===todayStr; });
   var todayBal = exCalcBalance(todayTxns);
-  var todayComm = todayBal.comm_total_usd + todayBal.comm_total_cny/EX_FX_RATE;
+  // EXCH_CLIENT_TXNS dagi bugungi transfer komissiyalarini qo'shish
+  var todayClientComm = EXCH_CLIENT_TXNS.filter(function(t){ return t.date===todayStr && t.type==='transfer' && t.commission_amount; })
+    .reduce(function(s,t){ return s + (+(t.commission_currency==='CNY'?(+(t.commission_amount||0))/EX_FX_RATE:(t.commission_amount||0))); }, 0);
+  var todayComm = todayBal.comm_total_usd + todayBal.comm_total_cny/EX_FX_RATE + todayClientComm;
 
   // Recent 10 txns — eski EX_TXNS + yangi EXCH_CLIENT_TXNS birlashtiriladi
   var recentOld = EX_TXNS.map(function(t){ return {_src:'old', date:t.date||'', type:t.type, client:t.client||'—', usd:t.usd, cny:t.cny, commission:t.commission, note:t.note}; });
@@ -27926,17 +27946,21 @@ function showExDrill(type){
   } else if(type==='comm_all'||type==='comm_today'){
     var isToday=(type==='comm_today');
     title = isToday ? '📅 Bugungi Foyda — '+todayStr : '💰 Jami Komissiya — barcha operatsiyalar';
+    // Eski EX_TXNS komissiyalari
     var filtered = txns.filter(function(t){ return +(t.commission||0)>0 && (!isToday||t.date===todayStr); });
-    var totalC = filtered.reduce(function(s,t){return s+(+(t.commission||0));},0);
+    // Yangi EXCH_CLIENT_TXNS transfer komissiyalari
+    var filteredNew = EXCH_CLIENT_TXNS.filter(function(t){ return t.type==='transfer' && t.commission_amount>0 && (!isToday||t.date===todayStr); });
+    var totalC = filtered.reduce(function(s,t){return s+(+(t.commission||0));},0)
+      + filteredNew.reduce(function(s,t){ return s+(+(t.commission_currency==='CNY'?(+(t.commission_amount||0))/EX_FX_RATE:(t.commission_amount||0))); },0);
     html='<div style="font-size:13px;font-weight:700;color:#D48C0A;margin-bottom:12px;">Jami: $'+totalC.toFixed(2)+'</div>'
       +'<table style="width:100%;border-collapse:collapse;font-size:12px;">'
       +'<thead><tr style="background:var(--s3)">'
       +'<th style="padding:8px 10px;text-align:left;color:var(--t3);font-size:10px;">Sana</th>'
       +'<th style="padding:8px 10px;text-align:left;color:var(--t3);font-size:10px;">Tur</th>'
       +'<th style="padding:8px 10px;text-align:left;color:var(--t3);font-size:10px;">Mijoz</th>'
-      +'<th style="padding:8px 10px;text-align:right;color:var(--t3);font-size:10px;">USD</th>'
+      +'<th style="padding:8px 10px;text-align:right;color:var(--t3);font-size:10px;">Miqdor</th>'
       +'<th style="padding:8px 10px;text-align:right;color:var(--t3);font-size:10px;">Komissiya</th>'
-      +'<th style="padding:8px 10px;text-align:right;color:var(--t3);font-size:10px;">Kurs</th>'
+      +'<th style="padding:8px 10px;text-align:right;color:var(--t3);font-size:10px;">Kanal</th>'
       +'</tr></thead><tbody>';
     filtered.forEach(function(t){
       var meta=EX_TYPE_META[t.type]||{lbl:t.type,color:'#6b7280'};
@@ -27949,7 +27973,20 @@ function showExDrill(type){
         +'<td style="padding:7px 10px;text-align:right;color:var(--t3);font-family:var(--mono)">'+(t.fx_rate?'¥'+t.fx_rate:'—')+'</td>'
         +'</tr>';
     });
-    if(filtered.length===0) html+='<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--t3)">Ma\'lumot yo\'q</td></tr>';
+    // Yangi transfer komissiyalar
+    filteredNew.forEach(function(t){
+      var cli=EXCH_CLIENTS.find(function(c){return c.id===t.client_id;})||{};
+      var komUSD = t.commission_currency==='CNY'?(+(t.commission_amount||0))/EX_FX_RATE:(+(t.commission_amount||0));
+      html+='<tr style="border-bottom:1px solid var(--b2);background:rgba(108,142,255,0.04)">'
+        +'<td style="padding:7px 10px;color:var(--t3)">'+escHtml(t.date||'')+'</td>'
+        +'<td style="padding:7px 10px"><span style="background:#6C8EFF22;color:#6C8EFF;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700">💱 Transfer</span></td>'
+        +'<td style="padding:7px 10px;font-weight:500">'+escHtml(cli.name||'—')+'</td>'
+        +'<td style="padding:7px 10px;text-align:right;color:var(--t2)">'+t.currency_in+' '+fS(t.amount_in||0)+'</td>'
+        +'<td style="padding:7px 10px;text-align:right;font-weight:700;color:#D48C0A">$'+komUSD.toFixed(2)+'</td>'
+        +'<td style="padding:7px 10px;text-align:right;color:var(--t3)">Naqd→Bank</td>'
+        +'</tr>';
+    });
+    if(filtered.length===0&&filteredNew.length===0) html+='<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--t3)">Ma\'lumot yo\'q</td></tr>';
     html+='</tbody></table>';
   }
 
