@@ -27716,8 +27716,16 @@ function renderExchangeDash(){
   var todayBal = exCalcBalance(todayTxns);
   var todayComm = todayBal.comm_total_usd + todayBal.comm_total_cny/EX_FX_RATE;
 
-  // Recent 10 txns
-  var recent = EX_TXNS.slice(-10).reverse();
+  // Recent 10 txns — eski EX_TXNS + yangi EXCH_CLIENT_TXNS birlashtiriladi
+  var recentOld = EX_TXNS.map(function(t){ return {_src:'old', date:t.date||'', type:t.type, client:t.client||'—', usd:t.usd, cny:t.cny, commission:t.commission, note:t.note}; });
+  var recentNew = EXCH_CLIENT_TXNS.map(function(t){
+    var cli=EXCH_CLIENTS.find(function(c){return c.id===t.client_id;})||{};
+    var typeMap={transfer:'Transfer xizmati',kirim:'Kirim',jonatish:"Jo'natish",konversiya:'Konversiya',qaytarish:'Qaytarish'};
+    var usdAmt = t.currency_in==='USD'?t.amount_in:(t.currency_out==='USD'?t.amount_out:0);
+    var cnyAmt = t.currency_in==='CNY'?t.amount_in:(t.currency_out==='CNY'?t.amount_out:0);
+    return {_src:'new', date:t.date||'', type:typeMap[t.type]||t.type, client:cli.name||'—', usd:usdAmt, cny:cnyAmt, commission:t.commission_amount||0, note:t.note, _raw:t};
+  });
+  var recent = recentOld.concat(recentNew).sort(function(a,b){return (b.date||'').localeCompare(a.date||'');}).slice(0,10);
 
   var h = '';
   h += '<div style="padding:24px 28px;max-width:1100px;">';
