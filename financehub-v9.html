@@ -4702,6 +4702,20 @@ var KASSA_DATA = (function(){
 })();
 
 
+// Exchange va Holding KASSA_DATA dan chiqarildi — ular o'z tizimlarida hisoblanadi
+(function(){
+  if(!KASSA_DATA) return;
+  var changed = false;
+  ['exchange','holding'].forEach(function(dir){
+    if(KASSA_DATA[dir] && Object.keys(KASSA_DATA[dir]).length){
+      KASSA_DATA[dir] = {};
+      changed = true;
+      console.log('[KASSA] '+dir+' kassa tozalandi');
+    }
+  });
+  if(changed) try{ localStorage.setItem('kassas2', JSON.stringify(KASSA_DATA)); }catch(e){}
+})();
+
 function kassaSave2(){
   lsSave('kassas2', KASSA_DATA);
   // DATA.kassas ni ham yangilash
@@ -4726,6 +4740,8 @@ function kassaSyncFromSB(){
     }
     if(!KASSA_DATA)KASSA_DATA={};
     rows.forEach(function(row){
+      // Holding va Exchange KASSA_DATA dan chiqarildi — alohida tizimlar
+      if(row.dir==='holding'||row.dir==='exchange') return;
       // SB dan kelgan data bilan localnikini kalit bo'yicha birlashtirish
       // Har bir kalit uchun: ikkalasida bor bo'lsa — balans kattarog'ini ol
       if(!KASSA_DATA[row.dir]){
@@ -11815,6 +11831,7 @@ var REQUESTS = (function(){ var s=lsLoad('requests'); return s||[]; })();
 // ══════════════════════════════════════════════════════════════
 var EXCH_CLIENTS     = (function(){ return lsLoad('exch_clients')     || []; })();
 var EXCH_CLIENT_TXNS = (function(){ return lsLoad('exch_client_txns') || []; })();
+var EXCH_EXPENSES    = (function(){ return lsLoad('exch_expenses')    || []; })();
 
 // EXCH_CLIENT_TXNS → DATA['exchange'] inject funksiyasi
 // Transfer komissiyalarini DATA['exchange'] ga synthetic row sifatida qo'shadi
@@ -11839,6 +11856,22 @@ function exchInjectToDATA(){
       note:    'Transfer: '+(cli.name||'')+(t.target?' → '+t.target:''),
       _exch_inject: true,
       _txn_id: t.id
+    });
+  });
+  // EXCH_EXPENSES — operatsion xarajatlarni inject qilish (kassoviy metod)
+  EXCH_EXPENSES.forEach(function(x){
+    var _uzsRate = (typeof OB!=='undefined'&&OB.fx_rate_uzs)||12700;
+    var amtUSD = x.currency==='UZS' ? (+(x.amount||0))/_uzsRate
+               : x.currency==='CNY' ? (+(x.amount||0))/(EX_FX_RATE||7.1)
+               : +(x.amount||0);
+    DATA['exchange'].push({
+      date:    x.date||new Date().toISOString().slice(0,10),
+      spread:  0,
+      expense: amtUSD,
+      net:     -amtUSD,
+      note:    (x.category||'Xarajat')+(x.note?' — '+x.note:''),
+      _exch_inject: true,
+      _expense_id:  x.id
     });
   });
 }
@@ -20899,7 +20932,7 @@ function renderCashflow(focusDir){
 
 
   // ✅ Boshlanish kassasi — haqiqiy KASSA_DATA dan
-  const _kassaTotCF=(function(){var tot=0;ensureKassaData();DIRS.forEach(function(d){var kas=KASSA_DATA[d.id]||{};KTYPES.forEach(function(tp){tot+=(kas['USD_'+tp]||{}).balance||0;tot+=((kas['RMB_'+tp]||{}).balance||0)/(OB.fx_rate_rmb||7.1);tot+=((kas['UZS_'+tp]||{}).balance||0)/(OB.fx_rate_uzs||12700);});});return Math.round(tot);})();
+  const _kassaTotCF=(function(){var tot=0;ensureKassaData();DIRS.forEach(function(d){if(d.id==='exchange'||d.id==='holding')return;var kas=KASSA_DATA[d.id]||{};KTYPES.forEach(function(tp){tot+=(kas['USD_'+tp]||{}).balance||0;tot+=((kas['RMB_'+tp]||{}).balance||0)/(OB.fx_rate_rmb||7.1);tot+=((kas['UZS_'+tp]||{}).balance||0)/(OB.fx_rate_uzs||12700);});});return Math.round(tot);})();
   const begin_cash = Math.max(0, _kassaTotCF); // Haqiqiy kassa — ixtiro qilinmaydi
   const end_cash   = begin_cash+net_change;
 
@@ -21963,6 +21996,8 @@ function renderBalance(focusDir){
 
     DIRS.forEach(function(d){
 
+      // Exchange: EXCH_CHANNELS; Holding: EHSON_DATA.chinwakil_balance — KASSA_DATA dan emas
+      if(d.id==='exchange' || d.id==='holding') return;
 
       var kas=KASSA_DATA[d.id]||{};
 
@@ -21983,7 +22018,6 @@ function renderBalance(focusDir){
 
 
     });
-
 
     return Math.round(total);
 
@@ -22902,7 +22936,7 @@ function renderBalance(focusDir){
     _DRL.bs_cash_dirs={t:'Yo\'nalishlar Bank Hisoblari',h:
 
 
-      sumC(Math.round(rev*0.04),'Bank hisoblari (taxminiy)','TXNS dan hisoblangan')
+      sumC(kassaTotalUSD,'Kassa va bank hisoblari jami','KASSA_DATA + Exchange kanallar')
 
 
       +sec('YO\'NALISHLAR BO\'YICHA')
@@ -22917,7 +22951,7 @@ function renderBalance(focusDir){
         {l:'🚛 Logistics bank hisobi',s:'Tushum − xarajat qoldig\'i',v:Math.round((sk(l,'revenue')-sk(l,'cogs')-sk(l,'expense'))*0.15),fn:"_dgo('bs_dir_logistics')"},
 
 
-        {l:'💱 Exchange bank hisobi',s:'Spred − xarajat qoldig\'i',v:Math.round((sk(e,'spread')-sk(e,'expense'))*0.15),fn:"_dgo('bs_dir_exchange')"},
+        {l:'💱 Exchange bank hisobi',s:'EXCH_CHANNELS (kanallar balansi)',v:(function(){var eb=exCalcBalance();return Math.round((eb.bank_usd||0)+((eb.bank_cny||0)/(EX_FX_RATE||7.1)));})(),fn:"_dgo('bs_dir_exchange')"},
 
 
         {l:'🏭 Procurement bank hisobi',s:'Komissiya − xarajat qoldig\'i',v:Math.round((sk(p,'commission')-sk(p,'expense'))*0.15),fn:"_dgo('bs_dir_procurement')"},
@@ -23781,7 +23815,7 @@ function renderBalance(focusDir){
           {l:'🏦 Chinwakil kassa',s:'Asosiy holding kassa',v:EHSON_DATA.chinwakil_balance,nosign:true,fn:"_dgo('bs_chinwakil')"},
 
 
-          {l:'🏧 Yo\'nalishlar bank hisoblari',s:'Operatsion bank hisoblari',v:Math.round(rev*0.04),nosign:true,fn:"_dgo('bs_cash_dirs')"},
+          {l:'🏧 Yo\'nalishlar bank hisoblari',s:'Operatsion bank hisoblari',v:kassaTotalUSD,nosign:true,fn:"_dgo('bs_cash_dirs')"},
 
 
           {l:'Naqd Jami',v:ca_cash,bold:true,nosign:true,c:'#00E5A0'},
@@ -28101,7 +28135,7 @@ function renderExchangeEntry(){
     {id:'cashout',  emoji:'🏧', lbl:'Naqd Chiqarish',   sub:'UZBda naqd · Mijoz 2'},
     {id:'cashin',   emoji:'💵', lbl:'Naqd Kirim',       sub:'UZBda naqd · Mijoz 3'},
   ];
-  h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px;">';
+  h+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">';
   types.forEach(function(t){
     var meta=EX_TYPE_META[t.id]||{color:'#6b7280'};
     h+='<button onclick="exShowForm(\''+t.id+'\')" id="exTabBtn_'+t.id+'" '
@@ -28112,6 +28146,17 @@ function renderExchangeEntry(){
       +'<div style="font-size:10px;color:var(--t3);">'+t.sub+'</div>'
       +'</button>';
   });
+  h+='</div>';
+  // Operatsion xarajat tugmasi — alohida qator
+  h+='<div style="margin-bottom:20px;">';
+  h+='<button onclick="exShowExpenseForm()" id="exTabBtn_expense" '
+    +'style="width:100%;padding:12px 16px;border-radius:10px;border:2px solid var(--b2);background:var(--s2);cursor:pointer;text-align:left;display:flex;align-items:center;gap:12px;transition:.15s;" '
+    +'onmouseover="this.style.borderColor=\'#ef4444\';this.style.background=\'#ef444415\'" '
+    +'onmouseout="this.style.borderColor=(window._exActiveType===\'expense\'?\'#ef4444\':\'var(--b2)\');this.style.background=(window._exActiveType===\'expense\'?\'#ef444415\':\'var(--s2)\')">'
+    +'<div style="font-size:20px;">💸</div>'
+    +'<div><div style="font-size:12px;font-weight:700;color:var(--t1);">Operatsion Xarajat</div>'
+    +'<div style="font-size:10px;color:var(--t3);">Ish haqi · Ijara · Kommunal · Transport · Boshqa xarajatlar</div></div>'
+    +'</div>';
   h+='</div>';
 
   // Form area
@@ -28133,8 +28178,99 @@ function renderExchangeEntry(){
   window._exClientNames = _names;
 }
 
+function exShowExpenseForm(){
+  window._exActiveType = 'expense';
+  // Highlight expense button, clear others
+  ['break','send_cny','send_usd','deposit','cashout','cashin'].forEach(function(t){
+    var b=document.getElementById('exTabBtn_'+t);
+    if(b){b.style.borderColor='var(--b2)';b.style.background='var(--s2)';}
+  });
+  var eb=document.getElementById('exTabBtn_expense');
+  if(eb){eb.style.borderColor='#ef4444';eb.style.background='#ef444415';}
+
+  var today=(new Date()).toISOString().slice(0,10);
+  var cats=['Ish haqi','Ijara','Kommunal xizmatlar','Transport','Bank komissiyasi','Ofis xarajatlar','Reklama','Boshqa'];
+  var catOpts=cats.map(function(c){return '<option>'+c+'</option>';}).join('');
+  var curOpts='<option value="USD">USD</option><option value="UZS">UZS</option><option value="CNY">CNY</option>';
+
+  var rows=EXCH_EXPENSES.slice().reverse().slice(0,20);
+  var listH='';
+  if(rows.length){
+    listH+='<div style="margin-top:24px;border-top:1px solid var(--b2);padding-top:16px;">';
+    listH+='<div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:10px;">📋 So\'nggi xarajatlar</div>';
+    listH+='<div style="display:flex;flex-direction:column;gap:6px;">';
+    rows.forEach(function(x){
+      var _uz=((typeof OB!=='undefined'&&OB.fx_rate_uzs)||12700);
+      var amtUSD = x.currency==='UZS'?(+(x.amount||0))/_uz
+                 : x.currency==='CNY'?(+(x.amount||0))/(EX_FX_RATE||7.1)
+                 : +(x.amount||0);
+      listH+='<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--s3);border-radius:7px;">'
+        +'<div><span style="font-size:11px;color:var(--t3);">'+x.date+'</span> '
+        +'<span style="font-size:12px;font-weight:600;color:var(--t1);">'+escHtml(x.category||'')+'</span>'
+        +(x.note?' <span style="font-size:11px;color:var(--t3);">— '+escHtml(x.note)+'</span>':'')
+        +'</div>'
+        +'<div style="display:flex;align-items:center;gap:8px;">'
+        +'<span style="font-size:12px;font-weight:700;color:#ef4444;">−$'+fmtN(amtUSD,0)+'</span>'
+        +'<span style="font-size:10px;color:var(--t3);">('+fmtN(x.amount,0)+' '+x.currency+')</span>'
+        +'<button onclick="delExchExpense(\''+x.id+'\')" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:13px;padding:0 2px;" title="O\'chirish">×</button>'
+        +'</div>'
+        +'</div>';
+    });
+    listH+='</div></div>';
+  }
+
+  var form='<div style="border-left:3px solid #ef4444;padding-left:14px;margin-bottom:16px;">'
+    +'<div style="font-size:14px;font-weight:700;color:var(--t1);">💸 Operatsion Xarajat Kiritish</div>'
+    +'<div style="font-size:11px;color:var(--t3);">Naqd to\'langan xarajatlar — kassoviy metod</div>'
+    +'</div>';
+  form+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
+  form+=exField('Sana','','exE_date','date',today);
+  form+='<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px;">Kategoriya</label>'
+    +'<select id="exE_cat" style="width:100%;padding:8px 10px;border-radius:7px;border:1px solid var(--b2);background:var(--s3);color:var(--t1);font-size:13px;">'+catOpts+'</select></div>';
+  form+='<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px;">Summa</label>'
+    +'<input id="exE_amount" type="number" min="0" step="0.01" placeholder="0.00" style="width:100%;box-sizing:border-box;padding:8px 10px;border-radius:7px;border:1px solid var(--b2);background:var(--s3);color:var(--t1);font-size:13px;"></div>';
+  form+='<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px;">Valyuta</label>'
+    +'<select id="exE_cur" style="width:100%;padding:8px 10px;border-radius:7px;border:1px solid var(--b2);background:var(--s3);color:var(--t1);font-size:13px;">'+curOpts+'</select></div>';
+  form+='<div style="grid-column:1/-1;"><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px;">Izoh (ixtiyoriy)</label>'
+    +'<input id="exE_note" type="text" placeholder="Xarajat haqida qisqa tavsif..." style="width:100%;box-sizing:border-box;padding:8px 10px;border-radius:7px;border:1px solid var(--b2);background:var(--s3);color:var(--t1);font-size:13px;"></div>';
+  form+='</div>';
+  form+='<div style="margin-top:16px;display:flex;gap:10px;">';
+  form+='<button onclick="saveExchExpense()" style="flex:1;padding:10px;background:#ef4444;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">💸 Xarajat Saqlash</button>';
+  form+='</div>';
+  form+=listH;
+
+  var fa=document.getElementById('exFormArea');
+  if(fa) fa.innerHTML=form;
+}
+
+function saveExchExpense(){
+  var date   =(document.getElementById('exE_date')||{}).value||(new Date()).toISOString().slice(0,10);
+  var cat    =(document.getElementById('exE_cat')||{}).value||'Boshqa';
+  var amount =parseFloat((document.getElementById('exE_amount')||{}).value)||0;
+  var cur    =(document.getElementById('exE_cur')||{}).value||'USD';
+  var note   =((document.getElementById('exE_note')||{}).value||'').trim();
+  if(!amount||amount<=0){toast('Summani kiriting!','error');return;}
+  var rec={id:'xe_'+Date.now(),date:date,category:cat,amount:amount,currency:cur,note:note};
+  EXCH_EXPENSES.push(rec);
+  lsSave('exch_expenses',EXCH_EXPENSES);
+  exchInjectToDATA();
+  toast('Xarajat saqlandi: '+fmtN(amount,0)+' '+cur,'success');
+  exShowExpenseForm();
+}
+
+function delExchExpense(id){
+  EXCH_EXPENSES=EXCH_EXPENSES.filter(function(x){return x.id!==id;});
+  lsSave('exch_expenses',EXCH_EXPENSES);
+  exchInjectToDATA();
+  toast('Xarajat o\'chirildi','info');
+  exShowExpenseForm();
+}
+
 function exShowForm(type){
   window._exActiveType = type;
+  // Clear expense button highlight
+  var eb=document.getElementById('exTabBtn_expense');
+  if(eb){eb.style.borderColor='var(--b2)';eb.style.background='var(--s2)';}
   var meta = EX_TYPE_META[type]||{lbl:type,color:'#D48C0A'};
   // Highlight active tab
   var allTypes=['break','send_cny','send_usd','deposit','cashout','cashin'];
