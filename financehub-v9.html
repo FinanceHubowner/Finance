@@ -27316,8 +27316,9 @@ window.openExchOpModal = function(clientId, prefillType){
     // Tur
     +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Operatsiya turi *</label>'
     +'<select id="_eOT" onchange="exchOpTypeChange()" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px">'
-    +'<option value="kirim">💰 Kirim (mijoz depozit qo\'yadi)</option>'
-    +'<option value="jonatish">📤 Jo\'natish (mijoz nomidan o\'tkazma)</option>'
+    +'<option value="transfer">💱 Transfer xizmati (naqd oldi → bank jo\'natdi)</option>'
+    +'<option value="jonatish">📤 Jo\'natish (depozitdan o\'tkazma)</option>'
+    +'<option value="kirim">💰 Depozit (mijoz pul qoldiradi)</option>'
     +'<option value="konversiya">🔄 Konversiya (valyuta almashish)</option>'
     +'<option value="qaytarish">🔙 Qaytarish (mijozga qaytarish)</option>'
     +'</select></div>'
@@ -27365,14 +27366,23 @@ window.openExchOpModal = function(clientId, prefillType){
     +'<option value="">— Tanlanmagan —</option>'
     +EXCH_PARTNERS.map(function(p){return '<option value="'+p.id+'">🤝 '+escHtml(p.name)+'</option>';}).join('')
     +'</select></div></div>'
-    // Kirim kanali — faqat Jo'natish turida ko'rinadi
+    // Kirim kanali — Jo'natish va Transfer turida ko'rinadi
     +'<div id="_eOCHInBlock" style="display:none;background:rgba(23,179,116,0.06);border:1px solid rgba(23,179,116,0.25);border-radius:8px;padding:10px">'
-    +'<label style="font-size:11px;color:#17B374;display:block;margin-bottom:4px;font-weight:600">💵 Kirim kanali (naqd/platform qabul qilindi)</label>'
+    +'<label style="font-size:11px;color:#17B374;display:block;margin-bottom:4px;font-weight:600" id="_eOCHInLbl">💵 Kirim kanali (naqd/platform qabul qilindi)</label>'
     +'<select id="_eOCHIn" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px">'
     +'<option value="">— Tanlanmagan —</option>'
     +EXCH_CHANNELS.map(function(ch){var d=exchChanDisplay(ch);return '<option value="'+ch.id+'">'+d.icon+' '+escHtml(ch.name)+'</option>';}).join('')
     +'</select></div>'
     +'</div>'
+    // Komissiya bloki — faqat Transfer turida
+    +'<div id="_eOKomBlock" style="display:none;background:rgba(108,142,255,0.07);border:1px solid rgba(108,142,255,0.3);border-radius:10px;padding:14px">'
+    +'<div style="font-size:11px;font-weight:600;color:#6C8EFF;margin-bottom:8px">💰 Komissiya (Exchange daromadi)</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 2fr;gap:8px">'
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Valyuta</label>'
+    +'<select id="_eOKomCur" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px">'+curOpts+'</select></div>'
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Komissiya miqdori</label>'
+    +'<input id="_eOKomAmt" type="number" min="0" step="0.01" placeholder="0.00" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box"></div>'
+    +'</div></div>'
     // Izoh
     +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Izoh</label>'
     +'<input id="_eON" placeholder="Qo\'shimcha ma\'lumot..." style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box"></div>'
@@ -27395,22 +27405,38 @@ window.exchOpTypeChange = function(){
   var kursBlock=document.getElementById('_eOKursBlock');
   if(!outBlock) return;
   var chanInBlock=document.getElementById('_eOCHInBlock');
+  var chanInLbl=document.getElementById('_eOCHInLbl');
   var chanLbl=document.getElementById('_eOCHLbl');
-  if(t==='kirim'){
+  var komBlock=document.getElementById('_eOKomBlock');
+  if(t==='transfer'){
+    // Transfer: mijoz naqd beradi → Exchange bank orqali jo'natadi → komissiya oladi
+    outBlock.style.display='block'; if(tgtBlock) tgtBlock.style.display='block';
+    if(chanInBlock) chanInBlock.style.display='block';
+    if(komBlock) komBlock.style.display='block';
+    if(outLbl) outLbl.textContent='Jo\'natiladigan miqdor (bank orqali)';
+    if(amtLbl) amtLbl.textContent='Qabul qilindi (mijozdan) *';
+    if(kursBlock) kursBlock.style.display='none';
+    if(chanLbl) chanLbl.textContent='Jo\'natish kanali (Bank/Platform)';
+    if(chanInLbl) chanInLbl.textContent='💵 Qabul kanali (Naqd/Platform — mijoz to\'ladi)';
+  } else if(t==='kirim'){
     outBlock.style.display='none'; if(tgtBlock) tgtBlock.style.display='none';
     if(chanInBlock) chanInBlock.style.display='none';
+    if(komBlock) komBlock.style.display='none';
     if(amtLbl) amtLbl.textContent='Kirim miqdori *';
     if(chanLbl) chanLbl.textContent='Kirim kanali';
   } else if(t==='jonatish'){
     outBlock.style.display='block'; if(tgtBlock) tgtBlock.style.display='block';
     if(chanInBlock) chanInBlock.style.display='block';
+    if(komBlock) komBlock.style.display='none';
     if(outLbl) outLbl.textContent='Jo\'natiladigan valyuta va miqdor';
     if(amtLbl) amtLbl.textContent='Mijoz hisobidan (debit) *';
     if(kursBlock) kursBlock.style.display='none';
     if(chanLbl) chanLbl.textContent='Chiqim kanali (pul qayerdan ketdi)';
+    if(chanInLbl) chanInLbl.textContent='💵 Kirim kanali (naqd/platform qabul qilindi)';
   } else if(t==='konversiya'){
     outBlock.style.display='block'; if(tgtBlock) tgtBlock.style.display='none';
     if(chanInBlock) chanInBlock.style.display='none';
+    if(komBlock) komBlock.style.display='none';
     if(outLbl) outLbl.textContent='Konversiya natijasi (mijozga yoziladi)';
     if(amtLbl) amtLbl.textContent='Kirdi valyuta miqdori *';
     if(kursBlock) kursBlock.style.display='block';
@@ -27418,6 +27444,7 @@ window.exchOpTypeChange = function(){
   } else if(t==='qaytarish'){
     outBlock.style.display='none'; if(tgtBlock) tgtBlock.style.display='block';
     if(chanInBlock) chanInBlock.style.display='none';
+    if(komBlock) komBlock.style.display='none';
     if(amtLbl) amtLbl.textContent='Qaytarilgan miqdor *';
     if(chanLbl) chanLbl.textContent='Chiqim kanali (qaytarish kanali)';
   }
@@ -27437,10 +27464,14 @@ window.saveExchOp = function(){
   var chanId   =(document.getElementById('_eOCH')||{}).value||'';
   var chanInId =(document.getElementById('_eOCHIn')||{}).value||'';
   var partId   =(document.getElementById('_eOPAR')||{}).value||'';
+  var komCur   =(document.getElementById('_eOKomCur')||{}).value||curIn;
+  var komAmt   =parseFloat((document.getElementById('_eOKomAmt')||{}).value)||0;
 
   if(!cliId){toast('Mijoz tanlanishi shart!','error');return;}
   if(!amtIn||amtIn<=0){toast('Miqdor 0 dan katta bo\'lishi kerak!','error');return;}
   if(type==='konversiya'&&(!amtOut||amtOut<=0)){toast('Konversiya natijasi miqdori kiritilishi shart!','error');return;}
+  if(type==='transfer'&&!chanId){toast('Jo\'natish kanali tanlanishi shart!','error');return;}
+  if(type==='transfer'&&!chanInId){toast('Qabul kanali tanlanishi shart!','error');return;}
 
   // Konversiyada kurs auto-hisoblash
   if(type==='konversiya'&&amtIn&&amtOut&&!kurs) kurs=amtOut/amtIn;
@@ -27452,14 +27483,16 @@ window.saveExchOp = function(){
     date: date,
     currency_in:  curIn,
     amount_in:    amtIn,
-    currency_out: (type==='konversiya'||type==='jonatish')?curOut:'',
-    amount_out:   (type==='konversiya'||type==='jonatish')?amtOut:0,
+    currency_out: (type==='konversiya'||type==='jonatish'||type==='transfer')?curOut:'',
+    amount_out:   (type==='konversiya'||type==='jonatish'||type==='transfer')?amtOut:0,
     rate: kurs||0,
     target: target.trim(),
     note: note.trim(),
     channel_id:    chanId,
     channel_in_id: chanInId,
     partner_id:    partId,
+    commission_currency: (type==='transfer')?komCur:'',
+    commission_amount:   (type==='transfer')?komAmt:0,
     created_at: new Date().toISOString(),
     created_by: (CUR_USER&&CUR_USER.name)||''
   };
@@ -27471,7 +27504,7 @@ window.saveExchOp = function(){
   var cardOv=document.getElementById('_exchCardOv');
   if(cardOv) openExchClientCard(cliId);
   else renderExchMijozlar();
-  var typeNames={kirim:'Kirim',jonatish:"Jo'natish",konversiya:'Konversiya',qaytarish:'Qaytarish'};
+  var typeNames={transfer:'Transfer xizmati',kirim:'Kirim',jonatish:"Jo'natish",konversiya:'Konversiya',qaytarish:'Qaytarish'};
   toast('✓ '+( typeNames[type]||'Operatsiya')+' saqlandi','success');
 };
 
@@ -27483,9 +27516,9 @@ window.openExchClientCard = function(clientId){
     .sort(function(a,z){return (z.date||'').localeCompare(a.date||'');});
   var old=document.getElementById('_exchCardOv'); if(old) old.remove();
 
-  var typeIcon={kirim:'💰',jonatish:'📤',konversiya:'🔄',qaytarish:'🔙'};
-  var typeName={kirim:'Kirim',jonatish:"Jo'natish",konversiya:'Konversiya',qaytarish:'Qaytarish'};
-  var typeCol= {kirim:'#17B374',jonatish:'#FF4D6A',konversiya:'#FFB830',qaytarish:'#6C8EFF'};
+  var typeIcon={transfer:'💱',kirim:'💰',jonatish:'📤',konversiya:'🔄',qaytarish:'🔙'};
+  var typeName={transfer:'Transfer xizmati',kirim:'Kirim',jonatish:"Jo'natish",konversiya:'Konversiya',qaytarish:'Qaytarish'};
+  var typeCol= {transfer:'#6C8EFF',kirim:'#17B374',jonatish:'#FF4D6A',konversiya:'#FFB830',qaytarish:'#6C8EFF'};
 
   var balCards=Object.keys(bal).filter(function(k){return bal[k]!==0;}).map(function(cur){
     var v=bal[cur];
@@ -27503,7 +27536,11 @@ window.openExchClientCard = function(clientId){
     var nm=typeName[t.type]||t.type;
     var col=typeCol[t.type]||'var(--t2)';
     var desc='';
-    if(t.type==='kirim') desc=t.currency_in+' +'+fS(t.amount_in);
+    if(t.type==='transfer'){
+      desc='Qabul: '+t.currency_in+' +'+fS(t.amount_in)+' → Jo\'natildi: '+(t.currency_out||t.currency_in)+' '+fS(t.amount_out||t.amount_in);
+      if(t.target) desc+=' ('+escHtml(t.target)+')';
+      if(t.commission_amount) desc+=' | Kom: '+(t.commission_currency||t.currency_in)+' '+fS(t.commission_amount);
+    } else if(t.type==='kirim') desc=t.currency_in+' +'+fS(t.amount_in);
     else if(t.type==='qaytarish') desc=t.currency_in+' -'+fS(t.amount_in);
     else if(t.type==='jonatish') desc=t.currency_in+' -'+fS(t.amount_in)+(t.currency_out?' → '+t.currency_out+' '+fS(t.amount_out):'')+(t.target?' ('+escHtml(t.target)+')':'');
     else if(t.type==='konversiya') desc=t.currency_in+' -'+fS(t.amount_in)+' → '+t.currency_out+' +'+fS(t.amount_out)+(t.rate?' (kurs: '+t.rate+')':'');
