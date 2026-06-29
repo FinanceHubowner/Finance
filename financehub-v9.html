@@ -738,6 +738,7 @@ function showDash(profile) {
       exSyncFromSupabase();
       initRequestsFromSB();
       syncAllFromSB();
+      exchInjectToDATA();
       renderL2(d);
 
 
@@ -786,6 +787,7 @@ function showDash(profile) {
       exSyncFromSupabase();
       initRequestsFromSB();
       syncAllFromSB();
+      exchInjectToDATA();
       renderL1();
 
     }
@@ -9318,6 +9320,8 @@ function syncAllFromSB(){
   exchClientSyncFromSB();
   exchPartnerSyncFromSB();
   exchChannelSyncFromSB();
+  // EXCH_CLIENT_TXNS → DATA['exchange'] inject (barcha hisobotlar uchun)
+  setTimeout(exchInjectToDATA, 500);
 }
 
 // ── AI Key — Supabase orqali barcha userlarga tarqatish ──────────────────
@@ -11812,9 +11816,37 @@ var REQUESTS = (function(){ var s=lsLoad('requests'); return s||[]; })();
 var EXCH_CLIENTS     = (function(){ return lsLoad('exch_clients')     || []; })();
 var EXCH_CLIENT_TXNS = (function(){ return lsLoad('exch_client_txns') || []; })();
 
+// EXCH_CLIENT_TXNS → DATA['exchange'] inject funksiyasi
+// Transfer komissiyalarini DATA['exchange'] ga synthetic row sifatida qo'shadi
+// Shu orqali P&L, Cash Flow, Balans, Dashboard, KPI — HAMMA JOY avtomatik ko'radi
+function exchInjectToDATA(){
+  if(!DATA) return;
+  if(!DATA['exchange']) DATA['exchange'] = [];
+  // Oldingi inject qilingan rowlarni olib tashlash
+  DATA['exchange'] = DATA['exchange'].filter(function(r){ return !r._exch_inject; });
+  // Yangilarini qo'shish
+  EXCH_CLIENT_TXNS.forEach(function(t){
+    if(t.type!=='transfer' || !t.commission_amount) return;
+    var cli = EXCH_CLIENTS.find(function(c){ return c.id===t.client_id; })||{};
+    var komUSD = t.commission_currency==='CNY'
+      ? (+(t.commission_amount||0))/(EX_FX_RATE||7.1)
+      : +(t.commission_amount||0);
+    DATA['exchange'].push({
+      date:    t.date||new Date().toISOString().slice(0,10),
+      spread:  komUSD,
+      expense: 0,
+      net:     komUSD,
+      note:    'Transfer: '+(cli.name||'')+(t.target?' → '+t.target:''),
+      _exch_inject: true,
+      _txn_id: t.id
+    });
+  });
+}
+
 function exchClientSave(){
   lsSave('exch_clients',     EXCH_CLIENTS);
   lsSave('exch_client_txns', EXCH_CLIENT_TXNS);
+  exchInjectToDATA();
   if(!SB||DEMO_MODE) return;
   if(EXCH_CLIENTS.length)
     SB.from('app_exch_clients').upsert(EXCH_CLIENTS,{onConflict:'id'})
@@ -18666,18 +18698,6 @@ function renderPL(focusDir){
 
       rev = sk(rows,'spread');
 
-      // EXCH_CLIENT_TXNS dagi transfer komissiyalarini ham qo'shamiz
-      var _exchDateFrom = DATE_FROM || (PER>=99999 ? null : dys(PER)[0]);
-      var _exchDateTo   = DATE_TO   || (PER>=99999 ? null : dys(PER)[dys(PER).length-1]);
-      rev += EXCH_CLIENT_TXNS.filter(function(t){
-        if(t.type!=='transfer' || !t.commission_amount) return false;
-        if(_exchDateFrom && t.date < _exchDateFrom) return false;
-        if(_exchDateTo   && t.date > _exchDateTo)   return false;
-        return true;
-      }).reduce(function(s,t){
-        var komUSD = t.commission_currency==='CNY' ? (+(t.commission_amount||0))/EX_FX_RATE : +(t.commission_amount||0);
-        return s + komUSD;
-      }, 0);
 
       cogs = 0;
 
