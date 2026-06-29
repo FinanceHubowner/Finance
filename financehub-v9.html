@@ -11851,8 +11851,10 @@ function exchClientBalance(clientId){
   var bal = {};
   EXCH_CLIENT_TXNS.filter(function(t){ return t.client_id===clientId; })
     .forEach(function(t){
-      // kirim: +amount_in, valyuta_in
-      // jonatiash/qaytarish: -amount_in valyuta_in
+      // transfer: balansga ta'sir qilmaydi (xizmat tranzaksiyasi)
+      if(t.type==='transfer') return;
+      // kirim: +amount_in
+      // jonatish/qaytarish: -amount_in
       // konversiya: -amount_in valyuta_in, +amount_out valyuta_out
       var vi = t.currency_in  || 'USD';
       var vo = t.currency_out || '';
