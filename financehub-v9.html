@@ -26587,6 +26587,18 @@ function exCalcBalance(txns){
       b.client_usd-=u; b.client_cny-=c;
     }
   });
+  // Yangi EXCH_CLIENT_TXNS dagi Transfer komissiyalarini qo'shish
+  // (faqat to'liq hisoblashda, ya'ni txns argument berilmagan bo'lsa)
+  if(!arguments[0]){
+    EXCH_CLIENT_TXNS.forEach(function(t){
+      if(t.type==='transfer' && t.commission_amount){
+        var komCur = t.commission_currency || 'USD';
+        var komAmt = +(t.commission_amount||0);
+        if(komCur==='CNY'){ b.co_cny+=komAmt; b.comm_total_cny+=komAmt; }
+        else { b.co_usd+=komAmt; b.comm_total_usd+=komAmt; }
+      }
+    });
+  }
   return b;
 }
 
