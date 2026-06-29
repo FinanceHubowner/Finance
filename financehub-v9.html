@@ -22025,7 +22025,10 @@ function renderBalance(focusDir){
   })();
 
 
-  const ca_cash      = EHSON_DATA.chinwakil_balance + kassaTotalUSD;
+  // Exchange kassoviy metod: fizik kassa = net daromad (spread - expense)
+  // Holding konsolidatsiyada ham Exchange neti qo'shiladi
+  const exNetCash = Math.max(0, Math.round(sk(e,'net')));
+  const ca_cash   = EHSON_DATA.chinwakil_balance + kassaTotalUSD + exNetCash;
 
 
 
