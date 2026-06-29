@@ -9315,6 +9315,9 @@ function syncAllFromSB(){
   kontragentsSyncFromSB();
   bpSyncFromSB();
   aiKeySyncFromSB();
+  exchClientSyncFromSB();
+  exchPartnerSyncFromSB();
+  exchChannelSyncFromSB();
 }
 
 // ── AI Key — Supabase orqali barcha userlarga tarqatish ──────────────────
@@ -11759,19 +11762,21 @@ const SUBNAV_DEFS = {
     {id:'entry',     lbl:'Kiritish',         icon:'✏️'},
   ],
   exchange: [
-    {id:'dashboard', lbl:'Dashboard',        icon:'📊'},
-    {id:'pl',        lbl:'P&L',              icon:'📈'},
-    {id:'cashflow',  lbl:'Cash Flow',        icon:'💵'},
-    {id:'balance',   lbl:'Balans',           icon:'⚖️'},
-    {id:'kassa',     lbl:'Kassa',            icon:'💳'},
-    {id:'crm',       lbl:'Mijozlar',         icon:'👥'},
-    {id:'pipeline',  lbl:'Pipeline',         icon:'📈'},
-    {id:'payroll',   lbl:'Payroll',          icon:'👨‍💼'},
-    {id:'hrm',       lbl:'Xodimlar',         icon:'👥'},
-    {id:'tasks',     lbl:'Vazifalar',        icon:'✅'},
-    {id:'requests',  lbl:"So'rovlar",       icon:'📝'},
-    {id:'actfact',   lbl:'Actual vs Fact',  icon:'📊'},
-    {id:'entry',     lbl:'Kiritish',         icon:'✏️'},
+    {id:'dashboard',     lbl:'Dashboard',         icon:'📊'},
+    {id:'exchmijozlar',  lbl:'Mijozlar',          icon:'👥'},
+    {id:'exchkanallar',  lbl:"To'lov Kanallari",  icon:'🏦'},
+    {id:'exchhamkorlar', lbl:'Hamkorlar',          icon:'🤝'},
+    {id:'exchtranzaksiya',lbl:'Tranzaksiyalar',   icon:'💸'},
+    {id:'exchpozitsiya', lbl:'Pozitsiya Tahlili', icon:'📐'},
+    {id:'pl',            lbl:'P&L',               icon:'📈'},
+    {id:'cashflow',      lbl:'Cash Flow',          icon:'💵'},
+    {id:'balance',       lbl:'Balans',             icon:'⚖️'},
+    {id:'payroll',       lbl:'Payroll',            icon:'👨‍💼'},
+    {id:'hrm',           lbl:'Xodimlar',           icon:'👥'},
+    {id:'tasks',         lbl:'Vazifalar',          icon:'✅'},
+    {id:'requests',      lbl:"So'rovlar",          icon:'📝'},
+    {id:'actfact',       lbl:'Actual vs Fact',     icon:'📊'},
+    {id:'entry',         lbl:'Kiritish',           icon:'✏️'},
   ],
   procurement: [
     {id:'dashboard', lbl:'Dashboard',        icon:'📊'},
@@ -11800,6 +11805,74 @@ const SUBNAV_DEFS = {
 // ── ZAYAVKA (REQUEST/APPROVAL) SYSTEM ─────────────────────────
 // ══════════════════════════════════════════════════════════════
 var REQUESTS = (function(){ var s=lsLoad('requests'); return s||[]; })();
+
+// ══════════════════════════════════════════════════════════════
+//  EXCHANGE MIJOZLAR HISOBI — data layer
+// ══════════════════════════════════════════════════════════════
+var EXCH_CLIENTS     = (function(){ return lsLoad('exch_clients')     || []; })();
+var EXCH_CLIENT_TXNS = (function(){ return lsLoad('exch_client_txns') || []; })();
+
+function exchClientSave(){
+  lsSave('exch_clients',     EXCH_CLIENTS);
+  lsSave('exch_client_txns', EXCH_CLIENT_TXNS);
+  if(!SB||DEMO_MODE) return;
+  if(EXCH_CLIENTS.length)
+    SB.from('app_exch_clients').upsert(EXCH_CLIENTS,{onConflict:'id'})
+      .then(function(r){ if(r.error) console.warn('[EXCH_CLI]',r.error.message); });
+  if(EXCH_CLIENT_TXNS.length)
+    SB.from('app_exch_client_txns').upsert(EXCH_CLIENT_TXNS,{onConflict:'id'})
+      .then(function(r){ if(r.error) console.warn('[EXCH_TXN]',r.error.message); });
+}
+
+function exchClientSyncFromSB(){
+  if(!SB||DEMO_MODE) return;
+  SB.from('app_exch_clients').select('*').then(function(r){
+    if(!r.error && r.data && r.data.length){
+      r.data.forEach(function(row){
+        var idx=EXCH_CLIENTS.findIndex(function(c){return c.id===row.id;});
+        if(idx===-1) EXCH_CLIENTS.push(row); else EXCH_CLIENTS[idx]=row;
+      });
+      lsSave('exch_clients', EXCH_CLIENTS);
+    }
+  });
+  SB.from('app_exch_client_txns').select('*').order('date',{ascending:false}).then(function(r){
+    if(!r.error && r.data && r.data.length){
+      r.data.forEach(function(row){
+        var idx=EXCH_CLIENT_TXNS.findIndex(function(t){return t.id===row.id;});
+        if(idx===-1) EXCH_CLIENT_TXNS.push(row); else EXCH_CLIENT_TXNS[idx]=row;
+      });
+      lsSave('exch_client_txns', EXCH_CLIENT_TXNS);
+    }
+  });
+}
+
+// Mijoz joriy balansi: {USD:0, CNY:0, UZS:0, ...}
+function exchClientBalance(clientId){
+  var bal = {};
+  EXCH_CLIENT_TXNS.filter(function(t){ return t.client_id===clientId; })
+    .forEach(function(t){
+      // kirim: +amount_in, valyuta_in
+      // jonatiash/qaytarish: -amount_in valyuta_in
+      // konversiya: -amount_in valyuta_in, +amount_out valyuta_out
+      var vi = t.currency_in  || 'USD';
+      var vo = t.currency_out || '';
+      bal[vi] = (bal[vi]||0) + (t.amount_in||0) * (t.type==='kirim'?1:-1);
+      if(vo && t.amount_out){
+        bal[vo] = (bal[vo]||0) + (t.amount_out||0) * (t.type==='konversiya'?1:-1);
+      }
+    });
+  return bal;
+}
+
+// Barcha mijozlarning jami majburiyatlari: {USD:x, CNY:y, ...}
+function exchTotalLiabilities(){
+  var tot = {};
+  EXCH_CLIENTS.forEach(function(c){
+    var b = exchClientBalance(c.id);
+    Object.keys(b).forEach(function(cur){ tot[cur]=(tot[cur]||0)+b[cur]; });
+  });
+  return tot;
+}
 
 // ── Supabase sync ──────────────────────────────────────────────
 async function initRequestsFromSB(){
@@ -12418,6 +12491,26 @@ function goNav(id){
 
     renderHREmployees(dirId||'all');
 
+  } else if(subId==='exchmijozlar'){
+
+    renderExchMijozlar();
+
+  } else if(subId==='exchkanallar'){
+
+    renderExchKanallar();
+
+  } else if(subId==='exchhamkorlar'){
+
+    renderExchHamkorlar();
+
+  } else if(subId==='exchtranzaksiya'){
+
+    renderExchTranzaksiya();
+
+  } else if(subId==='exchpozitsiya'){
+
+    renderExchPozitsiya();
+
   } else {
 
 
@@ -12899,13 +12992,13 @@ function orgRenderDepts(){
   });
   h += '</tr></thead><tbody>';
   ORG_DEPTS.forEach(function(d){
-    var dir = (DIRS||[]).find(function(x){return x.id===d.dir_id;})||{name:d.dir_id||'Holding',icon:'🏢'};
+    var dir = (DIRS||[]).find(function(x){return x.id===d.dir_id;})||{name:d.dir_id||'Holding',e:'🏢'};
     var bolimCount = ORG_BOLIMS.filter(function(b){ return b.dept_id===d.id; }).length;
     var statusCol = d.status==='Faol'?'#17B374':d.status==='Arxivlangan'?'#FF4D6A':'#FFB830';
-    h += '<tr style="border-bottom:1px solid var(--b1)">';
+    h += '<tr onclick="orgShowDeptDetail(\''+d.id+'\')" style="border-bottom:1px solid var(--b1);cursor:pointer;transition:background 0.15s" onmouseover="this.style.background=\'var(--s2)\'" onmouseout="this.style.background=\'\'">';
     h += '<td style="padding:10px 12px;color:var(--t3);font-family:monospace">'+escHtml(d.code||'—')+'</td>';
     h += '<td style="padding:10px 12px;font-weight:600;color:var(--t1)">'+escHtml(d.name)+'</td>';
-    h += '<td style="padding:10px 12px;color:var(--t2)">'+dir.icon+' '+escHtml(dir.name)+'</td>';
+    h += '<td style="padding:10px 12px;color:var(--t2)">'+(dir.e||dir.icon||'🏢')+' '+escHtml(dir.name)+'</td>';
     h += '<td style="padding:10px 12px;color:var(--t2)">'+escHtml(d.head||'—')+'</td>';
     h += '<td style="padding:10px 12px;text-align:center"><span style="background:rgba(108,142,255,0.15);color:#6C8EFF;padding:2px 8px;border-radius:20px;font-size:11px">'+bolimCount+'</span></td>';
     h += '<td style="padding:10px 12px"><span style="display:inline-block;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:600;background:'+statusCol+'22;color:'+statusCol+'">'+escHtml(d.status||'Faol')+'</span></td>';
@@ -12937,14 +13030,14 @@ function orgRenderBolims(){
   h += '</tr></thead><tbody>';
   ORG_BOLIMS.forEach(function(b){
     var dept = ORG_DEPTS.find(function(d){ return d.id===b.dept_id; });
-    var dir = (DIRS||[]).find(function(x){return x.id===b.dir_id;})||{name:b.dir_id||'Holding',icon:'🏢'};
+    var dir = (DIRS||[]).find(function(x){return x.id===b.dir_id;})||{name:b.dir_id||'Holding',e:'🏢'};
     var statusCol = b.status==='Faol'?'#17B374':b.status==='Arxivlangan'?'#FF4D6A':'#FFB830';
     h += '<tr style="border-bottom:1px solid var(--b1)">';
     h += '<td style="padding:10px 12px;color:var(--t3);font-family:monospace">'+escHtml(b.code||'—')+'</td>';
     h += '<td style="padding:10px 12px;font-weight:600;color:var(--t1)">'+escHtml(b.name)+'</td>';
     h += '<td style="padding:10px 12px;color:var(--t2)">'+escHtml(b.bolim_turi||'—')+'</td>';
     h += '<td style="padding:10px 12px;color:var(--t3)">'+escHtml(dept?dept.name:'—')+'</td>';
-    h += '<td style="padding:10px 12px;color:var(--t2)">'+dir.icon+' '+escHtml(dir.name)+'</td>';
+    h += '<td style="padding:10px 12px;color:var(--t2)">'+(dir.e||dir.icon||'🏢')+' '+escHtml(dir.name)+'</td>';
     h += '<td style="padding:10px 12px;color:var(--t2)">'+escHtml(b.head||'—')+'</td>';
     h += '<td style="padding:10px 12px"><span style="display:inline-block;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:600;background:'+statusCol+'22;color:'+statusCol+'">'+escHtml(b.status||'Faol')+'</span></td>';
     h += '<td style="padding:10px 12px" onclick="event.stopPropagation()">';
@@ -13335,6 +13428,58 @@ function orgSaveEdit(type, id){
   orgSave();
   orgCloseModal();
   renderOrgChart();
+}
+
+function orgShowDeptDetail(deptId){
+  var d = ORG_DEPTS.find(function(x){ return x.id===deptId; });
+  if(!d) return;
+  var dir = (DIRS||[]).find(function(x){ return x.id===d.dir_id; })||{name:d.dir_id||'Holding',e:'🏢'};
+  var bolimlar = ORG_BOLIMS.filter(function(b){ return b.dept_id===deptId; });
+  var xodimlar = ORG_LAVOZIMS ? ORG_LAVOZIMS.filter(function(lv){ return lv.dept_id===deptId; }) : [];
+  var statusCol = d.status==='Faol'?'#17B374':d.status==='Arxivlangan'?'#FF4D6A':'#FFB830';
+  var h = '<div id="deptDetailOv" onclick="if(event.target===this)this.remove()" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center">';
+  h += '<div style="background:var(--bg2);border-radius:16px;padding:32px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.4)">';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">';
+  h += '<div>';
+  h += '<div style="font-size:11px;color:var(--t3);margin-bottom:4px">DEPARTAMENT</div>';
+  h += '<div style="font-size:22px;font-weight:700;color:var(--t1)">'+escHtml(d.name)+'</div>';
+  h += '</div>';
+  h += '<button onclick="document.getElementById(\'deptDetailOv\').remove()" style="background:rgba(255,255,255,0.08);border:none;border-radius:8px;color:var(--t2);padding:8px 14px;cursor:pointer;font-size:16px">✕</button>';
+  h += '</div>';
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">';
+  h += '<div style="background:var(--s2);border-radius:10px;padding:14px"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">YO\'NALISH</div><div style="font-weight:600;color:var(--t1)">'+(dir.e||dir.icon||'🏢')+' '+escHtml(dir.name)+'</div></div>';
+  h += '<div style="background:var(--s2);border-radius:10px;padding:14px"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">STATUS</div><div style="font-weight:600;color:'+statusCol+'">'+escHtml(d.status||'Faol')+'</div></div>';
+  h += '<div style="background:var(--s2);border-radius:10px;padding:14px"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">KOD</div><div style="font-weight:600;color:var(--t1);font-family:monospace">'+escHtml(d.code||'—')+'</div></div>';
+  h += '<div style="background:var(--s2);border-radius:10px;padding:14px"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">RAHBAR</div><div style="font-weight:600;color:var(--t1)">'+escHtml(d.head||'—')+'</div></div>';
+  if(d.desc) h += '<div style="grid-column:span 2;background:var(--s2);border-radius:10px;padding:14px"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">TAVSIF</div><div style="color:var(--t2)">'+escHtml(d.desc)+'</div></div>';
+  h += '</div>';
+  h += '<div style="margin-bottom:16px"><div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:8px">Bo\'limlar ('+bolimlar.length+')</div>';
+  if(bolimlar.length){
+    bolimlar.forEach(function(b){
+      var bStatusCol=b.status==='Faol'?'#17B374':'#FF4D6A';
+      h+='<div style="background:var(--s2);border-radius:8px;padding:10px 14px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">';
+      h+='<div><span style="font-weight:600;color:var(--t1)">'+escHtml(b.name)+'</span><span style="font-size:11px;color:var(--t3);margin-left:8px">'+escHtml(b.bolim_turi||'')+'</span></div>';
+      h+='<span style="font-size:10px;font-weight:600;color:'+bStatusCol+'">'+escHtml(b.status||'Faol')+'</span></div>';
+    });
+  } else {
+    h+='<div style="color:var(--t3);font-size:13px">Bo\'limlar yo\'q</div>';
+  }
+  h += '</div>';
+  if(xodimlar.length){
+    h += '<div><div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:8px">Lavozimlar ('+xodimlar.length+')</div>';
+    xodimlar.forEach(function(lv){
+      h+='<div style="background:var(--s2);border-radius:8px;padding:10px 14px;margin-bottom:6px">';
+      h+='<span style="font-weight:600;color:var(--t1)">'+escHtml(lv.name)+'</span>';
+      if(lv.head) h+='<span style="font-size:11px;color:var(--t3);margin-left:8px">— '+escHtml(lv.head)+'</span>';
+      h+='</div>';
+    });
+    h+='</div>';
+  }
+  h += '<div style="margin-top:20px;text-align:right"><button onclick="orgOpenEdit(\'dept\',\''+deptId+'\');document.getElementById(\'deptDetailOv\').remove()" style="padding:8px 20px;background:rgba(108,142,255,0.15);border:none;border-radius:8px;color:#6C8EFF;cursor:pointer;font-size:13px;font-weight:600">✏️ Tahrirlash</button></div>';
+  h += '</div></div>';
+  var existing = document.getElementById('deptDetailOv');
+  if(existing) existing.remove();
+  document.body.insertAdjacentHTML('beforeend', h);
 }
 
 function orgArchive(type, id){
@@ -14299,6 +14444,141 @@ function renderRequestsPage(dirId){
 }
 
 // ── New Request Modal ──────────────────────────────────────────
+window.openReqEdit = function(reqId){
+  var r = REQUESTS.find(function(x){ return x.id===reqId; }); if(!r) return;
+  var old=document.getElementById('_reqEditOv'); if(old) old.remove();
+  var old2=document.getElementById('_reqDetailOv'); if(old2) old2.remove();
+  var cats = r.type==='capex' ? REQ_CAPEX_CATS : REQ_EXPENSE_CATS;
+  var typMeta = REQ_TYPES.find(function(t){return t.id===r.type;})||{icon:'✏️',lbl:"So'rov"};
+  var _reqDepts = (function(){
+    var base=['HR','Moliya','Logistika','Sotuv','Marketing','IT','Ombor','Rahbariyat','Boshqa'];
+    var dyn=getSuggestDepts(r.direction||'all');
+    return _uniq(dyn.concat(base)).filter(Boolean).sort();
+  })();
+  var _reqNames = getSuggestNames(r.direction||'all');
+  var ov = document.createElement('div');
+  ov.id='_reqEditOv';
+  ov.style.cssText='position:fixed;inset:0;background:#0009;z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML = `
+  <div style="background:var(--s1);border:1px solid var(--b1);border-radius:16px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;padding:28px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div>
+        <div style="font-size:16px;font-weight:700;color:var(--t1)">${typMeta.icon} So'rovni tahrirlash</div>
+        <div style="font-size:11px;color:var(--t3);margin-top:2px">${escHtml(r.id)} · ${r.status==='rejected'?'<span style="color:#FF4D6A">Rad etilgan — qayta yuborish mumkin</span>':'Qoralama'}</div>
+      </div>
+      <button onclick="document.getElementById('_reqEditOv').remove()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px">✕</button>
+    </div>
+    <div style="display:grid;gap:14px">
+      <div>
+        <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">Sarlavha *</label>
+        <input id="_reqEditTitle" placeholder="So'rov sarlavhasi..." value="${escHtml(r.title||'')}" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">Yo'nalish *</label>
+          <select id="_reqEditDir" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px">
+            ${DIRS.map(function(d){ return '<option value="'+d.id+'"'+(d.id===r.direction?' selected':'')+'>'+escHtml(d.name)+'</option>'; }).join('')}
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">Bo'lim</label>
+          <select id="_reqEditDept" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px">
+            ${_reqDepts.map(function(d){ return '<option'+(d===r.dept?' selected':'')+'>'+escHtml(d)+'</option>'; }).join('')}
+          </select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">Kategoriya *</label>
+          <select id="_reqEditCat" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px">
+            ${cats.map(function(c){ return '<option'+(c===r.category?' selected':'')+'>'+escHtml(c)+'</option>'; }).join('')}
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">Miqdor (USD) *</label>
+          <input id="_reqEditAmount" type="number" min="0" value="${r.amount||0}" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">So'rovchi</label>
+          <input id="_reqEditBy" list="_reqEditByList" autocomplete="off" value="${escHtml(r.requested_by||'')}" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box">
+          <datalist id="_reqEditByList">${_reqNames.map(function(n){ return '<option value="'+escHtml(n)+'">'; }).join('')}</datalist>
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">Kerak bo'lish sanasi</label>
+          <input id="_reqEditDeadline" type="date" value="${escHtml(r.deadline||'')}" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box">
+        </div>
+      </div>
+      <div>
+        <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">Yetkazib beruvchi / Vendor</label>
+        <datalist id="_dl_reqEditVendor">${getSuggestVendors().map(function(v){ return '<option value="'+escHtml(v)+'">'; }).join('')}</datalist>
+        <input id="_reqEditVendor" list="_dl_reqEditVendor" autocomplete="off" value="${escHtml(r.vendor||'')}" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box">
+      </div>
+      <div>
+        <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">Izoh / Asoslash</label>
+        <textarea id="_reqEditDesc" rows="3" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;resize:vertical;box-sizing:border-box">${escHtml(r.description||'')}</textarea>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end">
+      <button onclick="document.getElementById('_reqEditOv').remove()" style="padding:9px 18px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:12px">Bekor</button>
+      <button onclick="saveReqEdit('${reqId}','draft')" style="padding:9px 18px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:12px">💾 Qoralama saqlash</button>
+      <button onclick="saveReqEdit('${reqId}','submit')" style="padding:9px 18px;background:#FFB830;border:none;border-radius:8px;color:#000;cursor:pointer;font-size:12px;font-weight:600">📤 Saqlash va yuborish</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  ov.addEventListener('click', function(e){ if(e.target===ov) ov.remove(); });
+};
+
+window.saveReqEdit = function(reqId, action){
+  var title = (document.getElementById('_reqEditTitle')||{}).value||'';
+  var dir   = (document.getElementById('_reqEditDir')||{}).value||'';
+  var dept  = (document.getElementById('_reqEditDept')||{}).value||'';
+  var cat   = (document.getElementById('_reqEditCat')||{}).value||'';
+  var amt   = parseFloat((document.getElementById('_reqEditAmount')||{}).value)||0;
+  var by    = (document.getElementById('_reqEditBy')||{}).value||'';
+  var dl    = (document.getElementById('_reqEditDeadline')||{}).value||'';
+  var vendor= (document.getElementById('_reqEditVendor')||{}).value||'';
+  var desc  = (document.getElementById('_reqEditDesc')||{}).value||'';
+  if(!title.trim()){ toast('Sarlavha kiritilishi shart!','error'); return; }
+  if(!amt||amt<=0){ toast('Miqdor 0 dan katta bo\'lishi kerak!','error'); return; }
+  var r = REQUESTS.find(function(x){ return x.id===reqId; }); if(!r) return;
+  r.title       = title.trim();
+  r.direction   = dir;
+  r.dept        = dept;
+  r.category    = cat;
+  r.amount      = amt;
+  r.requested_by= by.trim();
+  r.deadline    = dl;
+  r.vendor      = vendor.trim();
+  r.description = desc.trim();
+  r.updated_at  = new Date().toISOString();
+  if(action==='submit'){
+    var chain = getReqChain(r);
+    r.status = chain.length>1 ? 'pending_'+chain[1].key : 'approved';
+    r.approvals = [];
+    r.rejection_reason = '';
+    r.rejected_by = '';
+    r.rejected_at = '';
+  } else {
+    r.status = 'draft';
+  }
+  reqSave();
+  // Supabase sync
+  if(SB){
+    SB.from('app_requests').upsert([r],{onConflict:'id'}).then(function(res){
+      if(res.error) console.warn('[REQ EDIT] SB:', res.error.message);
+    });
+  }
+  var ov=document.getElementById('_reqEditOv'); if(ov) ov.remove();
+  renderRequestsPage(ACTV==='l1'?'all':ACTV);
+  if(action==='submit'){
+    toast('✓ So\'rov tahrirlandi va tasdiqqa yuborildi!','success');
+  } else {
+    toast('💾 So\'rov saqlandi (qoralama)','success');
+  }
+};
+
 window.openNewReqModal = function(dirId, type){
   var old=document.getElementById('_reqModalOv'); if(old) old.remove();
   var empList = (PAYROLL||[]).filter(function(e){ return !dirId || e.direction===dirId; });
@@ -14567,6 +14847,8 @@ window.openReqDetail = function(reqId){
 
   // Action buttons
   var actHtml='';
+  var canEdit = r.status!=='approved' && (CUR_USER&&(CUR_USER.role==='owner'||CUR_USER.name===r.requested_by));
+  if(canEdit) actHtml+='<button onclick="openReqEdit(\''+reqId+'\')" style="padding:8px 16px;background:rgba(108,142,255,0.15);border:1px solid rgba(108,142,255,0.4);border-radius:8px;color:#6C8EFF;cursor:pointer;font-size:12px;font-weight:600">✏️ Tahrirlash</button>';
   if(canSubmit) actHtml+='<button onclick="reqSubmit(\''+reqId+'\');openReqDetail(\''+reqId+'\')" style="padding:8px 16px;background:#FFB830;border:none;border-radius:8px;color:#000;cursor:pointer;font-size:12px;font-weight:600">📤 Tasdiqqa yuborish</button>';
   if(canApprove){
     actHtml+='<button onclick="showApproveForm(\''+reqId+'\')" style="padding:8px 16px;background:#17B374;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">✓ Tasdiqlash</button>';
@@ -26322,6 +26604,1045 @@ var EX_TYPE_META = {
 };
 
 // ── DASHBOARD ──────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+//  EXCHANGE — TO'LOV KANALLARI
+// ══════════════════════════════════════════════════════════════
+function renderExchKanallar(){
+  var el=document.getElementById('pg-l1'); if(el) el.classList.add('on');
+  setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:'💱 Exchange',fn:"goNav('exchange')"},{lbl:"To'lov Kanallari",fn:''}]);
+  var MC=document.getElementById('main-content')||document.getElementById('mc');
+  if(!MC) return;
+
+  var h='<div style="padding:20px;max-width:1100px">';
+  h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">';
+  h+='<div><h2 style="margin:0;font-size:20px;color:var(--t1)">🏦 To\'lov Kanallari</h2>';
+  h+='<div style="font-size:12px;color:var(--t3);margin-top:2px">Naqd · Karta · X Transfer · PingPong · WorldFirst · Alipay · Bank</div></div>';
+  h+='<button onclick="openExchChanModal()" style="padding:9px 18px;background:#6C8EFF;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">+ Yangi kanal</button>';
+  h+='</div>';
+
+  // Kanal turi bo'yicha kartochkalar
+  if(!EXCH_CHANNELS.length){
+    h+='<div style="text-align:center;padding:60px;background:var(--s1);border:1px solid var(--b1);border-radius:12px;color:var(--t3)">';
+    h+='<div style="font-size:40px;margin-bottom:12px">🏦</div>';
+    h+='<div style="font-size:14px;margin-bottom:8px">Hali kanal yo\'q</div>';
+    h+='<div style="font-size:12px;color:var(--t3);margin-bottom:16px">Naqd, Karta, X Transfer, PingPong, WorldFirst, Alipay kanallarini qo\'shing</div>';
+    h+='<button onclick="openExchChanModal()" style="padding:8px 20px;background:#6C8EFF;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px">+ Birinchi kanalni qo\'shish</button>';
+    h+='</div>';
+  } else {
+    // Kanal turi bo'yicha guruhlash (platform / naqd)
+    var byType={platform:[],naqd:[]};
+    EXCH_CHANNELS.forEach(function(ch){
+      var t=ch.type==='naqd'?'naqd':'platform';
+      byType[t].push(ch);
+    });
+    EXCH_CHAN_TYPES.forEach(function(ct){
+      var chans=byType[ct.id]; if(!chans||!chans.length) return;
+      h+='<div style="margin-bottom:24px">';
+      h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">';
+      h+='<span style="font-size:18px">'+ct.icon+'</span>';
+      h+='<span style="font-size:14px;font-weight:700;color:var(--t1)">'+ct.name+'</span>';
+      h+='<span style="background:'+ct.color+'22;color:'+ct.color+';padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600">'+chans.length+' kanal</span>';
+      h+='</div>';
+      h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">';
+      chans.forEach(function(ch){
+        var disp=exchChanDisplay(ch);
+        var partner=EXCH_PARTNERS.find(function(p){return p.id===ch.partner_id;})||null;
+        var bals=ch.balances||{};
+        var balHtml=Object.keys(bals).filter(function(k){return bals[k]!==0;}).map(function(cur){
+          var v=bals[cur];
+          var sym=cur==='USD'?'$':cur==='CNY'?'¥':cur+' ';
+          return '<div style="text-align:right"><div style="font-size:10px;color:var(--t3)">'+cur+'</div>'
+            +'<div style="font-size:16px;font-weight:700;color:'+(v>=0?'#17B374':'#FF4D6A')+'">'+sym+fS(Math.abs(v))+'</div></div>';
+        }).join('');
+        if(!balHtml) balHtml='<div style="font-size:12px;color:var(--t3)">Balans kiritilmagan</div>';
+        h+='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:16px;position:relative">';
+        h+='<div style="position:absolute;top:12px;right:12px;display:flex;gap:6px">';
+        h+='<button onclick="openExchChanBalModal(\''+ch.id+'\')" style="padding:3px 8px;background:rgba(23,179,116,0.15);border:none;border-radius:6px;color:#17B374;cursor:pointer;font-size:11px" title="Balans kiritish">💰</button>';
+        h+='<button onclick="openExchChanModal(\''+ch.id+'\')" style="padding:3px 8px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;color:var(--t3);cursor:pointer;font-size:11px">✏️</button>';
+        h+='</div>';
+        h+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">';
+        h+='<div style="width:36px;height:36px;border-radius:10px;background:'+disp.color+'22;display:flex;align-items:center;justify-content:center;font-size:18px">'+disp.icon+'</div>';
+        h+='<div><div style="font-weight:700;color:var(--t1);font-size:14px">'+escHtml(ch.name)+'</div>';
+        h+='<div style="font-size:11px;color:var(--t3)">'+disp.name+(partner?' · 🤝 '+escHtml(partner.name):'')+'</div>';
+        h+='</div></div>';
+        h+='<div style="display:flex;justify-content:space-between;align-items:flex-end">'+balHtml+'</div>';
+        if(ch.note) h+='<div style="margin-top:8px;font-size:11px;color:var(--t3);border-top:1px solid var(--b1);padding-top:8px">'+escHtml(ch.note)+'</div>';
+        h+='</div>';
+      });
+      h+='</div></div>';
+  }
+  h+='</div>';
+  MC.innerHTML=h;
+}
+
+// Helper — kanal uchun ko'rsatiladigan ikon va nom
+function exchChanDisplay(ch){
+  if(!ch) return {icon:'?', name:'—', color:'#94A3B8'};
+  if(ch.type==='naqd') return {icon:'💵', name:'Naqd', color:'#17B374'};
+  // platform — sub-platform ga qarab
+  var plt=EXCH_PLATFORMS.find(function(p){return p.id===ch.platform;})||{icon:'💳',name:"To'lov"};
+  return {icon:plt.icon, name:plt.name, color:'#6C8EFF'};
+}
+
+window.openExchChanModal = function(editId){
+  var ch=editId?EXCH_CHANNELS.find(function(x){return x.id===editId;}):null;
+  var old=document.getElementById('_exchChanMod'); if(old) old.remove();
+  var typeOpts=EXCH_CHAN_TYPES.map(function(t){
+    return '<option value="'+t.id+'"'+(ch&&ch.type===t.id?' selected':'')+'>'+t.icon+' '+t.name+'</option>';
+  }).join('');
+  var pltOpts=EXCH_PLATFORMS.map(function(p){
+    return '<option value="'+p.id+'"'+(ch&&ch.platform===p.id?' selected':'')+'>'+p.icon+' '+p.name+'</option>';
+  }).join('');
+  var partOpts='<option value="">— Hamkorsiz (umumiy) —</option>'+EXCH_PARTNERS.map(function(p){
+    return '<option value="'+p.id+'"'+(ch&&ch.partner_id===p.id?' selected':'')+'>🤝 '+escHtml(p.name)+'</option>';
+  }).join('');
+  var curChks=EXCH_CURRENCIES.map(function(c){
+    var chk=ch&&ch.currencies&&ch.currencies.indexOf(c)!==-1;
+    return '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--t2)">'
+      +'<input type="checkbox" value="'+c+'" '+(chk?'checked':'')+' style="accent-color:#6C8EFF"> '+c+'</label>';
+  }).join('');
+  var isPlt=!ch||ch.type==='platform';
+  var ov=document.createElement('div');
+  ov.id='_exchChanMod';
+  ov.style.cssText='position:fixed;inset:0;background:#0009;z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:16px;width:100%;max-width:460px;padding:28px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">'
+    +'<div style="font-size:16px;font-weight:700;color:var(--t1)">'+(ch?'✏️ Kanalni tahrirlash':'💳 Yangi kanal')+'</div>'
+    +'<button onclick="document.getElementById(\'_exchChanMod\').remove()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px">✕</button></div>'
+    +'<div style="display:grid;gap:12px">'
+    // Kanal turi (Platform / Naqd)
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Kanal turi *</label>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="_eCHTBtns">'
+    +EXCH_CHAN_TYPES.map(function(t){
+      var sel=(ch?ch.type:('platform'))===t.id;
+      return '<button type="button" onclick="exchChanTypeSelect(\''+t.id+'\')" id="_eCHTB_'+t.id+'" '
+        +'style="padding:10px;border:2px solid '+(sel?t.color:'var(--b1)')+';border-radius:10px;background:'+(sel?t.color+'22':'var(--s2)')+';color:'+(sel?t.color:'var(--t2)')+';cursor:pointer;font-size:13px;font-weight:'+(sel?'700':'400')+'">'
+        +t.icon+' '+t.name+'</button>';
+    }).join('')
+    +'</div>'
+    +'<input type="hidden" id="_eCHT" value="'+(ch?ch.type:'platform')+'"></div>'
+    // Platforma sub-tanlovi (faqat platform turida ko'rinadi)
+    +'<div id="_eCHPltDiv" style="display:'+(isPlt?'block':'none')+'">'
+    +'<label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Platforma *</label>'
+    +'<select id="_eCHPlt" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px">'+pltOpts+'</select></div>'
+    // Kanal nomi
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Kanal nomi *</label>'
+    +'<input id="_eCHN" value="'+(ch?escHtml(ch.name):'')+'" placeholder="Masalan: Baraka X Transfer, Mamurjon Naqd..." style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box"></div>'
+    // Hamkor
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Hamkor</label>'
+    +'<select id="_eCHP" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px">'+partOpts+'</select></div>'
+    // Valyutalar
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Ishlaydigan valyutalar</label>'
+    +'<div id="_eCHCurs" style="display:flex;gap:12px;flex-wrap:wrap;padding:10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px">'+curChks+'</div></div>'
+    // Izoh
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Izoh</label>'
+    +'<input id="_eCHNo" value="'+(ch?escHtml(ch.note||''):'')+'" placeholder="Hisob raqam, login yoki qo\'shimcha ma\'lumot..." style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box"></div>'
+    +'</div>'
+    +'<div style="display:flex;gap:8px;margin-top:20px;justify-content:flex-end">'
+    +(editId?'<button onclick="exchDeleteChannel(\''+editId+'\')" style="padding:8px 14px;background:rgba(255,77,106,0.1);border:1px solid rgba(255,77,106,0.3);border-radius:8px;color:#FF4D6A;cursor:pointer;font-size:12px;margin-right:auto">🗑 O\'chirish</button>':'')
+    +'<button onclick="document.getElementById(\'_exchChanMod\').remove()" style="padding:8px 18px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:12px">Bekor</button>'
+    +'<button onclick="saveExchChannel(\''+( editId||'')+'\') " style="padding:8px 18px;background:#6C8EFF;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">💾 Saqlash</button>'
+    +'</div></div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
+};
+
+window.exchChanTypeSelect = function(typeId){
+  document.getElementById('_eCHT').value=typeId;
+  EXCH_CHAN_TYPES.forEach(function(t){
+    var btn=document.getElementById('_eCHTB_'+t.id);
+    if(!btn) return;
+    var sel=t.id===typeId;
+    btn.style.borderColor=sel?t.color:'var(--b1)';
+    btn.style.background=sel?t.color+'22':'var(--s2)';
+    btn.style.color=sel?t.color:'var(--t2)';
+    btn.style.fontWeight=sel?'700':'400';
+  });
+  var pltDiv=document.getElementById('_eCHPltDiv');
+  if(pltDiv) pltDiv.style.display=typeId==='platform'?'block':'none';
+};
+
+window.saveExchChannel = function(editId){
+  var type =(document.getElementById('_eCHT')||{}).value||'platform';
+  var plt  =(document.getElementById('_eCHPlt')||{}).value||'';
+  var name =(document.getElementById('_eCHN')||{}).value||'';
+  var part =(document.getElementById('_eCHP')||{}).value||'';
+  var note =(document.getElementById('_eCHNo')||{}).value||'';
+  var curs=[]; document.querySelectorAll('#_eCHCurs input:checked').forEach(function(el){curs.push(el.value);});
+  if(!name.trim()){toast('Kanal nomi kiritilishi shart!','error');return;}
+  if(type==='platform'&&!plt){toast('Platforma tanlanishi shart!','error');return;}
+  if(editId){
+    var ch=EXCH_CHANNELS.find(function(x){return x.id===editId;});
+    if(ch){ch.type=type;ch.platform=type==='platform'?plt:'';ch.name=name.trim();ch.partner_id=part;ch.currencies=curs;ch.note=note.trim();}
+  } else {
+    EXCH_CHANNELS.push({id:exchGenId('CHN'),type:type,platform:type==='platform'?plt:'',name:name.trim(),partner_id:part,currencies:curs,note:note.trim(),balances:{},created_at:new Date().toISOString()});
+  }
+  exchChannelSave();
+  document.getElementById('_exchChanMod').remove();
+  renderExchKanallar();
+  toast('✓ Kanal saqlandi','success');
+};
+
+window.exchDeleteChannel = function(id){
+  if(!confirm('Bu kanalni o\'chirishni tasdiqlaysizmi?')) return;
+  EXCH_CHANNELS=EXCH_CHANNELS.filter(function(x){return x.id!==id;});
+  exchChannelSave();
+  if(SB) SB.from('app_exch_channels').delete().eq('id',id).then(function(){});
+  document.getElementById('_exchChanMod').remove();
+  renderExchKanallar();
+  toast('Kanal o\'chirildi','warn');
+};
+
+// Balans qo'lda kiritish (joriy holat uchun)
+window.openExchChanBalModal = function(chanId){
+  var ch=EXCH_CHANNELS.find(function(x){return x.id===chanId;}); if(!ch) return;
+  var ct=EXCH_CHAN_TYPES.find(function(t){return t.id===ch.type;})||{icon:'🏦',color:'#6C8EFF'};
+  var bals=ch.balances||{};
+  var curs=ch.currencies&&ch.currencies.length?ch.currencies:['USD','CNY'];
+  var old=document.getElementById('_exchChanBalMod'); if(old) old.remove();
+  var rows=curs.map(function(cur){
+    var sym=cur==='USD'?'$':cur==='CNY'?'¥':cur+' ';
+    return '<div style="display:flex;align-items:center;gap:10px">'
+      +'<div style="width:48px;font-size:12px;font-weight:600;color:var(--t2)">'+cur+'</div>'
+      +'<input id="_eCBal_'+cur+'" type="number" value="'+(bals[cur]||0)+'" placeholder="0" '
+      +'style="flex:1;padding:8px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:13px;box-sizing:border-box">'
+      +'<div style="width:36px;font-size:11px;color:var(--t3)">'+sym+'</div></div>';
+  }).join('');
+  var ov=document.createElement('div');
+  ov.id='_exchChanBalMod';
+  ov.style.cssText='position:fixed;inset:0;background:#0009;z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:16px;width:100%;max-width:380px;padding:28px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
+    +'<div style="font-size:16px;font-weight:700;color:var(--t1)">'+ct.icon+' Balans kiritish</div>'
+    +'<button onclick="document.getElementById(\'_exchChanBalMod\').remove()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px">✕</button></div>'
+    +'<div style="font-size:12px;color:var(--t3);margin-bottom:16px">'+escHtml(ch.name)+'</div>'
+    +'<div style="display:grid;gap:10px;margin-bottom:20px">'+rows+'</div>'
+    +'<div style="font-size:11px;color:var(--t3);margin-bottom:16px;padding:10px;background:rgba(255,184,48,0.08);border-radius:8px;border:1px solid rgba(255,184,48,0.2)">⚠️ Bu joriy qoldiqni qo\'lda kiritish. Tranzaksiyalar avtomatik hisob-kitob qilinadi.</div>'
+    +'<div style="display:flex;gap:8px;justify-content:flex-end">'
+    +'<button onclick="document.getElementById(\'_exchChanBalMod\').remove()" style="padding:8px 18px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:12px">Bekor</button>'
+    +'<button onclick="saveExchChanBal(\''+chanId+'\')" style="padding:8px 18px;background:#17B374;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">✓ Saqlash</button>'
+    +'</div></div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
+};
+
+window.saveExchChanBal = function(chanId){
+  var ch=EXCH_CHANNELS.find(function(x){return x.id===chanId;}); if(!ch) return;
+  if(!ch.balances) ch.balances={};
+  var curs=ch.currencies&&ch.currencies.length?ch.currencies:['USD','CNY'];
+  curs.forEach(function(cur){
+    var el=document.getElementById('_eCBal_'+cur);
+    if(el) ch.balances[cur]=parseFloat(el.value)||0;
+  });
+  exchChannelSave();
+  document.getElementById('_exchChanBalMod').remove();
+  renderExchKanallar();
+  toast('✓ Balans yangilandi','success');
+};
+
+// ══════════════════════════════════════════════════════════════
+//  EXCHANGE — HAMKORLAR
+// ══════════════════════════════════════════════════════════════
+function renderExchHamkorlar(){
+  var el=document.getElementById('pg-l1'); if(el) el.classList.add('on');
+  setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:'💱 Exchange',fn:"goNav('exchange')"},{lbl:'Hamkorlar',fn:''}]);
+  var MC=document.getElementById('main-content')||document.getElementById('mc');
+  if(!MC) return;
+
+  var h='<div style="padding:20px;max-width:1100px">';
+  h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">';
+  h+='<div><h2 style="margin:0;font-size:20px;color:var(--t1)">🤝 Hamkorlar</h2>';
+  h+='<div style="font-size:12px;color:var(--t3);margin-top:2px">Exchange biznes sheriklar — kanal va foyda ulushi bo\'yicha</div></div>';
+  h+='<button onclick="openExchPartnerModal()" style="padding:9px 18px;background:#6C8EFF;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">+ Yangi hamkor</button>';
+  h+='</div>';
+
+  if(!EXCH_PARTNERS.length){
+    h+='<div style="text-align:center;padding:60px;background:var(--s1);border:1px solid var(--b1);border-radius:12px;color:var(--t3)">';
+    h+='<div style="font-size:40px;margin-bottom:12px">🤝</div>';
+    h+='<div style="font-size:14px;margin-bottom:8px">Hali hamkor yo\'q</div>';
+    h+='<button onclick="openExchPartnerModal()" style="padding:8px 20px;background:#6C8EFF;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px">+ Birinchi hamkorni qo\'shish</button>';
+    h+='</div>';
+  } else {
+    var totalShare=EXCH_PARTNERS.reduce(function(s,p){return s+(p.share_pct||0);},0);
+    if(totalShare!==100&&EXCH_PARTNERS.length>0){
+      h+='<div style="padding:10px 14px;background:rgba(255,184,48,0.1);border:1px solid rgba(255,184,48,0.3);border-radius:8px;margin-bottom:16px;font-size:12px;color:#FFB830">⚠️ Jami foyda ulushi: '+totalShare+'% (100% bo\'lishi kerak)</div>';
+    }
+    h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px">';
+    EXCH_PARTNERS.forEach(function(p){
+      var myChs=EXCH_CHANNELS.filter(function(ch){return ch.partner_id===p.id;});
+      var chanByType={platform:[],naqd:[]};
+      myChs.forEach(function(ch){
+        var t=ch.type==='naqd'?'naqd':'platform';
+        chanByType[t].push(ch);
+      });
+      // Jami balans
+      var totBal={};
+      myChs.forEach(function(ch){
+        var b=ch.balances||{};
+        Object.keys(b).forEach(function(cur){ totBal[cur]=(totBal[cur]||0)+b[cur]; });
+      });
+      var shareCol=p.share_pct>=30?'#17B374':p.share_pct>=20?'#FFB830':'#6C8EFF';
+      h+='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;overflow:hidden">';
+      // Header
+      h+='<div style="padding:16px;background:var(--s2);border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between">';
+      h+='<div style="display:flex;align-items:center;gap:10px">';
+      h+='<div style="width:40px;height:40px;border-radius:12px;background:rgba(108,142,255,0.2);display:flex;align-items:center;justify-content:center;font-size:20px">🤝</div>';
+      h+='<div><div style="font-size:16px;font-weight:700;color:var(--t1)">'+escHtml(p.name)+'</div>';
+      if(p.phone) h+='<div style="font-size:11px;color:var(--t3)">📞 '+escHtml(p.phone)+'</div>';
+      h+='</div></div>';
+      h+='<div style="text-align:right">';
+      h+='<div style="font-size:22px;font-weight:700;color:'+shareCol+'">'+( p.share_pct||0)+'%</div>';
+      h+='<div style="font-size:10px;color:var(--t3)">foyda ulushi</div></div></div>';
+      // Kanallar
+      h+='<div style="padding:14px">';
+      h+='<div style="font-size:11px;font-weight:600;color:var(--t2);margin-bottom:8px">KANALLAR ('+myChs.length+')</div>';
+      if(myChs.length){
+        myChs.forEach(function(ch){
+            var disp=exchChanDisplay(ch);
+            var b=ch.balances||{};
+            var balStr=Object.keys(b).filter(function(k){return b[k]!==0;}).map(function(cur){
+              var sym=cur==='USD'?'$':cur==='CNY'?'¥':cur+' ';
+              return '<span style="color:'+(b[cur]>=0?'#17B374':'#FF4D6A')+';font-weight:600">'+sym+fS(Math.abs(b[cur]))+'</span>';
+            }).join(' · ');
+            h+='<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;background:var(--s2);border-radius:7px;margin-bottom:5px">';
+            h+='<div style="display:flex;align-items:center;gap:6px"><span>'+disp.icon+'</span><span style="font-size:12px;color:var(--t1)">'+escHtml(ch.name)+'</span><span style="font-size:10px;color:var(--t3)">'+disp.name+'</span></div>';
+            h+='<div style="font-size:11px">'+(balStr||'<span style="color:var(--t3)">—</span>')+'</div></div>';
+          });
+      } else {
+        h+='<div style="font-size:12px;color:var(--t3)">Kanal biriktirilmagan</div>';
+      }
+      // Jami balans
+      if(Object.keys(totBal).some(function(k){return totBal[k]!==0;})){
+        h+='<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--b1);display:flex;gap:12px;flex-wrap:wrap">';
+        Object.keys(totBal).forEach(function(cur){
+          if(!totBal[cur]) return;
+          var sym=cur==='USD'?'$':cur==='CNY'?'¥':cur+' ';
+          h+='<div><div style="font-size:9px;color:var(--t3)">JAMI '+cur+'</div>'
+            +'<div style="font-size:14px;font-weight:700;color:'+(totBal[cur]>=0?'#17B374':'#FF4D6A')+'">'+sym+fS(Math.abs(totBal[cur]))+'</div></div>';
+        });
+        h+='</div>';
+      }
+      h+='</div>';
+      // Footer actions
+      h+='<div style="padding:10px 14px;border-top:1px solid var(--b1);display:flex;gap:8px">';
+      h+='<button onclick="openExchPartnerModal(\''+p.id+'\')" style="flex:1;padding:7px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--t2);cursor:pointer;font-size:11px">✏️ Tahrirlash</button>';
+      h+='<button onclick="openExchChanModal()" style="flex:1;padding:7px;background:rgba(108,142,255,0.12);border:none;border-radius:7px;color:#6C8EFF;cursor:pointer;font-size:11px">+ Kanal qo\'shish</button>';
+      h+='</div></div>';
+    });
+    h+='</div>';
+  }
+  h+='</div>';
+  MC.innerHTML=h;
+}
+
+window.openExchPartnerModal = function(editId){
+  var p=editId?EXCH_PARTNERS.find(function(x){return x.id===editId;}):null;
+  var old=document.getElementById('_exchPartMod'); if(old) old.remove();
+  var ov=document.createElement('div');
+  ov.id='_exchPartMod';
+  ov.style.cssText='position:fixed;inset:0;background:#0009;z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:16px;width:100%;max-width:420px;padding:28px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">'
+    +'<div style="font-size:16px;font-weight:700;color:var(--t1)">'+(p?'✏️ Hamkorni tahrirlash':'🤝 Yangi hamkor')+'</div>'
+    +'<button onclick="document.getElementById(\'_exchPartMod\').remove()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px">✕</button></div>'
+    +'<div style="display:grid;gap:12px">'
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Ism *</label>'
+    +'<input id="_ePNm" value="'+(p?escHtml(p.name):'')+'" placeholder="Hamkor ismi..." style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box"></div>'
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Telefon</label>'
+    +'<input id="_ePPh" value="'+(p?escHtml(p.phone||''):'')+'" placeholder="+998..." style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box"></div>'
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Foyda ulushi (%) *</label>'
+    +'<input id="_ePSh" type="number" min="0" max="100" value="'+(p?p.share_pct||0:0)+'" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box"></div>'
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Izoh</label>'
+    +'<input id="_ePNo" value="'+(p?escHtml(p.note||''):'')+'" placeholder="..." style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box"></div>'
+    +'</div>'
+    +'<div style="display:flex;gap:8px;margin-top:20px;justify-content:flex-end">'
+    +(editId?'<button onclick="exchDeletePartner(\''+editId+'\')" style="padding:8px 14px;background:rgba(255,77,106,0.1);border:1px solid rgba(255,77,106,0.3);border-radius:8px;color:#FF4D6A;cursor:pointer;font-size:12px;margin-right:auto">🗑</button>':'')
+    +'<button onclick="document.getElementById(\'_exchPartMod\').remove()" style="padding:8px 18px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:12px">Bekor</button>'
+    +'<button onclick="saveExchPartner(\''+( editId||'')+'\') " style="padding:8px 18px;background:#6C8EFF;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">💾 Saqlash</button>'
+    +'</div></div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
+};
+
+window.saveExchPartner = function(editId){
+  var name=(document.getElementById('_ePNm')||{}).value||'';
+  var phone=(document.getElementById('_ePPh')||{}).value||'';
+  var share=parseFloat((document.getElementById('_ePSh')||{}).value)||0;
+  var note=(document.getElementById('_ePNo')||{}).value||'';
+  if(!name.trim()){toast('Ism kiritilishi shart!','error');return;}
+  if(editId){
+    var p=EXCH_PARTNERS.find(function(x){return x.id===editId;});
+    if(p){p.name=name.trim();p.phone=phone.trim();p.share_pct=share;p.note=note.trim();}
+  } else {
+    EXCH_PARTNERS.push({id:exchGenId('PAR'),name:name.trim(),phone:phone.trim(),share_pct:share,note:note.trim(),created_at:new Date().toISOString()});
+  }
+  exchPartnerSave();
+  document.getElementById('_exchPartMod').remove();
+  renderExchHamkorlar();
+  toast('✓ Hamkor saqlandi','success');
+};
+
+window.exchDeletePartner = function(id){
+  if(!confirm('Bu hamkorni o\'chirishni tasdiqlaysizmi?')) return;
+  EXCH_PARTNERS=EXCH_PARTNERS.filter(function(x){return x.id!==id;});
+  exchPartnerSave();
+  if(SB) SB.from('app_exch_partners').delete().eq('id',id).then(function(){});
+  document.getElementById('_exchPartMod').remove();
+  renderExchHamkorlar();
+  toast('Hamkor o\'chirildi','warn');
+};
+
+// ══════════════════════════════════════════════════════════════
+//  EXCHANGE — TRANZAKSIYALAR
+// ══════════════════════════════════════════════════════════════
+function renderExchTranzaksiya(){
+  var el=document.getElementById('pg-l1'); if(el) el.classList.add('on');
+  setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:'💱 Exchange',fn:"goNav('exchange')"},{lbl:'Tranzaksiyalar',fn:''}]);
+  var MC=document.getElementById('main-content')||document.getElementById('mc');
+  if(!MC) return;
+
+  var txns=EXCH_CLIENT_TXNS.slice().sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+  var typeIcon={kirim:'💰',jonatish:'📤',konversiya:'🔄',qaytarish:'🔙'};
+  var typeCol= {kirim:'#17B374',jonatish:'#FF4D6A',konversiya:'#FFB830',qaytarish:'#6C8EFF'};
+  var typeName={kirim:'Kirim',jonatish:"Jo'natish",konversiya:'Konversiya',qaytarish:'Qaytarish'};
+
+  // Statistika
+  var statKirim=txns.filter(function(t){return t.type==='kirim';}).reduce(function(s,t){return s+(t.amount_in||0);},0);
+  var statJon=txns.filter(function(t){return t.type==='jonatish';}).reduce(function(s,t){return s+(t.amount_in||0);},0);
+  var statKon=txns.filter(function(t){return t.type==='konversiya';}).length;
+
+  var h='<div style="padding:20px;max-width:1100px">';
+  h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">';
+  h+='<div><h2 style="margin:0;font-size:20px;color:var(--t1)">💸 Tranzaksiyalar</h2>';
+  h+='<div style="font-size:12px;color:var(--t3);margin-top:2px">Barcha mijoz operatsiyalari — kanal va hamkor bo\'yicha</div></div>';
+  h+='<button onclick="openExchOpModal(null)" style="padding:9px 18px;background:#17B374;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">+ Yangi operatsiya</button>';
+  h+='</div>';
+
+  // Stat cards
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px">';
+  h+='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:14px"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">JAMI OPERATSIYA</div><div style="font-size:22px;font-weight:700;color:var(--t1)">'+txns.length+'</div></div>';
+  h+='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:14px"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">JAMI KIRIM (USD)</div><div style="font-size:18px;font-weight:700;color:#17B374">$'+fS(Math.round(statKirim))+'</div></div>';
+  h+='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:14px"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">JAMI JO\'NATISH</div><div style="font-size:18px;font-weight:700;color:#FF4D6A">$'+fS(Math.round(statJon))+'</div></div>';
+  h+='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:14px"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">KONVERSIYALAR</div><div style="font-size:22px;font-weight:700;color:#FFB830">'+statKon+'</div></div>';
+  h+='</div>';
+
+  if(!txns.length){
+    h+='<div style="text-align:center;padding:60px;background:var(--s1);border:1px solid var(--b1);border-radius:12px;color:var(--t3)">';
+    h+='<div style="font-size:40px;margin-bottom:12px">💸</div>';
+    h+='<div style="font-size:14px">Hali operatsiya yo\'q</div></div>';
+  } else {
+    h+='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;overflow:hidden">';
+    h+='<table style="width:100%;border-collapse:collapse;font-size:12px">';
+    h+='<thead><tr style="background:var(--s2)">';
+    ['Sana','Tur','Mijoz','Kirim','Chiqim','Kanal','Hamkor','Maqsad','Izoh',''].forEach(function(c){
+      h+='<th style="padding:9px 12px;text-align:left;color:var(--t3);font-size:10px;font-weight:600;white-space:nowrap">'+c+'</th>';
+    });
+    h+='</tr></thead><tbody>';
+    txns.forEach(function(t){
+      var cli=EXCH_CLIENTS.find(function(c){return c.id===t.client_id;})||{name:'—'};
+      var chan=EXCH_CHANNELS.find(function(c){return c.id===t.channel_id;})||null;
+      var chanDisp=chan?exchChanDisplay(chan):{icon:'',name:''};
+      var part=EXCH_PARTNERS.find(function(p){return p.id===t.partner_id;})||null;
+      var tc=typeCol[t.type]||'var(--t2)';
+      var tic=typeIcon[t.type]||'?';
+      var tnm=typeName[t.type]||t.type;
+      var inStr=(t.currency_in||'')+(t.amount_in?(' '+fS(t.amount_in)):'');
+      var outStr=t.currency_out&&t.amount_out?(t.currency_out+' '+fS(t.amount_out)):'—';
+      h+='<tr style="border-top:1px solid var(--b1)" onmouseover="this.style.background=\'var(--s2)\'" onmouseout="this.style.background=\'\'">';
+      h+='<td style="padding:9px 12px;color:var(--t3);white-space:nowrap;font-size:11px">'+escHtml(t.date||'')+'</td>';
+      h+='<td style="padding:9px 12px;white-space:nowrap"><span style="color:'+tc+'">'+tic+' '+tnm+'</span></td>';
+      h+='<td style="padding:9px 12px;font-weight:600;color:var(--t1);white-space:nowrap">'+escHtml(cli.name)+'</td>';
+      h+='<td style="padding:9px 12px;color:#17B374;font-weight:600">'+escHtml(inStr)+'</td>';
+      h+='<td style="padding:9px 12px;color:#FF4D6A">'+escHtml(outStr)+'</td>';
+      h+='<td style="padding:9px 12px;white-space:nowrap">'+(chan?(chanDisp.icon+' '+escHtml(chan.name)+' <span style="font-size:10px;color:var(--t3)">'+chanDisp.name+'</span>'):'<span style="color:var(--t3)">—</span>')+'</td>';
+      h+='<td style="padding:9px 12px;color:var(--t2)">'+(part?escHtml(part.name):'<span style="color:var(--t3)">—</span>')+'</td>';
+      h+='<td style="padding:9px 12px;color:var(--t3);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(t.target||'—')+'</td>';
+      h+='<td style="padding:9px 12px;color:var(--t3);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(t.note||'—')+'</td>';
+      h+='<td style="padding:9px 12px"><button onclick="exchDeleteOp(\''+t.id+'\',\''+t.client_id+'\')" style="padding:3px 8px;background:rgba(255,77,106,0.1);border:none;border-radius:5px;color:#FF4D6A;cursor:pointer;font-size:10px">🗑</button></td>';
+      h+='</tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+  h+='</div>';
+  MC.innerHTML=h;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  EXCHANGE — MIJOZLAR HISOBI
+// ══════════════════════════════════════════════════════════════
+var EXCH_CURRENCIES = ['USD','CNY','UZS','EUR','RUB','KZT'];
+
+// ── To'lov kanal turlari (faqat 2 ta) ────────────────────────
+var EXCH_CHAN_TYPES = [
+  {id:'platform', name:"To'lov Platformasi", icon:'💳', color:'#6C8EFF'},
+  {id:'naqd',     name:'Naqd',               icon:'💵', color:'#17B374'},
+];
+
+// ── Platforma nomlari (platform turi uchun sub-tanlov) ────────
+var EXCH_PLATFORMS = [
+  {id:'karta',      name:'Karta',      icon:'💳'},
+  {id:'xtransfer',  name:'X Transfer', icon:'🔵'},
+  {id:'pingpong',   name:'PingPong',   icon:'🟣'},
+  {id:'worldfirst', name:'WorldFirst', icon:'🌐'},
+  {id:'alipay',     name:'Alipay',     icon:'🔴'},
+  {id:'bank',       name:'Bank',       icon:'🏛️'},
+  {id:'boshqa',     name:'Boshqa',     icon:'📦'},
+];
+
+// ── Hamkorlar ────────────────────────────────────────────────
+var EXCH_PARTNERS = (function(){ return lsLoad('exch_partners') || []; })();
+
+function exchPartnerSave(){
+  lsSave('exch_partners', EXCH_PARTNERS);
+  if(!SB||DEMO_MODE) return;
+  if(EXCH_PARTNERS.length)
+    SB.from('app_exch_partners').upsert(EXCH_PARTNERS,{onConflict:'id'})
+      .then(function(r){ if(r.error) console.warn('[EXCH_PAR]',r.error.message); });
+}
+function exchPartnerSyncFromSB(){
+  if(!SB||DEMO_MODE) return;
+  SB.from('app_exch_partners').select('*').then(function(r){
+    if(!r.error&&r.data&&r.data.length){
+      r.data.forEach(function(row){
+        var i=EXCH_PARTNERS.findIndex(function(x){return x.id===row.id;});
+        if(i===-1) EXCH_PARTNERS.push(row); else EXCH_PARTNERS[i]=row;
+      });
+      lsSave('exch_partners',EXCH_PARTNERS);
+    }
+  });
+}
+
+// ── To'lov kanallari ─────────────────────────────────────────
+var EXCH_CHANNELS = (function(){ return lsLoad('exch_channels') || []; })();
+
+function exchChannelSave(){
+  lsSave('exch_channels', EXCH_CHANNELS);
+  if(!SB||DEMO_MODE) return;
+  if(EXCH_CHANNELS.length)
+    SB.from('app_exch_channels').upsert(EXCH_CHANNELS,{onConflict:'id'})
+      .then(function(r){ if(r.error) console.warn('[EXCH_CHN]',r.error.message); });
+}
+function exchChannelSyncFromSB(){
+  if(!SB||DEMO_MODE) return;
+  SB.from('app_exch_channels').select('*').then(function(r){
+    if(!r.error&&r.data&&r.data.length){
+      r.data.forEach(function(row){
+        var i=EXCH_CHANNELS.findIndex(function(x){return x.id===row.id;});
+        if(i===-1) EXCH_CHANNELS.push(row); else EXCH_CHANNELS[i]=row;
+      });
+      lsSave('exch_channels',EXCH_CHANNELS);
+    }
+  });
+}
+
+// Kanal balansi: barcha tranzaksiyalardan hisoblash
+function exchChannelBalance(channelId){
+  var bal={};
+  EXCH_CLIENT_TXNS.filter(function(t){ return t.channel_id===channelId; })
+    .forEach(function(t){
+      // Jo'natishda kanaldan chiqadi: currency_out kamayadi
+      if(t.type==='jonatish'&&t.currency_out&&t.amount_out){
+        bal[t.currency_out]=(bal[t.currency_out]||0)-t.amount_out;
+      }
+      // Kirimda kanalga kiradi: currency_in oshadi
+      if(t.type==='kirim'&&t.channel_id_in===channelId){
+        bal[t.currency_in]=(bal[t.currency_in]||0)+t.amount_in;
+      }
+    });
+  // Manual balans ustiga yozish imkoni (EXCH_CHANNELS da initial_balance)
+  var ch=EXCH_CHANNELS.find(function(x){return x.id===channelId;});
+  if(ch&&ch.balances){
+    Object.keys(ch.balances).forEach(function(cur){
+      bal[cur]=(bal[cur]||0)+(ch.balances[cur]||0);
+    });
+  }
+  return bal;
+}
+
+// Barcha kanallar yig'indisi
+function exchAllChannelBalances(){
+  var tot={};
+  EXCH_CHANNELS.forEach(function(ch){
+    var b=exchChannelBalance(ch.id);
+    Object.keys(b).forEach(function(cur){ tot[cur]=(tot[cur]||0)+b[cur]; });
+    // initial_balance ham qo'shildi yuqorida
+  });
+  return tot;
+}
+
+function exchGenId(prefix){ return prefix+'-'+Date.now()+'-'+Math.random().toString(36).slice(2,7); }
+
+function renderExchMijozlar(){
+  var el=document.getElementById('pg-l1'); if(el) el.classList.add('on');
+  setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:'💱 Exchange',fn:"goNav('exchange')"},{lbl:'Mijozlar Hisobi',fn:''}]);
+  var MC=document.getElementById('main-content')||document.getElementById('mc');
+  if(!MC) return;
+
+  var liabs = exchTotalLiabilities();
+  var totalUSD = Object.keys(liabs).reduce(function(s,cur){
+    if(cur==='USD') return s+liabs[cur];
+    if(cur==='CNY') return s+(liabs[cur]/(EX_FX_RATE||7.2));
+    return s;
+  },0);
+
+  var h='<div style="padding:20px;max-width:1100px">';
+  // Header
+  h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">';
+  h+='<div><h2 style="margin:0;font-size:20px;color:var(--t1)">🏦 Mijozlar Hisobi</h2>';
+  h+='<div style="font-size:12px;color:var(--t3);margin-top:2px">Exchange majburiyatlari — har bir mijoz depoziti</div></div>';
+  h+='<div style="display:flex;gap:8px">';
+  h+='<button onclick="openExchClientNew()" style="padding:9px 18px;background:#6C8EFF;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">+ Yangi mijoz</button>';
+  h+='<button onclick="openExchOpModal(null)" style="padding:9px 18px;background:#17B374;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">+ Operatsiya</button>';
+  h+='</div></div>';
+
+  // Summary cards
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px">';
+  h+='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:16px">';
+  h+='<div style="font-size:10px;color:var(--t3);margin-bottom:4px">JAMI MIJOZLAR</div>';
+  h+='<div style="font-size:24px;font-weight:700;color:var(--t1)">'+EXCH_CLIENTS.length+'</div></div>';
+  Object.keys(liabs).forEach(function(cur){
+    if(!liabs[cur]) return;
+    h+='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:16px">';
+    h+='<div style="font-size:10px;color:var(--t3);margin-bottom:4px">JAMI QARZ ('+cur+')</div>';
+    h+='<div style="font-size:20px;font-weight:700;color:#FFB830">'+fS(liabs[cur])+'</div></div>';
+  });
+  h+='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:16px">';
+  h+='<div style="font-size:10px;color:var(--t3);margin-bottom:4px">JAMI (USD ekv.)</div>';
+  h+='<div style="font-size:20px;font-weight:700;color:#6C8EFF">$'+fS(Math.round(totalUSD))+'</div></div>';
+  h+='</div>';
+
+  if(!EXCH_CLIENTS.length){
+    h+='<div style="text-align:center;padding:60px;background:var(--s1);border:1px solid var(--b1);border-radius:12px;color:var(--t3)">';
+    h+='<div style="font-size:40px;margin-bottom:12px">👤</div>';
+    h+='<div style="font-size:14px;margin-bottom:8px">Hali mijoz yo\'q</div>';
+    h+='<button onclick="openExchClientNew()" style="padding:8px 20px;background:#6C8EFF;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px">+ Birinchi mijozni qo\'shish</button>';
+    h+='</div>';
+  } else {
+    h+='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;overflow:hidden">';
+    h+='<table style="width:100%;border-collapse:collapse;font-size:12px">';
+    h+='<thead><tr style="background:var(--s2)">';
+    ['Mijoz','Telefon','USD balansi','CNY balansi','UZS balansi','USD ekv.','So\'ngi operatsiya',''].forEach(function(c){
+      h+='<th style="padding:10px 12px;text-align:left;color:var(--t3);font-size:10px;font-weight:600;white-space:nowrap">'+c+'</th>';
+    });
+    h+='</tr></thead><tbody>';
+    EXCH_CLIENTS.forEach(function(c){
+      var b=exchClientBalance(c.id);
+      var usdEkv=(b.USD||0)+(b.CNY||0)/(EX_FX_RATE||7.2);
+      var lastTxn=EXCH_CLIENT_TXNS.filter(function(t){return t.client_id===c.id;}).sort(function(a,z){return (z.date||'').localeCompare(a.date||'');});
+      var lastDate=lastTxn.length?lastTxn[0].date:'—';
+      h+='<tr onclick="openExchClientCard(\''+c.id+'\')" style="border-top:1px solid var(--b1);cursor:pointer;transition:background 0.15s" onmouseover="this.style.background=\'var(--s2)\'" onmouseout="this.style.background=\'\'">';
+      h+='<td style="padding:10px 12px"><div style="font-weight:600;color:var(--t1)">'+escHtml(c.name)+'</div>';
+      if(c.note) h+='<div style="font-size:10px;color:var(--t3)">'+escHtml(c.note)+'</div>';
+      h+='</td>';
+      h+='<td style="padding:10px 12px;color:var(--t2)">'+escHtml(c.phone||'—')+'</td>';
+      h+='<td style="padding:10px 12px;font-weight:'+(b.USD?'700':'400')+';color:'+(b.USD?'#17B374':'var(--t3)')+'">'+((b.USD||0)===0?'—':'$'+fS(b.USD))+'</td>';
+      h+='<td style="padding:10px 12px;font-weight:'+(b.CNY?'700':'400')+';color:'+(b.CNY?'#FFB830':'var(--t3)')+'">'+((b.CNY||0)===0?'—':'¥'+fS(b.CNY))+'</td>';
+      h+='<td style="padding:10px 12px;font-weight:'+(b.UZS?'700':'400')+';color:'+(b.UZS?'#6C8EFF':'var(--t3)')+'">'+((b.UZS||0)===0?'—':fS(b.UZS)+' so\'m')+'</td>';
+      h+='<td style="padding:10px 12px;font-weight:700;color:var(--t1)">$'+fS(Math.round(usdEkv))+'</td>';
+      h+='<td style="padding:10px 12px;color:var(--t3);font-size:11px">'+escHtml(lastDate)+'</td>';
+      h+='<td style="padding:10px 12px" onclick="event.stopPropagation()">';
+      h+='<button onclick="openExchOpModal(\''+c.id+'\')" style="padding:4px 10px;background:#17B37422;border:none;border-radius:6px;color:#17B374;cursor:pointer;font-size:11px;font-weight:600;margin-right:4px">+ Op</button>';
+      h+='<button onclick="openExchClientCard(\''+c.id+'\')" style="padding:4px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:6px;color:var(--t2);cursor:pointer;font-size:11px">Ko\'rish</button>';
+      h+='</td></tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+  h+='</div>';
+  MC.innerHTML=h;
+}
+
+// ── Yangi mijoz modal ────────────────────────────────────────
+window.openExchClientNew = function(editId){
+  var c=editId?EXCH_CLIENTS.find(function(x){return x.id===editId;}):null;
+  var old=document.getElementById('_exchCliModal'); if(old) old.remove();
+  var ov=document.createElement('div');
+  ov.id='_exchCliModal';
+  ov.style.cssText='position:fixed;inset:0;background:#0009;z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:16px;width:100%;max-width:440px;padding:28px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">'
+    +'<div style="font-size:16px;font-weight:700;color:var(--t1)">'+(c?'✏️ Mijozni tahrirlash':'👤 Yangi mijoz')+'</div>'
+    +'<button onclick="document.getElementById(\'_exchCliModal\').remove()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px">✕</button></div>'
+    +'<div style="display:grid;gap:12px">'
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Ism *</label>'
+    +'<input id="_eCN" value="'+(c?escHtml(c.name):'')+'" placeholder="To\'liq ism yoki kompaniya..." style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box"></div>'
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Telefon</label>'
+    +'<input id="_eCPh" value="'+(c?escHtml(c.phone||''):'')+'" placeholder="+998..." style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box"></div>'
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Izoh</label>'
+    +'<input id="_eCNo" value="'+(c?escHtml(c.note||''):'')+'" placeholder="Shahar, kompaniya..." style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box"></div>'
+    +'</div>'
+    +'<div style="display:flex;gap:8px;margin-top:20px;justify-content:flex-end">'
+    +'<button onclick="document.getElementById(\'_exchCliModal\').remove()" style="padding:8px 18px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:12px">Bekor</button>'
+    +'<button onclick="saveExchClient(\''+( editId||'')+'\') " style="padding:8px 18px;background:#6C8EFF;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">💾 Saqlash</button>'
+    +'</div></div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
+  setTimeout(function(){var el=document.getElementById('_eCN');if(el)el.focus();},50);
+};
+
+window.saveExchClient = function(editId){
+  var name=(document.getElementById('_eCN')||{}).value||'';
+  var phone=(document.getElementById('_eCPh')||{}).value||'';
+  var note=(document.getElementById('_eCNo')||{}).value||'';
+  if(!name.trim()){toast('Ism kiritilishi shart!','error');return;}
+  if(editId){
+    var c=EXCH_CLIENTS.find(function(x){return x.id===editId;});
+    if(c){c.name=name.trim();c.phone=phone.trim();c.note=note.trim();}
+  } else {
+    EXCH_CLIENTS.push({id:exchGenId('CLI'),name:name.trim(),phone:phone.trim(),note:note.trim(),created_at:new Date().toISOString()});
+  }
+  exchClientSave();
+  var ov=document.getElementById('_exchCliModal'); if(ov) ov.remove();
+  renderExchMijozlar();
+  toast('✓ Mijoz saqlandi','success');
+};
+
+// ── Operatsiya modal ─────────────────────────────────────────
+window.openExchOpModal = function(clientId, prefillType){
+  var old=document.getElementById('_exchOpModal'); if(old) old.remove();
+  var today=new Date().toISOString().slice(0,10);
+  var cliOpts=EXCH_CLIENTS.map(function(c){
+    return '<option value="'+c.id+'"'+(c.id===clientId?' selected':'')+'>'+escHtml(c.name)+'</option>';
+  }).join('');
+  var curOpts=EXCH_CURRENCIES.map(function(c){return '<option>'+c+'</option>';}).join('');
+  var ov=document.createElement('div');
+  ov.id='_exchOpModal';
+  ov.style.cssText='position:fixed;inset:0;background:#0009;z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:16px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;padding:28px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">'
+    +'<div style="font-size:16px;font-weight:700;color:var(--t1)">💸 Yangi Operatsiya</div>'
+    +'<button onclick="document.getElementById(\'_exchOpModal\').remove()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px">✕</button></div>'
+    +'<div style="display:grid;gap:12px">'
+    // Tur
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Operatsiya turi *</label>'
+    +'<select id="_eOT" onchange="exchOpTypeChange()" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px">'
+    +'<option value="kirim">💰 Kirim (mijoz depozit qo\'yadi)</option>'
+    +'<option value="jonatish">📤 Jo\'natish (mijoz nomidan o\'tkazma)</option>'
+    +'<option value="konversiya">🔄 Konversiya (valyuta almashish)</option>'
+    +'<option value="qaytarish">🔙 Qaytarish (mijozga qaytarish)</option>'
+    +'</select></div>'
+    // Mijoz
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Mijoz *</label>'
+    +'<select id="_eOC" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px">'
+    +(cliOpts||'<option value="">— Avval mijoz qo\'shing —</option>')
+    +'</select></div>'
+    // Sana
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Sana *</label>'
+    +'<input id="_eOD" type="date" value="'+today+'" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box"></div>'
+    // Valyuta kirim + miqdor
+    +'<div style="display:grid;grid-template-columns:1fr 2fr;gap:8px">'
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Valyuta *</label>'
+    +'<select id="_eOCI" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px">'+curOpts+'</select></div>'
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px" id="_eOAmtLbl">Miqdor *</label>'
+    +'<input id="_eOA" type="number" min="0" placeholder="0" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box"></div>'
+    +'</div>'
+    // Jo'natish / Konversiya chiqim bloki
+    +'<div id="_eOOutBlock" style="display:none;background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:14px">'
+    +'<div style="font-size:11px;font-weight:600;color:var(--t2);margin-bottom:8px" id="_eOOutLbl">Chiqim (jo\'natilayotgan)</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 2fr;gap:8px;margin-bottom:8px">'
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Valyuta</label>'
+    +'<select id="_eOCO" style="width:100%;padding:9px 12px;background:var(--bg2,var(--s1));border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px">'+curOpts+'</select></div>'
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Miqdor</label>'
+    +'<input id="_eOAO" type="number" min="0" placeholder="0" style="width:100%;padding:9px 12px;background:var(--bg2,var(--s1));border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box"></div>'
+    +'</div>'
+    +'<div id="_eOKursBlock"><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Kurs (1 kirdi valyuta = ? chiqdi valyuta)</label>'
+    +'<input id="_eOK" type="number" min="0" step="0.0001" placeholder="7.2000" style="width:100%;padding:9px 12px;background:var(--bg2,var(--s1));border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box"></div>'
+    +'</div>'
+    // Maqsad hisob (jo'natishda)
+    +'<div id="_eOTargetBlock" style="display:none"><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Maqsad hisob / Oluvchi</label>'
+    +'<input id="_eOTgt" placeholder="Hisob raqam, ism yoki bank..." style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box"></div>'
+    // Kanal va Hamkor
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Kanal</label>'
+    +'<select id="_eOCH" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px">'
+    +'<option value="">— Tanlanmagan —</option>'
+    +EXCH_CHANNELS.map(function(ch){var ct=EXCH_CHAN_TYPES.find(function(t){return t.id===ch.type;})||{icon:'?'};return '<option value="'+ch.id+'">'+ct.icon+' '+escHtml(ch.name)+'</option>';}).join('')
+    +'</select></div>'
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Hamkor</label>'
+    +'<select id="_eOPAR" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px">'
+    +'<option value="">— Tanlanmagan —</option>'
+    +EXCH_PARTNERS.map(function(p){return '<option value="'+p.id+'">🤝 '+escHtml(p.name)+'</option>';}).join('')
+    +'</select></div></div>'
+    // Izoh
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Izoh</label>'
+    +'<input id="_eON" placeholder="Qo\'shimcha ma\'lumot..." style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box"></div>'
+    +'</div>'
+    +'<div style="display:flex;gap:8px;margin-top:20px;justify-content:flex-end">'
+    +'<button onclick="document.getElementById(\'_exchOpModal\').remove()" style="padding:8px 18px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:12px">Bekor</button>'
+    +'<button onclick="saveExchOp()" style="padding:8px 20px;background:#17B374;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">✓ Saqlash</button>'
+    +'</div></div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
+  exchOpTypeChange();
+};
+
+window.exchOpTypeChange = function(){
+  var t=(document.getElementById('_eOT')||{}).value||'kirim';
+  var outBlock=document.getElementById('_eOOutBlock');
+  var tgtBlock=document.getElementById('_eOTargetBlock');
+  var outLbl=document.getElementById('_eOOutLbl');
+  var amtLbl=document.getElementById('_eOAmtLbl');
+  var kursBlock=document.getElementById('_eOKursBlock');
+  if(!outBlock) return;
+  if(t==='kirim'){
+    outBlock.style.display='none'; if(tgtBlock) tgtBlock.style.display='none';
+    if(amtLbl) amtLbl.textContent='Kirim miqdori *';
+  } else if(t==='jonatish'){
+    outBlock.style.display='block'; if(tgtBlock) tgtBlock.style.display='block';
+    if(outLbl) outLbl.textContent='Jo\'natiladigan valyuta va miqdor';
+    if(amtLbl) amtLbl.textContent='Debited (mijoz hisobidan) *';
+    if(kursBlock) kursBlock.style.display='none';
+  } else if(t==='konversiya'){
+    outBlock.style.display='block'; if(tgtBlock) tgtBlock.style.display='none';
+    if(outLbl) outLbl.textContent='Konversiya natijasi (mijozga yoziladi)';
+    if(amtLbl) amtLbl.textContent='Kirdi valyuta miqdori *';
+    if(kursBlock) kursBlock.style.display='block';
+  } else if(t==='qaytarish'){
+    outBlock.style.display='none'; if(tgtBlock) tgtBlock.style.display='block';
+    if(amtLbl) amtLbl.textContent='Qaytarilgan miqdor *';
+  }
+};
+
+window.saveExchOp = function(){
+  var type  =(document.getElementById('_eOT')||{}).value||'kirim';
+  var cliId =(document.getElementById('_eOC')||{}).value||'';
+  var date  =(document.getElementById('_eOD')||{}).value||new Date().toISOString().slice(0,10);
+  var curIn =(document.getElementById('_eOCI')||{}).value||'USD';
+  var amtIn =parseFloat((document.getElementById('_eOA')||{}).value)||0;
+  var curOut=(document.getElementById('_eOCO')||{}).value||'';
+  var amtOut=parseFloat((document.getElementById('_eOAO')||{}).value)||0;
+  var kurs  =parseFloat((document.getElementById('_eOK')||{}).value)||0;
+  var target =(document.getElementById('_eOTgt')||{}).value||'';
+  var note   =(document.getElementById('_eON')||{}).value||'';
+  var chanId =(document.getElementById('_eOCH')||{}).value||'';
+  var partId =(document.getElementById('_eOPAR')||{}).value||'';
+
+  if(!cliId){toast('Mijoz tanlanishi shart!','error');return;}
+  if(!amtIn||amtIn<=0){toast('Miqdor 0 dan katta bo\'lishi kerak!','error');return;}
+  if(type==='konversiya'&&(!amtOut||amtOut<=0)){toast('Konversiya natijasi miqdori kiritilishi shart!','error');return;}
+
+  // Konversiyada kurs auto-hisoblash
+  if(type==='konversiya'&&amtIn&&amtOut&&!kurs) kurs=amtOut/amtIn;
+
+  var txn={
+    id: exchGenId('EOP'),
+    client_id: cliId,
+    type: type,
+    date: date,
+    currency_in:  curIn,
+    amount_in:    amtIn,
+    currency_out: (type==='konversiya'||type==='jonatish')?curOut:'',
+    amount_out:   (type==='konversiya'||type==='jonatish')?amtOut:0,
+    rate: kurs||0,
+    target: target.trim(),
+    note: note.trim(),
+    channel_id: chanId,
+    partner_id: partId,
+    created_at: new Date().toISOString(),
+    created_by: (CUR_USER&&CUR_USER.name)||''
+  };
+  EXCH_CLIENT_TXNS.push(txn);
+  exchClientSave();
+
+  var ov=document.getElementById('_exchOpModal'); if(ov) ov.remove();
+  // Mijoz kartasi ochiq bo'lsa yangilash
+  var cardOv=document.getElementById('_exchCardOv');
+  if(cardOv) openExchClientCard(cliId);
+  else renderExchMijozlar();
+  var typeNames={kirim:'Kirim',jonatish:"Jo'natish",konversiya:'Konversiya',qaytarish:'Qaytarish'};
+  toast('✓ '+( typeNames[type]||'Operatsiya')+' saqlandi','success');
+};
+
+// ── Mijoz Kartasi modal ──────────────────────────────────────
+window.openExchClientCard = function(clientId){
+  var c=EXCH_CLIENTS.find(function(x){return x.id===clientId;}); if(!c) return;
+  var bal=exchClientBalance(clientId);
+  var txns=EXCH_CLIENT_TXNS.filter(function(t){return t.client_id===clientId;})
+    .sort(function(a,z){return (z.date||'').localeCompare(a.date||'');});
+  var old=document.getElementById('_exchCardOv'); if(old) old.remove();
+
+  var typeIcon={kirim:'💰',jonatish:'📤',konversiya:'🔄',qaytarish:'🔙'};
+  var typeName={kirim:'Kirim',jonatish:"Jo'natish",konversiya:'Konversiya',qaytarish:'Qaytarish'};
+  var typeCol= {kirim:'#17B374',jonatish:'#FF4D6A',konversiya:'#FFB830',qaytarish:'#6C8EFF'};
+
+  var balCards=Object.keys(bal).filter(function(k){return bal[k]!==0;}).map(function(cur){
+    var v=bal[cur];
+    var sym=cur==='USD'?'$':cur==='CNY'?'¥':cur==='UZS'?'so\'m ':cur==='EUR'?'€':cur+' ';
+    return '<div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:14px;text-align:center">'
+      +'<div style="font-size:10px;color:var(--t3);margin-bottom:4px">'+cur+'</div>'
+      +'<div style="font-size:20px;font-weight:700;color:'+(v>=0?'#17B374':'#FF4D6A')+'">'+sym+fS(Math.abs(v))+'</div>'
+      +(v<0?'<div style="font-size:9px;color:#FF4D6A;margin-top:2px">Deficit!</div>':'')
+      +'</div>';
+  }).join('');
+  if(!balCards) balCards='<div style="color:var(--t3);font-size:12px;padding:8px">Balans yo\'q (hali operatsiya kiritilmagan)</div>';
+
+  var txnRows=txns.map(function(t){
+    var ic=typeIcon[t.type]||'📄';
+    var nm=typeName[t.type]||t.type;
+    var col=typeCol[t.type]||'var(--t2)';
+    var desc='';
+    if(t.type==='kirim') desc=t.currency_in+' +'+fS(t.amount_in);
+    else if(t.type==='qaytarish') desc=t.currency_in+' -'+fS(t.amount_in);
+    else if(t.type==='jonatish') desc=t.currency_in+' -'+fS(t.amount_in)+(t.currency_out?' → '+t.currency_out+' '+fS(t.amount_out):'')+(t.target?' ('+escHtml(t.target)+')':'');
+    else if(t.type==='konversiya') desc=t.currency_in+' -'+fS(t.amount_in)+' → '+t.currency_out+' +'+fS(t.amount_out)+(t.rate?' (kurs: '+t.rate+')':'');
+    return '<tr style="border-top:1px solid var(--b1)">'
+      +'<td style="padding:8px 12px;color:var(--t3);font-size:11px">'+escHtml(t.date||'')+'</td>'
+      +'<td style="padding:8px 12px"><span style="color:'+col+';font-size:12px">'+ic+' '+nm+'</span></td>'
+      +'<td style="padding:8px 12px;font-size:11px;color:var(--t2)">'+desc+'</td>'
+      +'<td style="padding:8px 12px;font-size:11px;color:var(--t3)">'+escHtml(t.note||'—')+'</td>'
+      +'<td style="padding:8px 12px" onclick="event.stopPropagation()">'
+      +'<button onclick="exchDeleteOp(\''+t.id+'\',\''+clientId+'\')" style="padding:3px 8px;background:rgba(255,77,106,0.1);border:none;border-radius:5px;color:#FF4D6A;cursor:pointer;font-size:10px">🗑</button>'
+      +'</td></tr>';
+  }).join('');
+
+  var ov=document.createElement('div');
+  ov.id='_exchCardOv';
+  ov.style.cssText='position:fixed;inset:0;background:#0009;z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto';
+  ov.innerHTML='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:16px;width:100%;max-width:720px;margin:auto">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--b1)">'
+    +'<div><div style="font-size:18px;font-weight:700;color:var(--t1)">👤 '+escHtml(c.name)+'</div>'
+    +(c.phone?'<div style="font-size:12px;color:var(--t3);margin-top:2px">📞 '+escHtml(c.phone)+'</div>':'')
+    +(c.note?'<div style="font-size:12px;color:var(--t3)">📝 '+escHtml(c.note)+'</div>':'')
+    +'</div>'
+    +'<div style="display:flex;gap:8px">'
+    +'<button onclick="openExchOpModal(\''+clientId+'\')" style="padding:7px 16px;background:#17B374;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">+ Operatsiya</button>'
+    +'<button onclick="openExchClientNew(\''+clientId+'\')" style="padding:7px 14px;background:rgba(108,142,255,0.15);border:1px solid rgba(108,142,255,0.4);border-radius:8px;color:#6C8EFF;cursor:pointer;font-size:12px">✏️</button>'
+    +'<button onclick="document.getElementById(\'_exchCardOv\').remove()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:20px;padding:4px">✕</button>'
+    +'</div></div>'
+    +'<div style="padding:20px 24px;border-bottom:1px solid var(--b1)">'
+    +'<div style="font-size:11px;font-weight:600;color:var(--t2);margin-bottom:10px">JORIY BALANS</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px">'+balCards+'</div>'
+    +'</div>'
+    +'<div style="padding:20px 24px">'
+    +'<div style="font-size:11px;font-weight:600;color:var(--t2);margin-bottom:10px">OPERATSIYALAR TARIXI ('+txns.length+')</div>'
+    +(txnRows?'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--s2)"><th style="padding:8px 12px;text-align:left;color:var(--t3);font-size:10px;font-weight:600">Sana</th><th style="padding:8px 12px;text-align:left;color:var(--t3);font-size:10px;font-weight:600">Tur</th><th style="padding:8px 12px;text-align:left;color:var(--t3);font-size:10px;font-weight:600">Tafsilot</th><th style="padding:8px 12px;text-align:left;color:var(--t3);font-size:10px;font-weight:600">Izoh</th><th></th></tr></thead><tbody>'+txnRows+'</tbody></table></div>'
+    :'<div style="color:var(--t3);font-size:13px;text-align:center;padding:30px">Hali operatsiya yo\'q</div>')
+    +'</div></div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
+};
+
+window.exchDeleteOp = function(txnId, clientId){
+  var idx=EXCH_CLIENT_TXNS.findIndex(function(t){return t.id===txnId;});
+  if(idx===-1) return;
+  if(!confirm('Bu operatsiyani o\'chirishni tasdiqlaysizmi?')) return;
+  EXCH_CLIENT_TXNS.splice(idx,1);
+  exchClientSave();
+  if(SB) SB.from('app_exch_client_txns').delete().eq('id',txnId).then(function(){});
+  openExchClientCard(clientId);
+  toast('Operatsiya o\'chirildi','warn');
+};
+
+// ══════════════════════════════════════════════════════════════
+//  EXCHANGE — POZITSIYA TAHLILI (Coverage Ratio)
+// ══════════════════════════════════════════════════════════════
+function renderExchPozitsiya(){
+  var el=document.getElementById('pg-l1'); if(el) el.classList.add('on');
+  setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:'💱 Exchange',fn:"goNav('exchange')"},{lbl:'Pozitsiya Tahlili',fn:''}]);
+  var MC=document.getElementById('main-content')||document.getElementById('mc');
+  if(!MC) return;
+
+  var liabs   = exchTotalLiabilities();
+  var kassas  = KASSA_DATA['exchange'] || {};
+  var fx      = EX_FX_RATE || 7.2;
+  var CURS    = EXCH_CURRENCIES;
+
+  // Kassadan har valyuta uchun real qoldiq
+  function kassaBal(cur){
+    var naqd=(kassas[cur+'_Naqd']||{}).balance||0;
+    var karta=(kassas[cur+'_Karta']||{}).balance||0;
+    var bank=Object.keys(kassas).filter(function(k){return k.startsWith(cur+'_Bank');})
+      .reduce(function(s,k){return s+((kassas[k]||{}).balance||0);},0);
+    return naqd+karta+bank;
+  }
+
+  // USD ekvivalent hisoblash
+  function toUSD(amount, cur){
+    if(cur==='USD') return amount;
+    if(cur==='CNY') return amount/fx;
+    if(cur==='UZS') return amount/12400;
+    if(cur==='EUR') return amount*1.08;
+    if(cur==='RUB') return amount/90;
+    if(cur==='KZT') return amount/460;
+    return 0;
+  }
+
+  var totalLiabUSD=0, totalKassaUSD=0;
+  Object.keys(liabs).forEach(function(cur){ if(liabs[cur]) totalLiabUSD+=toUSD(liabs[cur],cur); });
+  CURS.forEach(function(cur){ totalKassaUSD+=toUSD(kassaBal(cur),cur); });
+
+  var ownCapital = totalKassaUSD - totalLiabUSD;
+  var coverageRatio = totalLiabUSD>0 ? (totalKassaUSD/totalLiabUSD*100) : 100;
+  var coverageColor = coverageRatio>=100?'#17B374':coverageRatio>=80?'#FFB830':'#FF4D6A';
+  var coverageLabel = coverageRatio>=100?'XAVFSIZ ✓':coverageRatio>=80?'EHTIYOT ⚠️':'XAVFLI ❌';
+
+  var h='<div style="padding:20px;max-width:1000px">';
+  h+='<div style="margin-bottom:20px"><h2 style="margin:0;font-size:20px;color:var(--t1)">📐 Pozitsiya Tahlili</h2>';
+  h+='<div style="font-size:12px;color:var(--t3);margin-top:2px">Exchange kassa vs Mijozlar majburiyatlari — Coverage Ratio</div></div>';
+
+  // Coverage Ratio — asosiy kartochka
+  h+='<div style="background:var(--s1);border:2px solid '+coverageColor+'44;border-radius:16px;padding:28px;margin-bottom:20px;display:flex;align-items:center;gap:32px;flex-wrap:wrap">';
+  // Doira
+  h+='<div style="text-align:center;flex-shrink:0">';
+  h+='<svg width="120" height="120" viewBox="0 0 120 120">';
+  var pct=Math.min(coverageRatio,100);
+  var r=50,cx=60,cy=60,circ=2*Math.PI*r;
+  var dashLen=circ*pct/100;
+  h+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="var(--b2)" stroke-width="10"/>';
+  h+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+coverageColor+'" stroke-width="10" stroke-dasharray="'+dashLen+' '+(circ-dashLen)+'" stroke-dashoffset="'+circ/4+'" stroke-linecap="round"/>';
+  h+='<text x="'+cx+'" y="'+(cy-6)+'" text-anchor="middle" fill="'+coverageColor+'" font-size="20" font-weight="700">'+Math.round(coverageRatio)+'%</text>';
+  h+='<text x="'+cx+'" y="'+(cy+14)+'" text-anchor="middle" fill="var(--t3)" font-size="9">COVERAGE</text>';
+  h+='</svg>';
+  h+='<div style="font-size:12px;font-weight:700;color:'+coverageColor+'">'+coverageLabel+'</div></div>';
+  // Raqamlar
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;flex:1;min-width:280px">';
+  h+='<div style="background:var(--s2);border-radius:10px;padding:16px"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">KASSA (USD ekv.)</div><div style="font-size:18px;font-weight:700;color:#6C8EFF">$'+fS(Math.round(totalKassaUSD))+'</div><div style="font-size:10px;color:var(--t3);margin-top:2px">Real balans</div></div>';
+  h+='<div style="background:var(--s2);border-radius:10px;padding:16px"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">MIJOZLARGA QARZ</div><div style="font-size:18px;font-weight:700;color:#FFB830">$'+fS(Math.round(totalLiabUSD))+'</div><div style="font-size:10px;color:var(--t3);margin-top:2px">Majburiyatlar</div></div>';
+  h+='<div style="background:var(--s2);border-radius:10px;padding:16px"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">O\'Z KAPITAL</div><div style="font-size:18px;font-weight:700;color:'+(ownCapital>=0?'#17B374':'#FF4D6A')+'">$'+fS(Math.round(Math.abs(ownCapital)))+'</div><div style="font-size:10px;color:var(--t3);margin-top:2px">'+(ownCapital>=0?'Foyda/aylanma':'Kamomad ⚠️')+'</div></div>';
+  h+='</div></div>';
+
+  // Valyuta bo'yicha tahlil
+  h+='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;overflow:hidden;margin-bottom:20px">';
+  h+='<div style="padding:14px 16px;border-bottom:1px solid var(--b1);font-size:13px;font-weight:600;color:var(--t1)">Valyuta bo\'yicha holat</div>';
+  h+='<table style="width:100%;border-collapse:collapse;font-size:12px">';
+  h+='<thead><tr style="background:var(--s2)"><th style="padding:10px 14px;text-align:left;color:var(--t3);font-size:10px;font-weight:600">Valyuta</th><th style="padding:10px 14px;text-align:right;color:var(--t3);font-size:10px;font-weight:600">Kassada bor</th><th style="padding:10px 14px;text-align:right;color:var(--t3);font-size:10px;font-weight:600">Mijozlarga qarz</th><th style="padding:10px 14px;text-align:right;color:var(--t3);font-size:10px;font-weight:600">Farq (o\'z kapital)</th><th style="padding:10px 14px;text-align:center;color:var(--t3);font-size:10px;font-weight:600">Coverage</th><th style="padding:10px 14px;text-align:center;color:var(--t3);font-size:10px;font-weight:600">Holat</th></tr></thead><tbody>';
+  CURS.forEach(function(cur){
+    var kBal=kassaBal(cur);
+    var liab=liabs[cur]||0;
+    if(kBal===0&&liab===0) return;
+    var diff=kBal-liab;
+    var cov=liab>0?Math.round(kBal/liab*100):100;
+    var col=cov>=100?'#17B374':cov>=80?'#FFB830':'#FF4D6A';
+    var sym=cur==='USD'?'$':cur==='CNY'?'¥':cur==='UZS'?'':cur==='EUR'?'€':'';
+    h+='<tr style="border-top:1px solid var(--b1)">';
+    h+='<td style="padding:10px 14px;font-weight:600;color:var(--t1)">'+cur+'</td>';
+    h+='<td style="padding:10px 14px;text-align:right;color:#6C8EFF">'+sym+fS(kBal)+'</td>';
+    h+='<td style="padding:10px 14px;text-align:right;color:#FFB830">'+sym+fS(liab)+'</td>';
+    h+='<td style="padding:10px 14px;text-align:right;font-weight:600;color:'+(diff>=0?'#17B374':'#FF4D6A')+'">'+(diff>=0?'+':'')+sym+fS(diff)+'</td>';
+    h+='<td style="padding:10px 14px;text-align:center">';
+    h+='<div style="height:6px;background:var(--b2);border-radius:3px;margin-bottom:3px"><div style="height:6px;background:'+col+';border-radius:3px;width:'+Math.min(cov,100)+'%"></div></div>';
+    h+='<div style="font-size:10px;color:'+col+'">'+cov+'%</div></td>';
+    h+='<td style="padding:10px 14px;text-align:center"><span style="padding:3px 10px;border-radius:20px;background:'+col+'22;color:'+col+';font-size:10px;font-weight:600">'+(cov>=100?'✓ Yaxshi':cov>=80?'⚠ Ehtiyot':'❌ Deficit')+'</span></td>';
+    h+='</tr>';
+  });
+  h+='</tbody></table></div>';
+
+  // Ogohlantirish bloki
+  if(coverageRatio<100){
+    h+='<div style="background:#FF4D6A11;border:1px solid #FF4D6A44;border-radius:12px;padding:16px">';
+    h+='<div style="font-size:13px;font-weight:700;color:#FF4D6A;margin-bottom:8px">⚠️ Diqqat! Kassa yetarli emas</div>';
+    h+='<div style="font-size:12px;color:var(--t2)">Exchange kassa balanslarini oshirish yoki mijozlarga bir qismini qaytarish tavsiya etiladi. Barcha mijozlar bir vaqtda pul so\'rasa, $'+fS(Math.round(totalLiabUSD-totalKassaUSD))+' yetmaydi.</div>';
+    h+='</div>';
+  } else {
+    h+='<div style="background:#17B37411;border:1px solid #17B37444;border-radius:12px;padding:16px">';
+    h+='<div style="font-size:13px;font-weight:700;color:#17B374;margin-bottom:4px">✓ Pozitsiya xavfsiz</div>';
+    h+='<div style="font-size:12px;color:var(--t2)">Kassa barcha mijozlar majburiyatini to\'liq qoplaydi. Qo\'shimcha $'+fS(Math.round(ownCapital))+' — exchange o\'z aylanma kapitali.</div>';
+    h+='</div>';
+  }
+  h+='<div style="font-size:10px;color:var(--t3);margin-top:12px;text-align:right">* USD ekvivalent: CNY÷'+fx+', UZS÷12400, EUR×1.08</div>';
+  h+='</div>';
+  MC.innerHTML=h;
+}
+
 function renderExchangeDash(){
   var el=document.getElementById('pg-l1'); el.classList.add('on');
   setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:'💱 Exchange',fn:"goNav('exchange')"},{lbl:'Dashboard',fn:''}]);
