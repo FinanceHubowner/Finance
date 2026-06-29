@@ -22939,7 +22939,7 @@ function renderBalance(focusDir){
     _DRL.bs_cash_dirs={t:'Yo\'nalishlar Bank Hisoblari',h:
 
 
-      sumC(kassaTotalUSD,'Kassa va bank hisoblari jami','KASSA_DATA + Exchange kanallar')
+      sumC(kassaTotalUSD+exNetCash,'Kassa va bank hisoblari jami','KASSA_DATA + Exchange kassoviy net')
 
 
       +sec('YO\'NALISHLAR BO\'YICHA')
@@ -22954,7 +22954,7 @@ function renderBalance(focusDir){
         {l:'🚛 Logistics bank hisobi',s:'Tushum − xarajat qoldig\'i',v:Math.round((sk(l,'revenue')-sk(l,'cogs')-sk(l,'expense'))*0.15),fn:"_dgo('bs_dir_logistics')"},
 
 
-        {l:'💱 Exchange bank hisobi',s:'EXCH_CHANNELS (kanallar balansi)',v:(function(){var eb=exCalcBalance();return Math.round((eb.bank_usd||0)+((eb.bank_cny||0)/(EX_FX_RATE||7.1)));})(),fn:"_dgo('bs_dir_exchange')"},
+        {l:'💱 Exchange bank hisobi',s:'Kassoviy metod: komisyon − xarajat',v:exNetCash,fn:"_dgo('bs_dir_exchange')"},
 
 
         {l:'🏭 Procurement bank hisobi',s:'Komissiya − xarajat qoldig\'i',v:Math.round((sk(p,'commission')-sk(p,'expense'))*0.15),fn:"_dgo('bs_dir_procurement')"},
