@@ -18666,6 +18666,18 @@ function renderPL(focusDir){
 
       rev = sk(rows,'spread');
 
+      // EXCH_CLIENT_TXNS dagi transfer komissiyalarini ham qo'shamiz
+      var _exchDateFrom = DATE_FROM || (PER>=99999 ? null : dys(PER)[0]);
+      var _exchDateTo   = DATE_TO   || (PER>=99999 ? null : dys(PER)[dys(PER).length-1]);
+      rev += EXCH_CLIENT_TXNS.filter(function(t){
+        if(t.type!=='transfer' || !t.commission_amount) return false;
+        if(_exchDateFrom && t.date < _exchDateFrom) return false;
+        if(_exchDateTo   && t.date > _exchDateTo)   return false;
+        return true;
+      }).reduce(function(s,t){
+        var komUSD = t.commission_currency==='CNY' ? (+(t.commission_amount||0))/EX_FX_RATE : +(t.commission_amount||0);
+        return s + komUSD;
+      }, 0);
 
       cogs = 0;
 
