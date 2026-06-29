@@ -26610,7 +26610,7 @@ var EX_TYPE_META = {
 function renderExchKanallar(){
   var el=document.getElementById('pg-l1'); if(el) el.classList.add('on');
   setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:'💱 Exchange',fn:"goNav('exchange')"},{lbl:"To'lov Kanallari",fn:''}]);
-  var MC=document.getElementById('main-content')||document.getElementById('mc');
+  var MC=document.getElementById('pg-l1');
   if(!MC) return;
 
   var h='<div style="padding:20px;max-width:1100px">';
@@ -26847,7 +26847,7 @@ window.saveExchChanBal = function(chanId){
 function renderExchHamkorlar(){
   var el=document.getElementById('pg-l1'); if(el) el.classList.add('on');
   setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:'💱 Exchange',fn:"goNav('exchange')"},{lbl:'Hamkorlar',fn:''}]);
-  var MC=document.getElementById('main-content')||document.getElementById('mc');
+  var MC=document.getElementById('pg-l1');
   if(!MC) return;
 
   var h='<div style="padding:20px;max-width:1100px">';
@@ -26999,7 +26999,7 @@ window.exchDeletePartner = function(id){
 function renderExchTranzaksiya(){
   var el=document.getElementById('pg-l1'); if(el) el.classList.add('on');
   setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:'💱 Exchange',fn:"goNav('exchange')"},{lbl:'Tranzaksiyalar',fn:''}]);
-  var MC=document.getElementById('main-content')||document.getElementById('mc');
+  var MC=document.getElementById('pg-l1');
   if(!MC) return;
 
   var txns=EXCH_CLIENT_TXNS.slice().sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
@@ -27176,7 +27176,7 @@ function exchGenId(prefix){ return prefix+'-'+Date.now()+'-'+Math.random().toStr
 function renderExchMijozlar(){
   var el=document.getElementById('pg-l1'); if(el) el.classList.add('on');
   setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:'💱 Exchange',fn:"goNav('exchange')"},{lbl:'Mijozlar Hisobi',fn:''}]);
-  var MC=document.getElementById('main-content')||document.getElementById('mc');
+  var MC=document.getElementById('pg-l1');
   if(!MC) return;
 
   var liabs = exchTotalLiabilities();
@@ -27539,7 +27539,7 @@ window.exchDeleteOp = function(txnId, clientId){
 function renderExchPozitsiya(){
   var el=document.getElementById('pg-l1'); if(el) el.classList.add('on');
   setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:'💱 Exchange',fn:"goNav('exchange')"},{lbl:'Pozitsiya Tahlili',fn:''}]);
-  var MC=document.getElementById('main-content')||document.getElementById('mc');
+  var MC=document.getElementById('pg-l1');
   if(!MC) return;
 
   var liabs   = exchTotalLiabilities();
