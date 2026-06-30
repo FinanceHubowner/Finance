@@ -21007,10 +21007,11 @@ function renderCashflow(focusDir){
   const net_change = cfo+cfi+cff;
 
 
-  // ✅ Boshlanish kassasi — haqiqiy KASSA_DATA dan
+  // ✅ Yopilish kassasi — haqiqiy KASSA_DATA joriy holati
   const _kassaTotCF=(function(){var tot=0;ensureKassaData();DIRS.forEach(function(d){if(d.id==='exchange')return;var kas=KASSA_DATA[d.id]||{};KTYPES.forEach(function(tp){tot+=(kas['USD_'+tp]||{}).balance||0;tot+=((kas['RMB_'+tp]||{}).balance||0)/(OB.fx_rate_rmb||7.1);tot+=((kas['UZS_'+tp]||{}).balance||0)/(OB.fx_rate_uzs||12700);});});return Math.round(tot);})();
-  const begin_cash = Math.max(0, _kassaTotCF); // Haqiqiy kassa — ixtiro qilinmaydi
-  const end_cash   = begin_cash+net_change;
+  // IAS 7: end_cash = joriy kassa (KASSA_DATA), begin_cash = end - net_change
+  const end_cash   = Math.max(0, _kassaTotCF);
+  const begin_cash = end_cash - net_change;
 
 
 
@@ -26363,14 +26364,21 @@ function renderOBSettings(){
 
 
   h += '<div class="card" style="margin-bottom:14px">';
-
-
   h += '<div style="font-size:12px;font-weight:600;color:var(--grn);margin-bottom:12px">💰 CHINWAKIL KASSA</div>';
-
-
   h += inp('chinwakil_balance', 'Chinwakil kassa boshlang\'ich qoldig\'i', EHSON_DATA.chinwakil_balance, 'number', '$ USD');
+  h += '</div>';
 
-
+  // ── KASSA BOSHLANG'ICH QOLDIQLARI ──────────────────────────────────────
+  h += '<div class="card" style="margin-bottom:14px;border-color:#17B374">';
+  h += '<div style="font-size:12px;font-weight:600;color:#17B374;margin-bottom:4px">🏧 KASSALAR — Boshlang\'ich qoldiqlar</div>';
+  h += '<div style="font-size:11px;color:var(--t3);padding:8px 12px;background:rgba(23,179,116,0.06);border-radius:6px;border-left:3px solid #17B374;margin-bottom:14px">Tizim boshlanishidan oldin mavjud bo\'lgan kassa qoldiqlarini kiriting. Kiritilgan qiymat KASSA_DATA ga avtomatik qo\'shiladi (faqat delta — ikki marta qo\'shilmaydi).</div>';
+  var _obDirs = DIRS.filter(function(d){return d.id!=='exchange';});
+  _obDirs.forEach(function(d){
+    h += '<div style="font-size:11px;font-weight:600;color:var(--t2);margin-bottom:8px;margin-top:10px;padding-bottom:4px;border-bottom:1px solid var(--b1)">'+d.e+' '+d.name+'</div>';
+    h += inp('kob_'+d.id+'_USD', d.name+' — USD Naqd', OB['kob_'+d.id+'_USD']||0, 'number', '$ USD');
+    h += inp('kob_'+d.id+'_RMB', d.name+' — RMB Naqd', OB['kob_'+d.id+'_RMB']||0, 'number', '¥ RMB');
+    h += inp('kob_'+d.id+'_UZS', d.name+' — UZS Naqd', OB['kob_'+d.id+'_UZS']||0, 'number', 'so\'m');
+  });
   h += '</div>';
 
 
@@ -26469,20 +26477,35 @@ function saveOBSettings(){
 
 
   var chinbal = gn('chinwakil_balance');
-
-
   EHSON_DATA.chinwakil_balance = chinbal;
 
+  // Kassa OB — delta usulida KASSA_DATA ga qo'shish
+  ensureKassaData();
+  var _kobDirs = DIRS.filter(function(d){return d.id!=='exchange';});
+  _kobDirs.forEach(function(d){
+    ['USD','RMB','UZS'].forEach(function(cur){
+      var key = 'kob_'+d.id+'_'+cur;
+      var newVal = gn(key);
+      var oldVal = OB[key]||0;
+      var delta = newVal - oldVal;
+      if(delta!==0){
+        var kassaKey = cur+'_Naqd';
+        if(!KASSA_DATA[d.id]) KASSA_DATA[d.id]={};
+        if(!KASSA_DATA[d.id][kassaKey]) KASSA_DATA[d.id][kassaKey]={balance:0,prev:0,in:0,out:0};
+        KASSA_DATA[d.id][kassaKey].balance = Math.round((KASSA_DATA[d.id][kassaKey].balance + delta)*100)/100;
+        KASSA_DATA[d.id][kassaKey].prev = KASSA_DATA[d.id][kassaKey].balance;
+        if(delta>0) KASSA_DATA[d.id][kassaKey].in=(KASSA_DATA[d.id][kassaKey].in||0)+delta;
+        else KASSA_DATA[d.id][kassaKey].out=(KASSA_DATA[d.id][kassaKey].out||0)+Math.abs(delta);
+      }
+      OB[key] = newVal;
+    });
+  });
+  kassaSave2();
 
   obSave();
-
-
   ehsonSave();
 
-
   toast('✅ Sozlamalar saqlandi! Balans qayta hisoblanmoqda...');
-
-
   setTimeout(function(){ goNav('l1:balans'); }, 800);
 
 
