@@ -4766,9 +4766,10 @@ function kassaSyncFromSB(){
       }
     });
     lsSave('kassas2',KASSA_DATA);
-    // DATA.kassas ni ham yangilash
     if(DATA&&DATA.kassas) DIRS.forEach(function(d){ DATA.kassas[d.id]=KASSA_DATA[d.id]||{}; });
     console.log('[KASSA] synclandi:',rows.length);
+    // Agar kassa tab aktiv bo'lsa — qayta render
+    try{ var act=document.querySelector('.subnav-btn.on'); if(act&&(act.textContent||'').indexOf('Kassa')!==-1){ var fn=act.getAttribute('onclick'); if(fn) eval(fn); } }catch(e){}
   });
 }
 
