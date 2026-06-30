@@ -22338,8 +22338,12 @@ function renderBalance(focusDir){
 
   const eq_ehson_fund= EHSON_DATA.payments.reduce(function(s,p){return s+p.amount;},0);
 
+  // Accrual: debitor daromadi − kreditor xarajati (DC_DATA dan, write-off chiqarib)
+  const dc_debitor_rev = DC_DATA.debitor.filter(function(r){return r.status!=='written_off';}).reduce(function(s,r){return s+r.amount;},0);
+  const dc_kreditor_exp= DC_DATA.kreditor.filter(function(r){return r.status!=='written_off';}).reduce(function(s,r){return s+r.amount;},0);
+  const eq_dc_accrual  = dc_debitor_rev - dc_kreditor_exp;
 
-  const total_equity = eq_paid_in+eq_retained+eq_current-eq_ehson_fund;
+  const total_equity = eq_paid_in+eq_retained+eq_current+eq_dc_accrual-eq_ehson_fund;
 
 
   const total_le     = total_liab+total_equity;
@@ -22643,6 +22647,9 @@ function renderBalance(focusDir){
 
 
           ${bsRow(1,'✅ Joriy yil sof foyda',eq_current,false,'eq_cur','Current Period Net Income')}
+
+
+          ${bsRow(1,'📋 Debitor/Kreditor daromadi (accrual)',eq_dc_accrual,false,'eq_dc','AR Revenue − AP Expense (DC_DATA)')}
 
 
           ${bsRow(1,'🕌 Ehson fondi (−)',-eq_ehson_fund,false,'eq_esh','Restricted Fund')}
