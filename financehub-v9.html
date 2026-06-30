@@ -20366,7 +20366,7 @@ function renderKassa(focusDir){
   const totalByDir=showDirs.map(d=>{
 
 
-    const kas=DATA.kassas[d.id]||{};
+    const kas=KASSA_DATA[d.id]||DATA.kassas[d.id]||{};
 
 
     const usd=KTYPES.reduce((s,t)=>s+(kas[`USD_${t}`]?.balance||0),0);
@@ -20459,7 +20459,7 @@ function renderKassa(focusDir){
   ${showDirs.map(d=>{
 
 
-    const kas=DATA.kassas[d.id]||{};
+    const kas=KASSA_DATA[d.id]||DATA.kassas[d.id]||{};
 
 
     const checks=CURS.map(cur=>{
