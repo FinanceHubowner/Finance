@@ -26372,12 +26372,33 @@ function renderOBSettings(){
   h += '<div class="card" style="margin-bottom:14px;border-color:#17B374">';
   h += '<div style="font-size:12px;font-weight:600;color:#17B374;margin-bottom:4px">🏧 KASSALAR — Boshlang\'ich qoldiqlar</div>';
   h += '<div style="font-size:11px;color:var(--t3);padding:8px 12px;background:rgba(23,179,116,0.06);border-radius:6px;border-left:3px solid #17B374;margin-bottom:14px">Tizim boshlanishidan oldin mavjud bo\'lgan kassa qoldiqlarini kiriting. Kiritilgan qiymat KASSA_DATA ga avtomatik qo\'shiladi (faqat delta — ikki marta qo\'shilmaydi).</div>';
+  ensureKassaData();
   var _obDirs = DIRS.filter(function(d){return d.id!=='exchange';});
+  var _symMap = {USD:'$',RMB:'¥',UZS:'so\'m'};
   _obDirs.forEach(function(d){
-    h += '<div style="font-size:11px;font-weight:600;color:var(--t2);margin-bottom:8px;margin-top:10px;padding-bottom:4px;border-bottom:1px solid var(--b1)">'+d.e+' '+d.name+'</div>';
-    h += inp('kob_'+d.id+'_USD', d.name+' — USD Naqd', OB['kob_'+d.id+'_USD']||0, 'number', '$ USD');
-    h += inp('kob_'+d.id+'_RMB', d.name+' — RMB Naqd', OB['kob_'+d.id+'_RMB']||0, 'number', '¥ RMB');
-    h += inp('kob_'+d.id+'_UZS', d.name+' — UZS Naqd', OB['kob_'+d.id+'_UZS']||0, 'number', 'so\'m');
+    h += '<div style="font-size:11px;font-weight:600;color:var(--t2);margin:12px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--b1)">'+d.e+' '+d.name+'</div>';
+    var kas = KASSA_DATA[d.id]||{};
+    // Standart Naqd + Karta
+    ['USD','RMB','UZS'].forEach(function(cur){
+      ['Naqd','Karta'].forEach(function(tp){
+        var kassaKey = cur+'_'+tp;
+        var obKey = 'kob_'+d.id+'_'+kassaKey;
+        var sym = _symMap[cur]||cur;
+        h += inp(obKey, d.name+' — '+cur+' '+tp, OB[obKey]||0, 'number', sym);
+      });
+    });
+    // Mavjud Bank hisoblar (KASSA_DATA dan dinamik)
+    var bankKeys = Object.keys(kas).filter(function(k){return k.indexOf('_Bank')!==-1 && ['Naqd','Karta'].every(function(t){return k.indexOf('_'+t)===-1;});});
+    if(bankKeys.length){
+      h += '<div style="font-size:10px;color:var(--t3);margin:6px 0 4px">🏦 Bank hisoblar:</div>';
+      bankKeys.forEach(function(kassaKey){
+        var obKey = 'kob_'+d.id+'_'+kassaKey;
+        var cur = kassaKey.split('_')[0];
+        var label = kassaKey.replace(cur+'_','');
+        var sym = _symMap[cur]||cur;
+        h += inp(obKey, d.name+' — '+kassaKey, OB[obKey]||0, 'number', sym);
+      });
+    }
   });
   h += '</div>';
 
@@ -26479,17 +26500,24 @@ function saveOBSettings(){
   var chinbal = gn('chinwakil_balance');
   EHSON_DATA.chinwakil_balance = chinbal;
 
-  // Kassa OB — delta usulida KASSA_DATA ga qo'shish
+  // Kassa OB — delta usulida KASSA_DATA ga qo'shish (barcha kassa turlari)
   ensureKassaData();
   var _kobDirs = DIRS.filter(function(d){return d.id!=='exchange';});
   _kobDirs.forEach(function(d){
-    ['USD','RMB','UZS'].forEach(function(cur){
-      var key = 'kob_'+d.id+'_'+cur;
-      var newVal = gn(key);
-      var oldVal = OB[key]||0;
+    // Standart Naqd + Karta
+    var _kassaKeys = [];
+    ['USD','RMB','UZS'].forEach(function(cur){['Naqd','Karta'].forEach(function(tp){_kassaKeys.push(cur+'_'+tp);});});
+    // Mavjud Bank hisoblar
+    var kas = KASSA_DATA[d.id]||{};
+    Object.keys(kas).forEach(function(k){if(k.indexOf('_Bank')!==-1&&['Naqd','Karta'].every(function(t){return k.indexOf('_'+t)===-1;}))_kassaKeys.push(k);});
+    _kassaKeys.forEach(function(kassaKey){
+      var obKey = 'kob_'+d.id+'_'+kassaKey;
+      var el = document.getElementById('ob_'+obKey);
+      if(!el) return;
+      var newVal = parseFloat(el.value)||0;
+      var oldVal = OB[obKey]||0;
       var delta = newVal - oldVal;
       if(delta!==0){
-        var kassaKey = cur+'_Naqd';
         if(!KASSA_DATA[d.id]) KASSA_DATA[d.id]={};
         if(!KASSA_DATA[d.id][kassaKey]) KASSA_DATA[d.id][kassaKey]={balance:0,prev:0,in:0,out:0};
         KASSA_DATA[d.id][kassaKey].balance = Math.round((KASSA_DATA[d.id][kassaKey].balance + delta)*100)/100;
@@ -26497,7 +26525,7 @@ function saveOBSettings(){
         if(delta>0) KASSA_DATA[d.id][kassaKey].in=(KASSA_DATA[d.id][kassaKey].in||0)+delta;
         else KASSA_DATA[d.id][kassaKey].out=(KASSA_DATA[d.id][kassaKey].out||0)+Math.abs(delta);
       }
-      OB[key] = newVal;
+      OB[obKey] = newVal;
     });
   });
   kassaSave2();
