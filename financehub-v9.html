@@ -4741,8 +4741,8 @@ function kassaSyncFromSB(){
     }
     if(!KASSA_DATA)KASSA_DATA={};
     rows.forEach(function(row){
-      // Holding va Exchange KASSA_DATA dan chiqarildi — alohida tizimlar
-      if(row.dir==='holding'||row.dir==='exchange') return;
+      // Exchange kassoviy metod bilan hisoblanadi — KASSA_DATA da yo'q
+      if(row.dir==='exchange') return;
       // SB dan kelgan data bilan localnikini kalit bo'yicha birlashtirish
       // Har bir kalit uchun: ikkalasida bor bo'lsa — balans kattarog'ini ol
       if(!KASSA_DATA[row.dir]){
