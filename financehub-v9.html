@@ -8989,6 +8989,27 @@ function renderDebCred(focusDir){
     if(type==='debitor'){cell.balance+=amt;cell.in=(cell.in||0)+amt;}
     else{cell.balance-=amt;cell.out=(cell.out||0)+amt;}
     kassaSave2();
+    // TXNS ga ham yozish — kassa detail modali ko'rsin
+    (function(){
+      var parts=kassaKey.split('_'); // 'USD_Naqd' → ['USD','Naqd']
+      var txnCur=parts[0]||'USD';
+      var txnKt=parts.slice(1).join('_')||'Naqd'; // 'Naqd' yoki 'Bank_123'
+      var txn={
+        id:'TXN-DC-'+Date.now(),
+        date:date,
+        direction:r.dir,
+        type:type==='debitor'?'income':'expense',
+        amount:amt,
+        currency:txnCur,
+        kassa_type:txnKt,
+        category:type==='debitor'?'Debitor to\'lovi':'Kreditor to\'lovi',
+        note:escHtml(r.company)+(note?' — '+note:''),
+        counterparty:r.company,
+        updated_at:new Date().toISOString()
+      };
+      TXNS.push(txn);
+      txnsSave();
+    })();
     dcSave();
     var ov2=document.getElementById('dc_pmt_ov');if(ov2)ov2.remove();
     var ov=document.getElementById('dc_modal_ov');if(ov)ov.remove();
