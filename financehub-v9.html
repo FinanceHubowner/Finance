@@ -4702,11 +4702,12 @@ var KASSA_DATA = (function(){
 })();
 
 
-// Exchange va Holding KASSA_DATA dan chiqarildi — ular o'z tizimlarida hisoblanadi
+// Exchange KASSA_DATA dan chiqarildi — u kassoviy metod bilan hisoblanadi
+// Holding KASSA_DATA da saqlanadi — debitor to'lovlari uchun kerak
 (function(){
   if(!KASSA_DATA) return;
   var changed = false;
-  ['exchange','holding'].forEach(function(dir){
+  ['exchange'].forEach(function(dir){
     if(KASSA_DATA[dir] && Object.keys(KASSA_DATA[dir]).length){
       KASSA_DATA[dir] = {};
       changed = true;
@@ -20981,7 +20982,7 @@ function renderCashflow(focusDir){
 
 
   // ✅ Boshlanish kassasi — haqiqiy KASSA_DATA dan
-  const _kassaTotCF=(function(){var tot=0;ensureKassaData();DIRS.forEach(function(d){if(d.id==='exchange'||d.id==='holding')return;var kas=KASSA_DATA[d.id]||{};KTYPES.forEach(function(tp){tot+=(kas['USD_'+tp]||{}).balance||0;tot+=((kas['RMB_'+tp]||{}).balance||0)/(OB.fx_rate_rmb||7.1);tot+=((kas['UZS_'+tp]||{}).balance||0)/(OB.fx_rate_uzs||12700);});});return Math.round(tot);})();
+  const _kassaTotCF=(function(){var tot=0;ensureKassaData();DIRS.forEach(function(d){if(d.id==='exchange')return;var kas=KASSA_DATA[d.id]||{};KTYPES.forEach(function(tp){tot+=(kas['USD_'+tp]||{}).balance||0;tot+=((kas['RMB_'+tp]||{}).balance||0)/(OB.fx_rate_rmb||7.1);tot+=((kas['UZS_'+tp]||{}).balance||0)/(OB.fx_rate_uzs||12700);});});return Math.round(tot);})();
   const begin_cash = Math.max(0, _kassaTotCF); // Haqiqiy kassa — ixtiro qilinmaydi
   const end_cash   = begin_cash+net_change;
 
@@ -22045,8 +22046,8 @@ function renderBalance(focusDir){
 
     DIRS.forEach(function(d){
 
-      // Exchange: EXCH_CHANNELS; Holding: EHSON_DATA.chinwakil_balance — KASSA_DATA dan emas
-      if(d.id==='exchange' || d.id==='holding') return;
+      // Exchange: kassoviy metod (exNetCash) — KASSA_DATA dan emas
+      if(d.id==='exchange') return;
 
       var kas=KASSA_DATA[d.id]||{};
 
