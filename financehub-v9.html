@@ -8785,186 +8785,235 @@ function renderDebCred(focusDir){
 
   window.dcSetTab=function(t){DC_TAB=t;renderDebCred();};
 
-
-  window.dcShowDetail=function(id,type){
-
-
-    var r=DC_DATA[type].find(function(x){return x.id===id;});
-
-
-    if(!r) return;
-
-
-    var rem=r.amount-r.paid;
-
-
-    var ag=dcAge(r.due);
-
-
-    var bk=dcBucket(ag);
-
-
-    var pct=Math.round(r.paid/r.amount*100);
-
-
-    var ov=document.createElement('div');
-
-
-    ov.id='dc_modal_ov';
-
-
-    ov.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)';
-
-
-    ov.onclick=function(e){if(e.target===ov)ov.remove();};
-
-
-    var typeLabel=type==='debitor'?'📥 Debitor (bizga qarzdor)':'📤 Kreditor (biz qarzdormiz)';
-
-
-    ov.innerHTML='<div style="background:var(--s1);border:1px solid var(--b2);border-radius:16px;width:100%;max-width:560px;box-shadow:0 24px 80px rgba(0,0,0,.6)">'
-
-
-      +'<div style="padding:16px 20px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between">'
-
-
-      +'<div><div style="font-size:14px;font-weight:600">'+r.company+'</div><div style="font-size:11px;color:var(--t3);margin-top:2px">'+typeLabel+'</div></div>'
-
-
-      +'<button onclick="document.getElementById(\'dc_modal_ov\').remove()" style="background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:4px 10px;color:var(--t2);cursor:pointer;font-size:12px">✕</button>'
-
-
-      +'</div>'
-
-
-      +'<div style="padding:20px">'
-
-
-      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">'
-
-
-      +'<div class="card"><div style="font-size:10px;color:var(--t3)">Shartnoma raqami</div><div style="font-family:var(--mono);color:var(--acc);margin-top:3px">'+r.contract+'</div></div>'
-
-
-      +'<div class="card"><div style="font-size:10px;color:var(--t3)">Shartnoma sanasi</div><div style="font-family:var(--mono);margin-top:3px">'+r.c_date+'</div></div>'
-
-
-      +'<div class="card"><div style="font-size:10px;color:var(--t3)">Jami summa</div><div style="font-family:var(--mono);font-size:18px;font-weight:700;color:var(--t1);margin-top:3px">$'+fS(r.amount)+'</div></div>'
-
-
-      +'<div class="card"><div style="font-size:10px;color:var(--t3)">Qoldiq summa</div><div style="font-family:var(--mono);font-size:18px;font-weight:700;color:'+(rem>0?'var(--red)':'var(--grn)')+';margin-top:3px">'+(rem>0?'$'+fS(rem):'✓ To\'liq')+'</div></div>'
-
-
-      +'</div>'
-
-
-      +'<div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--t3)">To\'lov jarayoni</span><span style="font-family:var(--mono);font-size:11px">'+pct+'%</span></div>'
-
-
-      +'<div style="height:8px;background:var(--b2);border-radius:4px"><div style="width:'+pct+'%;height:100%;background:var(--grn);border-radius:4px;transition:.3s"></div></div>'
-
-
-      +'<div style="display:flex;justify-content:space-between;margin-top:4px"><span style="font-size:10px;color:var(--grn)">To\'langan: $'+fS(r.paid)+'</span><span style="font-size:10px;color:var(--red)">Qoldiq: $'+fS(rem)+'</span></div>'
-
-
-      +'</div>'
-
-
-      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">'
-
-
-      +'<div class="card" style="text-align:center"><div style="font-size:10px;color:var(--t3)">Muddat</div><div style="font-size:12px;font-weight:600;margin-top:3px">'+r.due+'</div></div>'
-
-
-      +'<div class="card" style="text-align:center"><div style="font-size:10px;color:var(--t3)">Holat</div><div style="font-size:11px;font-weight:600;color:'+bk.col+';margin-top:3px">'+bk.lbl+'</div></div>'
-
-
-      +'<div class="card" style="text-align:center"><div style="font-size:10px;color:var(--t3)">Yo\'nalish</div><div style="font-size:11px;margin-top:3px">'+r.dir+'</div></div>'
-
-
-      +'</div>'
-
-
-      +'<div style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:10px;margin-bottom:16px"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">📝 Izoh</div><div style="font-size:12px">'+r.note+'</div></div>'
-
-
-      +'<div style="display:flex;gap:8px">'
-
-
-      +'<button onclick="dcMarkPaid('+r.id+',\''+type+'\')" style="flex:1;padding:10px;border-radius:8px;border:none;background:var(--grn);color:#000;font-size:12px;font-weight:600;cursor:pointer">✓ To\'liq to\'landi</button>'
-
-
-      +'<button onclick="document.getElementById(\'dc_modal_ov\').remove()" style="padding:10px 16px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--t2);font-size:12px;cursor:pointer">Yopish</button>'
-
-
-      +'</div></div></div>';
-
-
-    document.body.appendChild(ov);
-
-
-  };
-
-
-  window.dcMarkPaid=function(id,type){
-
-
-    var r=DC_DATA[type].find(function(x){return x.id===id;});
-
-
-    if(r){r.paid=r.amount;}
-
-
-    var ov=document.getElementById('dc_modal_ov');
-
-
-    if(ov) ov.remove();
-
-
-    dcSave();
-
-
-    toast('✅ To\'lov belgilandi!');
-
-
-    renderDebCred();
-
-
-  };
-
-
+  // ─── YANGI YOZUV FORMI ────────────────────────────────────────────────
   window.dcAddNew=function(){
-
-
     var type=DC_TAB==='kreditor'?'kreditor':'debitor';
-
-
-    var nm=prompt('Kompaniya nomi:'); if(!nm) return;
-
-
-    var amt=parseFloat(prompt('Shartnoma summasi ($):')||'0');
-
-
-    var due=prompt('To\'lov muddati (YYYY-MM-DD):','2026-12-31');
-
-
-    var newId=DC_DATA[type].length+1;
-
-
-    DC_DATA[type].push({id:newId,company:nm,dir:'cargo',dept:'Sotuv',contract:'MAN-'+Date.now(),c_date:new Date().toISOString().split('T')[0],amount:amt,paid:0,due:due||'2026-12-31',note:'Qo\'lda kiritildi'});
-
-
-    dcSave();
-
-
-    toast('✅ Qo\'shildi!');
-
-
-    renderDebCred();
-
-
+    var typeLabel=type==='debitor'?'📥 Debitor — bizga qarzdor':'📤 Kreditor — biz qarzdormiz';
+    var dirOpts=DIRS.map(function(d){return '<option value="'+d.id+'">'+d.e+' '+d.name+'</option>';}).join('');
+    var ov=document.createElement('div');
+    ov.id='dc_form_ov';
+    ov.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)';
+    ov.onclick=function(e){if(e.target===ov)ov.remove();};
+    ov.innerHTML='<div style="background:var(--s1);border:1px solid var(--b2);border-radius:16px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,.6)">'
+      +'<div style="padding:16px 20px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--s1);z-index:1">'
+      +'<div><div style="font-size:14px;font-weight:600">'+typeLabel+'</div><div style="font-size:11px;color:var(--t3);margin-top:2px">Yangi yozuv qo\'shish</div></div>'
+      +'<button onclick="document.getElementById(\'dc_form_ov\').remove()" style="background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:4px 10px;color:var(--t2);cursor:pointer;font-size:12px">✕</button>'
+      +'</div>'
+      +'<div style="padding:20px;display:flex;flex-direction:column;gap:12px">'
+      +'<div><div style="font-size:11px;color:var(--t3);margin-bottom:6px">Qarz turi</div>'
+      +'<div style="display:flex;gap:8px">'
+      +'<label style="flex:1;background:var(--s2);border:1px solid var(--b2);border-radius:8px;padding:10px;cursor:pointer;display:flex;align-items:center;gap:8px"><input type="radio" name="dc_et" value="trade" checked style="accent-color:var(--acc)"><div><div style="font-size:12px;font-weight:600">Savdo qarzi</div><div style="font-size:10px;color:var(--t3)">Xizmat/tovar uchun</div></div></label>'
+      +'<label style="flex:1;background:var(--s2);border:1px solid var(--b2);border-radius:8px;padding:10px;cursor:pointer;display:flex;align-items:center;gap:8px"><input type="radio" name="dc_et" value="loan" style="accent-color:var(--acc)"><div><div style="font-size:12px;font-weight:600">Qarz / Avans</div><div style="font-size:10px;color:var(--t3)">Ko\'cha qarz yoki avans</div></div></label>'
+      +'</div></div>'
+      +'<div><div style="font-size:11px;color:var(--t3);margin-bottom:4px">Kompaniya / shaxs nomi *</div>'
+      +'<input id="dc_f_co" placeholder="Masalan: Nodir Toshmatov yoki ACME LLC" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--b2);border-radius:8px;background:var(--s2);color:var(--t1);font-size:13px;outline:none"></div>'
+      +'<div><div style="font-size:11px;color:var(--t3);margin-bottom:4px">Yo\'nalish *</div>'
+      +'<select id="dc_f_dir" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--b2);border-radius:8px;background:var(--s2);color:var(--t1);font-size:13px;outline:none">'+dirOpts+'</select></div>'
+      +'<div style="display:grid;grid-template-columns:1fr 100px;gap:8px">'
+      +'<div><div style="font-size:11px;color:var(--t3);margin-bottom:4px">Summa *</div>'
+      +'<input id="dc_f_amt" type="number" min="0" step="0.01" placeholder="0.00" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--b2);border-radius:8px;background:var(--s2);color:var(--t1);font-size:13px;font-family:var(--mono);outline:none"></div>'
+      +'<div><div style="font-size:11px;color:var(--t3);margin-bottom:4px">Valyuta</div>'
+      +'<select id="dc_f_cur" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--b2);border-radius:8px;background:var(--s2);color:var(--t1);font-size:13px;outline:none"><option value="USD">USD</option><option value="UZS">UZS</option><option value="RMB">RMB</option></select></div>'
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
+      +'<div><div style="font-size:11px;color:var(--t3);margin-bottom:4px">Sana *</div>'
+      +'<input id="dc_f_cd" type="date" value="'+new Date().toISOString().slice(0,10)+'" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--b2);border-radius:8px;background:var(--s2);color:var(--t1);font-size:13px;outline:none"></div>'
+      +'<div><div style="font-size:11px;color:var(--t3);margin-bottom:4px">To\'lov muddati</div>'
+      +'<input id="dc_f_due" type="date" value="2026-12-31" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--b2);border-radius:8px;background:var(--s2);color:var(--t1);font-size:13px;outline:none"></div>'
+      +'</div>'
+      +'<div><div style="font-size:11px;color:var(--t3);margin-bottom:4px">Izoh</div>'
+      +'<textarea id="dc_f_note" rows="2" placeholder="Shartnoma raqami, sabab, izoh..." style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--b2);border-radius:8px;background:var(--s2);color:var(--t1);font-size:13px;outline:none;resize:vertical"></textarea></div>'
+      +'<div style="display:flex;gap:8px;margin-top:4px">'
+      +'<button onclick="dcSaveNew(\''+type+'\')" style="flex:1;padding:11px;border-radius:8px;border:none;background:var(--acc);color:#fff;font-size:13px;font-weight:600;cursor:pointer">✓ Saqlash</button>'
+      +'<button onclick="document.getElementById(\'dc_form_ov\').remove()" style="padding:11px 16px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--t2);font-size:13px;cursor:pointer">Bekor</button>'
+      +'</div></div></div>';
+    document.body.appendChild(ov);
+    setTimeout(function(){var el=document.getElementById('dc_f_co');if(el)el.focus();},100);
   };
 
+  window.dcSaveNew=function(type){
+    var co=(document.getElementById('dc_f_co').value||'').trim();
+    var dir=document.getElementById('dc_f_dir').value;
+    var amt=parseFloat(document.getElementById('dc_f_amt').value||'0');
+    var cur=document.getElementById('dc_f_cur').value;
+    var cd=document.getElementById('dc_f_cd').value;
+    var due=document.getElementById('dc_f_due').value||'2026-12-31';
+    var note=(document.getElementById('dc_f_note').value||'').trim();
+    var et=(document.querySelector('input[name="dc_et"]:checked')||{}).value||'trade';
+    if(!co){toast('⚠️ Kompaniya nomi kiriting!');return;}
+    if(!amt||amt<=0){toast('⚠️ Summa kiriting!');return;}
+    var amtUSD=cur==='UZS'?amt/(OB.fx_rate_uzs||12700):cur==='RMB'?amt/(OB.fx_rate_rmb||7.1):amt;
+    var rec={
+      id:Date.now().toString(),entry_type:et,company:co,dir:dir,dept:'',
+      contract:(et==='loan'?'QRZ-':'SHR-')+Date.now(),
+      c_date:cd,amount:Math.round(amtUSD*100)/100,amount_orig:amt,currency:cur,
+      paid:0,due:due,note:note||(et==='loan'?'Qarz/Avans':'Savdo qarzi'),
+      payments:[],status:'active',updated_at:new Date().toISOString()
+    };
+    DC_DATA[type].push(rec);
+    dcSave();
+    var ov=document.getElementById('dc_form_ov');if(ov)ov.remove();
+    toast('✅ '+(type==='debitor'?'Debitor':'Kreditor')+' qo\'shildi!');
+    renderDebCred();
+  };
+
+  // ─── TAFSILOT MODALI ──────────────────────────────────────────────────
+  window.dcShowDetail=function(id,type){
+    var r=DC_DATA[type].find(function(x){return x.id==id;});
+    if(!r) return;
+    var rem=r.amount-r.paid;
+    var ag=dcAge(r.due);
+    var bk=dcBucket(ag);
+    var pct=r.amount>0?Math.round(r.paid/r.amount*100):0;
+    var typeLabel=type==='debitor'?'📥 Debitor (bizga qarzdor)':'📤 Kreditor (biz qarzdormiz)';
+    var etLabel=(r.entry_type==='loan')?'🤝 Qarz/Avans':'📋 Savdo qarzi';
+    var isClosed=r.status==='written_off'||rem<=0.005;
+    var statusLabel=r.status==='written_off'?'⛔ Hisobdan chiqarilgan':rem<=0.005?'✅ To\'liq to\'landi':'🔄 Faol';
+    var statusCol=r.status==='written_off'?'var(--t3)':rem<=0.005?'var(--grn)':'var(--amb)';
+    var pmts=r.payments||[];
+    var pmtHtml=pmts.length?pmts.map(function(p){
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--s1);border-radius:6px;margin-bottom:4px">'
+        +'<div><div style="font-size:12px;font-weight:600;color:var(--grn)">+$'+fS(p.amount)+'</div>'
+        +'<div style="font-size:10px;color:var(--t3)">'+p.date+' · '+(p.note||'—')+'</div></div>'
+        +'<div style="font-size:10px;color:var(--t3)">'+(p.kassa_dir||'')+'</div>'
+        +'</div>';
+    }).join(''):'<div style="font-size:12px;color:var(--t3);text-align:center;padding:10px">Hali to\'lov yo\'q</div>';
+    var ov=document.createElement('div');
+    ov.id='dc_modal_ov';
+    ov.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)';
+    ov.onclick=function(e){if(e.target===ov)ov.remove();};
+    ov.innerHTML='<div style="background:var(--s1);border:1px solid var(--b2);border-radius:16px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,.6)">'
+      +'<div style="padding:16px 20px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--s1)">'
+      +'<div><div style="font-size:14px;font-weight:600">'+escHtml(r.company)+'</div>'
+      +'<div style="font-size:11px;color:var(--t3);margin-top:2px">'+typeLabel+' · '+etLabel+'</div></div>'
+      +'<button onclick="document.getElementById(\'dc_modal_ov\').remove()" style="background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:4px 10px;color:var(--t2);cursor:pointer;font-size:12px">✕</button>'
+      +'</div>'
+      +'<div style="padding:20px">'
+      +'<div style="display:flex;gap:8px;margin-bottom:12px">'
+      +'<span style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(108,142,255,0.1);color:'+statusCol+'">'+statusLabel+'</span>'
+      +'<span style="padding:4px 10px;border-radius:20px;font-size:11px;background:var(--s2);color:var(--t2)">'+(DIRS.find(function(d){return d.id===r.dir;})||{e:'',name:r.dir}).e+' '+r.dir+'</span>'
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">'
+      +'<div class="card"><div style="font-size:10px;color:var(--t3)">Jami summa</div><div style="font-family:var(--mono);font-size:17px;font-weight:700;color:var(--t1);margin-top:3px">$'+fS(r.amount)+'</div></div>'
+      +'<div class="card"><div style="font-size:10px;color:var(--t3)">To\'langan</div><div style="font-family:var(--mono);font-size:17px;font-weight:700;color:var(--grn);margin-top:3px">$'+fS(r.paid)+'</div></div>'
+      +'<div class="card"><div style="font-size:10px;color:var(--t3)">Qoldiq</div><div style="font-family:var(--mono);font-size:17px;font-weight:700;color:'+(rem>0?'var(--red)':'var(--grn)')+';margin-top:3px">'+(rem>0?'$'+fS(rem):'✓')+'</div></div>'
+      +'</div>'
+      +'<div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--t3)">To\'lov jarayoni</span><span style="font-family:var(--mono);font-size:11px">'+pct+'%</span></div>'
+      +'<div style="height:8px;background:var(--b2);border-radius:4px"><div style="width:'+pct+'%;height:100%;background:var(--grn);border-radius:4px;transition:.3s"></div></div></div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">'
+      +'<div class="card"><div style="font-size:10px;color:var(--t3)">Kiritilgan sana</div><div style="font-size:12px;font-weight:600;margin-top:3px">'+r.c_date+'</div></div>'
+      +'<div class="card"><div style="font-size:10px;color:var(--t3)">Muddat · Holat</div><div style="font-size:11px;font-weight:600;color:'+bk.col+';margin-top:3px">'+r.due+' · '+bk.lbl+'</div></div>'
+      +'</div>'
+      +'<div style="background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:10px;margin-bottom:14px"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">📝 Izoh</div><div style="font-size:12px">'+escHtml(r.note||'—')+'</div></div>'
+      +'<div style="margin-bottom:16px"><div style="font-size:12px;font-weight:600;margin-bottom:8px;color:var(--t2)">💳 To\'lovlar tarixi ('+pmts.length+')</div>'
+      +'<div style="background:var(--s2);border-radius:8px;padding:8px">'+pmtHtml+'</div></div>'
+      +(!isClosed
+        ?'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">'
+        +'<button onclick="dcPaymentModal(\''+r.id+'\',\''+type+'\')" style="padding:10px;border-radius:8px;border:none;background:var(--grn);color:#000;font-size:12px;font-weight:600;cursor:pointer">💳 Qisman</button>'
+        +'<button onclick="dcPaymentModal(\''+r.id+'\',\''+type+'\',true)" style="padding:10px;border-radius:8px;border:none;background:var(--acc);color:#fff;font-size:12px;font-weight:600;cursor:pointer">✅ To\'liq</button>'
+        +'<button onclick="dcWriteOff(\''+r.id+'\',\''+type+'\')" style="padding:10px;border-radius:8px;border:1px solid var(--red);background:transparent;color:var(--red);font-size:12px;cursor:pointer">⛔ Chiqar</button>'
+        +'</div>'
+        :'<div style="display:flex;gap:8px">'
+        +'<button onclick="dcDelete(\''+r.id+'\',\''+type+'\')" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--t3);font-size:12px;cursor:pointer">🗑 O\'chirish</button>'
+        +'<button onclick="document.getElementById(\'dc_modal_ov\').remove()" style="flex:2;padding:10px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--t2);font-size:12px;cursor:pointer">Yopish</button>'
+        +'</div>')
+      +'</div></div>';
+    document.body.appendChild(ov);
+  };
+
+  // ─── TO'LOV MODALI ────────────────────────────────────────────────────
+  window.dcPaymentModal=function(id,type,full){
+    var r=DC_DATA[type].find(function(x){return x.id==id;});
+    if(!r) return;
+    var rem=Math.round((r.amount-r.paid)*100)/100;
+    var defAmt=full?rem:rem;
+    var kas=KASSA_DATA[r.dir]||{};
+    var keys=Object.keys(kas);
+    var kasOpts=keys.length?keys.map(function(k){return '<option value="'+k+'">'+k+' — $'+fS((kas[k]||{}).balance||0)+'</option>';}).join('')
+      :['USD_Naqd','USD_Bank'].map(function(k){return '<option value="'+k+'">'+k+'</option>';}).join('');
+    var ov2=document.createElement('div');
+    ov2.id='dc_pmt_ov';
+    ov2.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)';
+    ov2.onclick=function(e){if(e.target===ov2)ov2.remove();};
+    ov2.innerHTML='<div style="background:var(--s1);border:1px solid var(--b2);border-radius:16px;width:100%;max-width:420px;box-shadow:0 24px 80px rgba(0,0,0,.6)">'
+      +'<div style="padding:16px 20px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between">'
+      +'<div><div style="font-size:14px;font-weight:600">💳 To\'lov qo\'shish</div>'
+      +'<div style="font-size:11px;color:var(--t3);margin-top:2px">'+escHtml(r.company)+' · Qoldiq: $'+fS(rem)+'</div></div>'
+      +'<button onclick="document.getElementById(\'dc_pmt_ov\').remove()" style="background:var(--s3);border:1px solid var(--b2);border-radius:6px;padding:4px 10px;color:var(--t2);cursor:pointer;font-size:12px">✕</button>'
+      +'</div>'
+      +'<div style="padding:20px;display:flex;flex-direction:column;gap:12px">'
+      +'<div><div style="font-size:11px;color:var(--t3);margin-bottom:4px">To\'lov summasi ($) *</div>'
+      +'<input id="dc_pmt_amt" type="number" min="0.01" max="'+rem+'" step="0.01" value="'+defAmt+'" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--b2);border-radius:8px;background:var(--s2);color:var(--t1);font-size:14px;font-family:var(--mono);outline:none"></div>'
+      +'<div><div style="font-size:11px;color:var(--t3);margin-bottom:4px">Kassa hisobi</div>'
+      +'<select id="dc_pmt_kassa" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--b2);border-radius:8px;background:var(--s2);color:var(--t1);font-size:13px;outline:none">'+kasOpts+'</select></div>'
+      +'<div><div style="font-size:11px;color:var(--t3);margin-bottom:4px">Sana</div>'
+      +'<input id="dc_pmt_date" type="date" value="'+new Date().toISOString().slice(0,10)+'" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--b2);border-radius:8px;background:var(--s2);color:var(--t1);font-size:13px;outline:none"></div>'
+      +'<div><div style="font-size:11px;color:var(--t3);margin-bottom:4px">Izoh</div>'
+      +'<input id="dc_pmt_note" placeholder="To\'lov sababi..." style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--b2);border-radius:8px;background:var(--s2);color:var(--t1);font-size:13px;outline:none"></div>'
+      +'<div style="display:flex;gap:8px;margin-top:4px">'
+      +'<button onclick="dcSavePayment(\''+r.id+'\',\''+type+'\')" style="flex:1;padding:11px;border-radius:8px;border:none;background:var(--grn);color:#000;font-size:13px;font-weight:600;cursor:pointer">✓ Saqlash</button>'
+      +'<button onclick="document.getElementById(\'dc_pmt_ov\').remove()" style="padding:11px 16px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--t2);font-size:13px;cursor:pointer">Bekor</button>'
+      +'</div></div></div>';
+    document.body.appendChild(ov2);
+    setTimeout(function(){var el=document.getElementById('dc_pmt_amt');if(el)el.select();},100);
+  };
+
+  // ─── TO'LOVNI SAQLASH + KASSA YANGILASH ─────────────────────────────
+  window.dcSavePayment=function(id,type){
+    var r=DC_DATA[type].find(function(x){return x.id==id;});
+    if(!r) return;
+    var amt=parseFloat(document.getElementById('dc_pmt_amt').value||'0');
+    var kassaKey=document.getElementById('dc_pmt_kassa').value;
+    var date=document.getElementById('dc_pmt_date').value;
+    var note=(document.getElementById('dc_pmt_note').value||'').trim();
+    if(!amt||amt<=0){toast('⚠️ Summa kiriting!');return;}
+    var rem=r.amount-r.paid;
+    if(amt>rem+0.01){toast('⚠️ Qoldiqdan oshib ketdi! Max: $'+fS(rem));return;}
+    r.paid=Math.round((r.paid+amt)*100)/100;
+    if(!r.payments)r.payments=[];
+    r.payments.push({id:Date.now().toString(),date:date,amount:amt,kassa_dir:r.dir+'/'+kassaKey,note:note});
+    if(r.paid>=r.amount-0.01)r.status='paid';
+    r.updated_at=new Date().toISOString();
+    // Kassa yangilash
+    ensureKassaData();
+    if(!KASSA_DATA[r.dir])KASSA_DATA[r.dir]={};
+    if(!KASSA_DATA[r.dir][kassaKey])KASSA_DATA[r.dir][kassaKey]={balance:0,prev:0,in:0,out:0};
+    var cell=KASSA_DATA[r.dir][kassaKey];
+    cell.prev=cell.balance;
+    if(type==='debitor'){cell.balance+=amt;cell.in=(cell.in||0)+amt;}
+    else{cell.balance-=amt;cell.out=(cell.out||0)+amt;}
+    kassaSave2();
+    dcSave();
+    var ov2=document.getElementById('dc_pmt_ov');if(ov2)ov2.remove();
+    var ov=document.getElementById('dc_modal_ov');if(ov)ov.remove();
+    toast('✅ To\'lov saqlandi! Kassa yangilandi.');
+    renderDebCred();
+  };
+
+  // ─── HISOBDAN CHIQARISH ───────────────────────────────────────────────
+  window.dcWriteOff=function(id,type){
+    var r=DC_DATA[type].find(function(x){return x.id==id;});
+    if(!r)return;
+    var rem=r.amount-r.paid;
+    if(!confirm(r.company+' — qoldiq $'+fS(rem)+' ni hisobdan chiqarasizmi?'))return;
+    r.status='written_off';r.updated_at=new Date().toISOString();
+    dcSave();
+    var ov=document.getElementById('dc_modal_ov');if(ov)ov.remove();
+    toast('⛔ Hisobdan chiqarildi!');
+    renderDebCred();
+  };
+
+  // ─── O'CHIRISH ────────────────────────────────────────────────────────
+  window.dcDelete=function(id,type){
+    if(!confirm('Bu yozuvni o\'chirasizmi?'))return;
+    DC_DATA[type]=DC_DATA[type].filter(function(x){return x.id!=id;});
+    dcSave();
+    var ov=document.getElementById('dc_modal_ov');if(ov)ov.remove();
+    toast('🗑 O\'chirildi!');
+    renderDebCred();
+  };
+
+  window.dcMarkPaid=function(id,type){dcPaymentModal(id,type,true);};
 
 }
 
