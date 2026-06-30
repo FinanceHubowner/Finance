@@ -8384,8 +8384,12 @@ function dcBucket(days){
 
 function renderDebCred(focusDir){
 
-
   if(focusDir) DRILL.dir=focusDir;
+  // Yo'nalish tabidan kirilsa — faqat o'sha yo'nalish ko'rinsin
+  // Holding tabidan yoki Barchasi — barcha yo'nalishlar ko'rinsin
+  if(focusDir && focusDir !== 'holding') DC_DIR=focusDir;
+  else if(!focusDir && DRILL.dir && DRILL.dir !== 'holding') DC_DIR=DRILL.dir;
+  else if(!focusDir) DC_DIR='all';
 
 
   var el=document.getElementById('pg-l1'); el.classList.add('on');
