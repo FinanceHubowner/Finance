@@ -4867,7 +4867,23 @@ var OB = (function(){
 })();
 
 
-function obSave(){ lsSave('opening_balances', OB); }
+function obSave(){
+  lsSave('opening_balances', OB);
+  if(!SB||!OB) return;
+  SB.from('app_settings').upsert({key:'ob_data',value:JSON.stringify(OB)},{onConflict:'key'}).then(function(r){if(r.error)console.warn('[OB] SB:',r.error.message);});
+}
+function obSyncFromSB(){
+  if(!SB) return;
+  SB.from('app_settings').select('value').eq('key','ob_data').then(function(r){
+    if(r.error||!r.data||!r.data.length) return;
+    try{
+      var sbOB=JSON.parse(r.data[0].value||'{}');
+      OB=Object.assign(sbOB, OB);
+      lsSave('opening_balances',OB);
+      console.log('[OB] Supabase dan synclandi');
+    }catch(e){}
+  });
+}
 
 
 
@@ -9412,8 +9428,13 @@ function syncAllFromSB(){
   exchClientSyncFromSB();
   exchPartnerSyncFromSB();
   exchChannelSyncFromSB();
+  obSyncFromSB();
   // EXCH_CLIENT_TXNS → DATA['exchange'] inject (barcha hisobotlar uchun)
   setTimeout(exchInjectToDATA, 500);
+  // Sync tugagandan keyin joriy sahifani qayta render — yangi qurilmada ma'lumot darhol ko'rinsin
+  setTimeout(function(){
+    try{ goNavCurrent(); }catch(e){}
+  }, 1800);
 }
 
 // ── AI Key — Supabase orqali barcha userlarga tarqatish ──────────────────
@@ -12025,8 +12046,9 @@ async function initRequestsFromSB(){
     if(!res.error && res.data && res.data.length){
       REQUESTS = res.data;
       lsSave('requests', REQUESTS);
-      // Badge ni yangilash uchun navni qayta qur
       if(typeof buildNav==='function') buildNav();
+      // So'rovlar tab aktiv bo'lsa — qayta render
+      try{ if(ACTV_SUB==='requests'||ACTV_SUB==='sorovlar') goNavCurrent(); }catch(e){}
     }
   } catch(e){ console.warn('initRequestsFromSB:', e.message); }
 }
@@ -14997,7 +15019,8 @@ window.openReqDetail = function(reqId){
     actHtml+='<button onclick="showApproveForm(\''+reqId+'\')" style="padding:8px 16px;background:#17B374;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">✓ Tasdiqlash</button>';
     actHtml+='<button onclick="showRejectForm(\''+reqId+'\')" style="padding:8px 16px;background:rgba(255,77,106,0.15);border:1px solid rgba(255,77,106,0.4);border-radius:8px;color:#FF4D6A;cursor:pointer;font-size:12px;font-weight:600">✗ Rad etish</button>';
   }
-  if(r.status==='draft') actHtml+='<button onclick="if(confirm(\'O\\\'chirilasinmi?\'))deleteReq(\''+reqId+'\')" style="padding:8px 12px;background:rgba(255,77,106,0.1);border:1px solid rgba(255,77,106,0.3);border-radius:8px;color:#FF4D6A;cursor:pointer;font-size:12px">🗑</button>';
+  var canPermDelete = CUR_USER && (CUR_USER.role==='owner' || CUR_USER.role==='holding_head');
+  if(r.status==='draft' || canPermDelete) actHtml+='<button onclick="if(confirm(\'Bu so\\\'rovni o\\\'chirasizmi?\'))deleteReq(\''+reqId+'\')" style="padding:8px 12px;background:rgba(255,77,106,0.1);border:1px solid rgba(255,77,106,0.3);border-radius:8px;color:#FF4D6A;cursor:pointer;font-size:12px">🗑 O\'chirish</button>';
 
   var commentsHtml=_buildReqCommentsHtml(r);
   var commentCount=(r.comments||[]).length;
