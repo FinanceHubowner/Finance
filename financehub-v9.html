@@ -22331,7 +22331,8 @@ function renderBalance(focusDir){
   const eq_paid_in   = OB.paid_in_capital;
 
 
-  const eq_retained  = OB.retained_prior;   // Oldingi yillar taqsimsiz foydasi
+  // Taqsimsiz foyda — avtomatik plug (debitor/kassa o'zgarsa ham balans tenglashadi)
+  const eq_retained  = total_assets - total_liab - eq_paid_in - eq_current + eq_ehson_fund;
 
 
   const eq_current   = netIncome;            // Joriy davr sof foydasi
