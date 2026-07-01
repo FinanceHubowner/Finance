@@ -9431,9 +9431,12 @@ function syncAllFromSB(){
   obSyncFromSB();
   // EXCH_CLIENT_TXNS → DATA['exchange'] inject (barcha hisobotlar uchun)
   setTimeout(exchInjectToDATA, 500);
-  // Sync tugagandan keyin joriy sahifani qayta render — yangi qurilmada ma'lumot darhol ko'rinsin
+  // Sync tugagandan keyin: ma'lumotlarni qayta hisoblash + joriy sahifani render
   setTimeout(function(){
-    try{ goNavCurrent(); }catch(e){}
+    try{
+      if(!DEMO_MODE) buildDataFromTXNS();
+      goNavCurrent();
+    }catch(e){}
   }, 1800);
 }
 
