@@ -26502,12 +26502,13 @@ function saveOBSettings(){
 
   // Kassa OB — delta usulida KASSA_DATA ga qo'shish (barcha kassa turlari)
   ensureKassaData();
+  var _fxRmb = OB.fx_rate_rmb||7.1;
+  var _fxUzs = OB.fx_rate_uzs||12700;
+  var _totalDeltaUSD = 0; // Balans uchun retained_prior ga qo'shiladi
   var _kobDirs = DIRS.filter(function(d){return d.id!=='exchange';});
   _kobDirs.forEach(function(d){
-    // Standart Naqd + Karta
     var _kassaKeys = [];
     ['USD','RMB','UZS'].forEach(function(cur){['Naqd','Karta'].forEach(function(tp){_kassaKeys.push(cur+'_'+tp);});});
-    // Mavjud Bank hisoblar
     var kas = KASSA_DATA[d.id]||{};
     Object.keys(kas).forEach(function(k){if(k.indexOf('_Bank')!==-1&&['Naqd','Karta'].every(function(t){return k.indexOf('_'+t)===-1;}))_kassaKeys.push(k);});
     _kassaKeys.forEach(function(kassaKey){
@@ -26524,10 +26525,21 @@ function saveOBSettings(){
         KASSA_DATA[d.id][kassaKey].prev = KASSA_DATA[d.id][kassaKey].balance;
         if(delta>0) KASSA_DATA[d.id][kassaKey].in=(KASSA_DATA[d.id][kassaKey].in||0)+delta;
         else KASSA_DATA[d.id][kassaKey].out=(KASSA_DATA[d.id][kassaKey].out||0)+Math.abs(delta);
+        // USD ekvivalentini hisoblash
+        var cur = kassaKey.split('_')[0];
+        var deltaUSD = cur==='RMB' ? delta/_fxRmb : cur==='UZS' ? delta/_fxUzs : delta;
+        _totalDeltaUSD += deltaUSD;
       }
       OB[obKey] = newVal;
     });
   });
+  // Kassa OB delta ni retained_prior ga avtomatik qo'shish — balans tenglik
+  if(Math.abs(_totalDeltaUSD) > 0.01){
+    OB.retained_prior = Math.round((OB.retained_prior + _totalDeltaUSD)*100)/100;
+    // Formadagi qiymatni ham yangilaymiz
+    var retEl = document.getElementById('ob_retained_prior');
+    if(retEl) retEl.value = OB.retained_prior;
+  }
   kassaSave2();
 
   obSave();
