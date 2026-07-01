@@ -22331,14 +22331,13 @@ function renderBalance(focusDir){
   const eq_paid_in   = OB.paid_in_capital;
 
 
-  // Taqsimsiz foyda — avtomatik plug (debitor/kassa o'zgarsa ham balans tenglashadi)
-  const eq_retained  = total_assets - total_liab - eq_paid_in - eq_current + eq_ehson_fund;
-
-
   const eq_current   = netIncome;            // Joriy davr sof foydasi
 
 
   const eq_ehson_fund= EHSON_DATA.payments.reduce(function(s,p){return s+p.amount;},0);
+
+  // Taqsimsiz foyda — avtomatik plug (debitor/kassa o'zgarsa ham balans tenglashadi)
+  const eq_retained  = total_assets - total_liab - eq_paid_in - eq_current + eq_ehson_fund;
 
   const total_equity = eq_paid_in+eq_retained+eq_current-eq_ehson_fund;
 
