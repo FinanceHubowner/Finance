@@ -18698,9 +18698,9 @@ function renderExecDashboard(){
       +'</div>';
   }
 
-  // ── 1. Yo'nalish foydasi ──────────────────────────────────
+  // ── 1. Yo'nalish foydasi (barcha davr — filtr qo'llanmaydi) ─
   var dirStats=DIRS.map(function(d){
-    var rows=fil(d.id), rv=0, pr=0, exp=0;
+    var rows=DATA[d.id]||[], rv=0, pr=0, exp=0;
     if(d.id==='cargo'||d.id==='logistics'){ rv=sk(rows,'revenue'); pr=sk(rows,'margin'); exp=rv-pr; }
     else if(d.id==='exchange'){ rv=sk(rows,'spread'); pr=sk(rows,'net'); exp=rv-pr; }
     else if(d.id==='procurement'){ rv=sk(rows,'commission'); pr=sk(rows,'net'); exp=rv-pr; }
@@ -18798,13 +18798,13 @@ function renderExecDashboard(){
 
   // ── 6. Oylik grafik ma'lumotlari ──────────────────────────
   var monthlyRev={}, monthlyExp={};
-  var allRows=[];
-  DIRS.forEach(function(d){ (DATA[d.id]||[]).forEach(function(r){allRows.push({...r,_dir:d.id});}); });
-  allRows.forEach(function(r){
-    if(!r.date) return;
-    var m=r.date.slice(0,7);
-    monthlyRev[m]=(monthlyRev[m]||0)+(+r.revenue||+r.spread||+r.commission||+r.div_in||0);
-    monthlyExp[m]=(monthlyExp[m]||0)+(+r.expense||+r.exp_out||+r.cost||0);
+  DIRS.forEach(function(d){
+    (DATA[d.id]||[]).forEach(function(r){
+      if(!r.date) return;
+      var m=r.date.slice(0,7);
+      monthlyRev[m]=(monthlyRev[m]||0)+(+r.revenue||+r.spread||+r.commission||+r.div_in||0);
+      monthlyExp[m]=(monthlyExp[m]||0)+(+r.expense||+r.exp_out||+r.cost||0);
+    });
   });
   var months=Object.keys(monthlyRev).sort().slice(-6);
   var revData=months.map(function(m){return Math.round(monthlyRev[m]||0);});
@@ -18950,6 +18950,7 @@ function renderExecDashboard(){
 
   // Chart.js grafik
   setTimeout(function(){
+    try{
     var ctx=document.getElementById('execMonthlyChart');
     if(!ctx||!months.length) return;
     new Chart(ctx,{
@@ -18968,6 +18969,7 @@ function renderExecDashboard(){
         scales:{y:{ticks:{callback:function(v){return '$'+Math.round(v).toLocaleString();}}}}
       }
     });
+    }catch(e){ console.warn('[ExecChart]',e.message); }
   },100);
 }
 // ══════════════════════════════════════════════════════════════
