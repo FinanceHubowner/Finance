@@ -788,7 +788,14 @@ function showDash(profile) {
       initRequestsFromSB();
       syncAllFromSB();
       exchInjectToDATA();
-      renderL1();
+      // Owner / holding_head → rahbar xulosasi sahifasiga yo'naltirish
+      var _execRoles = ['owner','holding_head'];
+      if(CUR_USER && _execRoles.indexOf(CUR_USER.role) !== -1){
+        ACTV_SUB = 'exec';
+        renderExecDashboard();
+      } else {
+        renderL1();
+      }
 
     }
 
@@ -11834,6 +11841,7 @@ const NAVS=[
 
 const SUBNAV_DEFS = {
   l1: [
+    {id:'exec',      lbl:'Rahbar Xulosasi',      icon:'👑'},
     {id:'dashboard', lbl:'Dashboard',           icon:'📊'},
     {id:'orgchart',  lbl:'Tashkiliy Tuzilma',   icon:'🏗️'},
     {id:'pl',        lbl:'P&L',                 icon:'📈'},
@@ -12524,7 +12532,8 @@ function goNav(id){
   if(topId==='l1'){
 
 
-    if(subId==='dashboard')  renderL1();
+    if(subId==='exec')        renderExecDashboard();
+    else if(subId==='dashboard')  renderL1();
 
 
     else if(subId==='pl')    renderPL(null);          // consolidated
@@ -18668,6 +18677,300 @@ var PL_INTERCO = true;     // intercompany elimination on/off
 
 
 
+
+// ══════════════════════════════════════════════════════════════
+// RAHBAR XULOSASI — Executive Dashboard (owner / holding_head)
+// ══════════════════════════════════════════════════════════════
+function renderExecDashboard(){
+  var el=document.getElementById('pg-l1'); el.classList.add('on');
+  setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:'👑 Rahbar Xulosasi',fn:''}]);
+
+  var FX_RMB=OB.fx_rate_rmb||7.1, FX_UZS=OB.fx_rate_uzs||12700;
+  function toUSD(amt,cur){ return cur==='RMB'?amt/FX_RMB:cur==='UZS'?amt/FX_UZS:amt; }
+  function tl(v){ return v>0?'#17B374':v<0?'#FF4D6A':'var(--t3)'; }
+  function arrow(v){ return v>0?'▲':v<0?'▼':'—'; }
+  function badge(v){ return v>0?'style="color:#17B374"':v<0?'style="color:#FF4D6A"':'style="color:var(--t3)"'; }
+  function card(label,val,sub,color){
+    return '<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:16px 20px;min-width:0">'
+      +'<div style="font-size:11px;color:var(--t3);margin-bottom:6px">'+label+'</div>'
+      +'<div style="font-size:22px;font-weight:700;color:'+(color||'var(--t1)')+'">'+val+'</div>'
+      +(sub?'<div style="font-size:11px;color:var(--t3);margin-top:4px">'+sub+'</div>':'')
+      +'</div>';
+  }
+
+  // ── 1. Yo'nalish foydasi ──────────────────────────────────
+  var dirStats=DIRS.map(function(d){
+    var rows=fil(d.id), rv=0, pr=0, exp=0;
+    if(d.id==='cargo'||d.id==='logistics'){ rv=sk(rows,'revenue'); pr=sk(rows,'margin'); exp=rv-pr; }
+    else if(d.id==='exchange'){ rv=sk(rows,'spread'); pr=sk(rows,'net'); exp=rv-pr; }
+    else if(d.id==='procurement'){ rv=sk(rows,'commission'); pr=sk(rows,'net'); exp=rv-pr; }
+    else { rv=sk(rows,'div_in')+sk(rows,'loan_in'); exp=sk(rows,'exp_out')+sk(rows,'tr_out'); pr=rv-exp; }
+    return {id:d.id, name:d.name, icon:d.icon||'', rv:rv, pr:pr, exp:exp};
+  });
+  var totRev=dirStats.reduce(function(s,d){return s+d.rv;},0);
+  var totPr=dirStats.reduce(function(s,d){return s+d.pr;},0);
+  var totExp=dirStats.reduce(function(s,d){return s+d.exp;},0);
+
+  var dirRows='';
+  dirStats.forEach(function(d){
+    var margin=d.rv>0?Math.round(d.pr/d.rv*100):0;
+    var dot=d.pr>0?'#17B374':d.pr<0?'#FF4D6A':'#888';
+    dirRows+='<tr>'
+      +'<td style="padding:10px 12px;font-size:13px"><span style="width:8px;height:8px;border-radius:50%;background:'+dot+';display:inline-block;margin-right:8px"></span>'+escHtml(d.name)+'</td>'
+      +'<td style="padding:10px 12px;font-size:13px;font-family:var(--mono);text-align:right">$'+fmt(d.rv)+'</td>'
+      +'<td style="padding:10px 12px;font-size:13px;font-family:var(--mono);text-align:right;color:var(--t3)">$'+fmt(d.exp)+'</td>'
+      +'<td style="padding:10px 12px;font-size:14px;font-family:var(--mono);font-weight:700;text-align:right;color:'+tl(d.pr)+'">'+arrow(d.pr)+' $'+fmt(Math.abs(d.pr))+'</td>'
+      +'<td style="padding:10px 12px;font-size:12px;text-align:right;color:'+tl(margin)+'">'+margin+'%</td>'
+      +'</tr>';
+  });
+
+  // ── 2. Kassa qoldiqlari ───────────────────────────────────
+  var kassaRows='', totalKassaUSD=0;
+  DIRS.forEach(function(d){
+    if(d.id==='exchange') return;
+    var dk=KASSA_DATA[d.id]||{};
+    Object.keys(dk).forEach(function(kk){
+      var b=dk[kk]&&dk[kk].balance||0; if(!b) return;
+      var parts=kk.split('_'), cur=parts[0], tp=parts.slice(1).join('_')||'Naqd';
+      totalKassaUSD+=toUSD(b,cur);
+      var col=cur==='USD'?'#17B374':cur==='RMB'?'#6C8EFF':'#FFB830';
+      kassaRows+='<tr style="cursor:pointer" onclick="kassaTxnModal(\''+d.id+'\',\''+cur+'\',\''+kk+'\',\''+escHtml(d.name+' '+cur+' '+tp)+'\')">'
+        +'<td style="padding:9px 12px;font-size:13px">'+escHtml(d.name)+'</td>'
+        +'<td style="padding:9px 12px;font-size:12px;color:var(--t3)">'+tp+'</td>'
+        +'<td style="padding:9px 12px;font-size:12px"><span style="padding:2px 8px;border-radius:10px;background:'+col+'22;color:'+col+';font-size:11px;font-weight:700">'+cur+'</span></td>'
+        +'<td style="padding:9px 12px;font-size:14px;font-family:var(--mono);font-weight:700;text-align:right">'+fmt(Math.round(b))+'</td>'
+        +'<td style="padding:9px 12px;font-size:11px;color:var(--acc)">↗ Detail</td>'
+        +'</tr>';
+    });
+  });
+
+  // ── 3. Debitor / Kreditor ─────────────────────────────────
+  var debTotal=0, kredTotal=0;
+  (DC_DATA.debitor||[]).forEach(function(r){debTotal+=(+r.balance||0);});
+  (DC_DATA.kreditor||[]).forEach(function(r){kredTotal+=(+r.balance||0);});
+
+  var dcRows='';
+  var dcAll=[];
+  (DC_DATA.debitor||[]).forEach(function(r){dcAll.push({type:'debitor',r:r});});
+  (DC_DATA.kreditor||[]).forEach(function(r){dcAll.push({type:'kreditor',r:r});});
+  dcAll.slice(0,8).forEach(function(x){
+    var r=x.r, col=x.type==='debitor'?'#17B374':'#FF4D6A', lbl=x.type==='debitor'?'Debitor':'Kreditor';
+    dcRows+='<tr>'
+      +'<td style="padding:8px 12px;font-size:13px">'+escHtml(r.company||'')+'</td>'
+      +'<td style="padding:8px 12px"><span style="font-size:10px;padding:2px 7px;border-radius:8px;background:'+col+'22;color:'+col+'">'+lbl+'</span></td>'
+      +'<td style="padding:8px 12px;font-size:12px;color:var(--t3)">'+escHtml(r.currency||'USD')+'</td>'
+      +'<td style="padding:8px 12px;font-size:13px;font-family:var(--mono);font-weight:700;text-align:right;color:'+col+'">'+fmt(Math.abs(+r.balance||0))+'</td>'
+      +'</tr>';
+  });
+
+  // ── 4. Tasdiqlash kutayotgan so'rovlar ────────────────────
+  var pendingReqs=REQUESTS.filter(function(r){return r.status==='pending'||r.status==='submitted';});
+  var approvedReqs=REQUESTS.filter(function(r){return r.status==='approved';});
+  var approvedTotal=approvedReqs.reduce(function(s,r){return s+(+r.amount||0);},0);
+  var reqRows='';
+  pendingReqs.slice(0,6).forEach(function(r){
+    var dObj=DIRS.find(function(d){return d.id===r.direction;})||{name:r.direction||''};
+    reqRows+='<tr style="cursor:pointer" onclick="showReqDetail(\''+r.id+'\')">'
+      +'<td style="padding:8px 12px;font-size:12px;font-family:var(--mono);color:var(--acc)">'+escHtml(r.id||'')+'</td>'
+      +'<td style="padding:8px 12px;font-size:13px">'+escHtml(r.title||r.category||'')+'</td>'
+      +'<td style="padding:8px 12px;font-size:12px;color:var(--t3)">'+escHtml(dObj.name)+'</td>'
+      +'<td style="padding:8px 12px;font-size:13px;font-family:var(--mono);font-weight:700;text-align:right;color:#FFB830">$'+fmt(+r.amount||0)+'</td>'
+      +'<td style="padding:8px 12px;font-size:11px;color:#FFB830">⏳ Kutmoqda</td>'
+      +'</tr>';
+  });
+
+  // ── 5. Vazifalar ──────────────────────────────────────────
+  var openTasks=(TASKS||[]).filter(function(t){return t.status!=='done'&&t.status!=='completed';});
+  var overdueTasks=openTasks.filter(function(t){return t.due&&t.due<new Date().toISOString().slice(0,10);});
+  var taskRows='';
+  openTasks.slice(0,6).forEach(function(t){
+    var overdue=t.due&&t.due<new Date().toISOString().slice(0,10);
+    var priCol={'urgent':'#FF4D6A','high':'#FFB830','normal':'var(--acc)','low':'var(--t3)'}[t.priority]||'var(--t3)';
+    var dObj=DIRS.find(function(d){return d.id===t.direction;})||{name:t.direction||'Umumiy'};
+    taskRows+='<tr>'
+      +'<td style="padding:8px 12px;font-size:13px">'+escHtml(t.title||'')+'</td>'
+      +'<td style="padding:8px 12px;font-size:12px;color:var(--t3)">'+escHtml(dObj.name)+'</td>'
+      +'<td style="padding:8px 12px;font-size:12px"><span style="color:'+priCol+';font-weight:600">'+(t.priority||'normal')+'</span></td>'
+      +'<td style="padding:8px 12px;font-size:12px;color:'+(overdue?'#FF4D6A':'var(--t3)')+';">'+(t.due||'—')+(overdue?' ⚠':'')+'</td>'
+      +'<td style="padding:8px 12px;font-size:12px;color:var(--t3)">'+escHtml(t.assignee||'')+'</td>'
+      +'</tr>';
+  });
+
+  // ── 6. Oylik grafik ma'lumotlari ──────────────────────────
+  var monthlyRev={}, monthlyExp={};
+  var allRows=[];
+  DIRS.forEach(function(d){ (DATA[d.id]||[]).forEach(function(r){allRows.push({...r,_dir:d.id});}); });
+  allRows.forEach(function(r){
+    if(!r.date) return;
+    var m=r.date.slice(0,7);
+    monthlyRev[m]=(monthlyRev[m]||0)+(+r.revenue||+r.spread||+r.commission||+r.div_in||0);
+    monthlyExp[m]=(monthlyExp[m]||0)+(+r.expense||+r.exp_out||+r.cost||0);
+  });
+  var months=Object.keys(monthlyRev).sort().slice(-6);
+  var revData=months.map(function(m){return Math.round(monthlyRev[m]||0);});
+  var expData=months.map(function(m){return Math.round(monthlyExp[m]||0);});
+  var profData=months.map(function(m,i){return revData[i]-expData[i];});
+
+  // ── 7. Balans Sheet sodda ─────────────────────────────────
+  var totalKassa=0;
+  DIRS.forEach(function(d){
+    if(d.id==='exchange') return;
+    var dk=KASSA_DATA[d.id]||{};
+    Object.keys(dk).forEach(function(kk){
+      var b=dk[kk]&&dk[kk].balance||0, cur=(kk.split('_')[0])||'USD';
+      totalKassa+=toUSD(b,cur);
+    });
+  });
+  var totalDeb=debTotal, totalKred=kredTotal;
+  var netIncome=totPr;
+
+  // ── HTML ──────────────────────────────────────────────────
+  var h='<div style="padding:20px;max-width:1200px">';
+
+  // Sarlavha
+  h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">'
+    +'<div><div style="font-size:20px;font-weight:700;color:var(--t1)">👑 Rahbar Xulosasi</div>'
+    +'<div style="font-size:12px;color:var(--t3);margin-top:2px">Barcha yo\'nalishlar konsolidatsiya · '+new Date().toLocaleDateString('uz-UZ')+'</div></div>'
+    +'<button onclick="goNav(\'l1:dashboard\')" style="padding:8px 16px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--t2);cursor:pointer;font-size:12px">📊 To\'liq Dashboard →</button>'
+    +'</div>';
+
+  // Yuqori kartochkalar
+  h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">';
+  h+=card('Jami Daromad','$'+fmt(totRev),'Barcha yo\'nalishlar','var(--t1)');
+  h+=card('Sof Foyda','$'+fmt(totPr),arrow(totPr)+' '+Math.round(totRev>0?totPr/totRev*100:0)+'% margin',tl(totPr));
+  h+=card('Jami Kassa','$'+fmt(Math.round(totalKassaUSD)),'Barcha kassalar jamlanmasi','var(--acc)');
+  h+=card('Tasdiqlash kutmoqda',pendingReqs.length+' ta so\'rov','Approved: $'+fmt(approvedTotal),pendingReqs.length>0?'#FFB830':'#17B374');
+  h+='</div>';
+
+  // 1. Yo'nalish foydasi
+  h+='<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;margin-bottom:16px">'
+    +'<div style="padding:14px 16px;border-bottom:1px solid var(--b1);font-size:13px;font-weight:600;color:var(--t1)">📈 Yo\'nalishlar bo\'yicha Foyda</div>'
+    +'<table style="width:100%;border-collapse:collapse">'
+    +'<thead><tr style="background:var(--s3)">'
+    +'<th style="padding:8px 12px;font-size:11px;color:var(--t3);text-align:left;font-weight:500">Yo\'nalish</th>'
+    +'<th style="padding:8px 12px;font-size:11px;color:var(--t3);text-align:right;font-weight:500">Daromad</th>'
+    +'<th style="padding:8px 12px;font-size:11px;color:var(--t3);text-align:right;font-weight:500">Xarajat</th>'
+    +'<th style="padding:8px 12px;font-size:11px;color:var(--t3);text-align:right;font-weight:500">Foyda</th>'
+    +'<th style="padding:8px 12px;font-size:11px;color:var(--t3);text-align:right;font-weight:500">Margin</th>'
+    +'</tr></thead><tbody>'+dirRows
+    +'<tr style="background:var(--s3);border-top:2px solid var(--b2)">'
+    +'<td style="padding:10px 12px;font-size:13px;font-weight:700">JAMI</td>'
+    +'<td style="padding:10px 12px;font-size:13px;font-family:var(--mono);font-weight:700;text-align:right">$'+fmt(totRev)+'</td>'
+    +'<td style="padding:10px 12px;font-size:13px;font-family:var(--mono);font-weight:700;text-align:right;color:var(--t3)">$'+fmt(totExp)+'</td>'
+    +'<td style="padding:10px 12px;font-size:14px;font-family:var(--mono);font-weight:700;text-align:right;color:'+tl(totPr)+'">'+arrow(totPr)+' $'+fmt(Math.abs(totPr))+'</td>'
+    +'<td style="padding:10px 12px;font-size:12px;text-align:right;color:'+tl(totRev>0?totPr/totRev:0)+'">'+Math.round(totRev>0?totPr/totRev*100:0)+'%</td>'
+    +'</tr>'
+    +'</tbody></table></div>';
+
+  // 2 sütunli layout
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">';
+
+  // 2. Kassa
+  h+='<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px">'
+    +'<div style="padding:14px 16px;border-bottom:1px solid var(--b1);display:flex;justify-content:space-between;align-items:center">'
+    +'<span style="font-size:13px;font-weight:600;color:var(--t1)">💳 Kassalar Qoldig\'i</span>'
+    +'<span style="font-size:12px;color:var(--acc);font-family:var(--mono);font-weight:700">Jami: $'+fmt(Math.round(totalKassaUSD))+'</span></div>'
+    +'<div style="font-size:11px;color:var(--t3);padding:6px 12px">↗ Qatorni bosing — tranzaksiya detali ko\'rish uchun</div>'
+    +'<table style="width:100%;border-collapse:collapse">'+kassaRows+'</table></div>';
+
+  // 3. Debitor/Kreditor
+  h+='<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px">'
+    +'<div style="padding:14px 16px;border-bottom:1px solid var(--b1);display:flex;justify-content:space-between;align-items:center">'
+    +'<span style="font-size:13px;font-weight:600;color:var(--t1)">📋 Debitor / Kreditor</span>'
+    +'<button onclick="goNav(\'l1:debcred\')" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--b2);background:transparent;color:var(--acc);cursor:pointer">Batafsil →</button></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border-bottom:1px solid var(--b1)">'
+    +'<div style="padding:12px 16px;border-right:1px solid var(--b1)">'
+    +'<div style="font-size:11px;color:var(--t3)">Bizga qarzdorlar</div>'
+    +'<div style="font-size:20px;font-weight:700;color:#17B374;margin-top:4px">$'+fmt(debTotal)+'</div></div>'
+    +'<div style="padding:12px 16px">'
+    +'<div style="font-size:11px;color:var(--t3)">Biz qarzdormiz</div>'
+    +'<div style="font-size:20px;font-weight:700;color:#FF4D6A;margin-top:4px">$'+fmt(kredTotal)+'</div></div></div>'
+    +'<table style="width:100%;border-collapse:collapse">'+dcRows+'</table></div>';
+
+  h+='</div>'; // grid end
+
+  // 2 sütunli: So'rovlar + Vazifalar
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">';
+
+  // 4. So'rovlar
+  h+='<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px">'
+    +'<div style="padding:14px 16px;border-bottom:1px solid var(--b1);display:flex;justify-content:space-between;align-items:center">'
+    +'<span style="font-size:13px;font-weight:600;color:var(--t1)">📝 Tasdiqlash Kutmoqda</span>'
+    +'<span style="font-size:12px;padding:3px 10px;border-radius:10px;background:'+(pendingReqs.length>0?'rgba(255,184,48,0.15)':'rgba(23,179,116,0.15)')+';color:'+(pendingReqs.length>0?'#FFB830':'#17B374')+'">'+pendingReqs.length+' ta</span></div>'
+    +(reqRows?'<table style="width:100%;border-collapse:collapse">'+reqRows+'</table>'
+      :'<div style="padding:24px;text-align:center;color:var(--t3);font-size:13px">✅ Barcha so\'rovlar ko\'rib chiqilgan</div>')
+    +'</div>';
+
+  // 5. Vazifalar
+  h+='<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px">'
+    +'<div style="padding:14px 16px;border-bottom:1px solid var(--b1);display:flex;justify-content:space-between;align-items:center">'
+    +'<span style="font-size:13px;font-weight:600;color:var(--t1)">✅ Ochiq Vazifalar</span>'
+    +'<div style="display:flex;gap:8px;align-items:center">'
+    +(overdueTasks.length?'<span style="font-size:11px;padding:3px 8px;border-radius:8px;background:rgba(255,77,106,0.15);color:#FF4D6A">'+overdueTasks.length+' muddati o\'tgan</span>':'')
+    +'<span style="font-size:12px;padding:3px 10px;border-radius:10px;background:rgba(108,142,255,0.15);color:var(--acc)">'+openTasks.length+' ta</span></div></div>'
+    +(taskRows?'<table style="width:100%;border-collapse:collapse">'+taskRows+'</table>'
+      :'<div style="padding:24px;text-align:center;color:var(--t3);font-size:13px">✅ Barcha vazifalar bajarilgan</div>')
+    +'</div>';
+
+  h+='</div>'; // grid end
+
+  // 6. Oylik grafik
+  h+='<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;margin-bottom:16px">'
+    +'<div style="padding:14px 16px;border-bottom:1px solid var(--b1);font-size:13px;font-weight:600;color:var(--t1)">📊 Oylik Daromad vs Xarajat (so\'nggi 6 oy)</div>'
+    +'<div style="padding:16px"><canvas id="execMonthlyChart" height="220"></canvas></div>'
+    +'</div>';
+
+  // 7. Balans Sheet sodda
+  var totalAssets=totalKassa+debTotal;
+  var totalLiab=kredTotal;
+  var netWorth=totalAssets-totalLiab;
+  h+='<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;margin-bottom:16px">'
+    +'<div style="padding:14px 16px;border-bottom:1px solid var(--b1);display:flex;justify-content:space-between;align-items:center">'
+    +'<span style="font-size:13px;font-weight:600;color:var(--t1)">⚖️ Balans — Qisqacha Ko\'rinish</span>'
+    +'<button onclick="goNav(\'l1:balance\')" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--b2);background:transparent;color:var(--acc);cursor:pointer">To\'liq Balans →</button></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0">'
+    +'<div style="padding:16px 20px;border-right:1px solid var(--b1)">'
+    +'<div style="font-size:11px;color:var(--t3);margin-bottom:8px;font-weight:600">AKTIVLAR</div>'
+    +'<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px"><span style="color:var(--t2)">Kassa</span><span style="font-family:var(--mono);font-weight:600">$'+fmt(Math.round(totalKassa))+'</span></div>'
+    +'<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px"><span style="color:var(--t2)">Debitorlar</span><span style="font-family:var(--mono);font-weight:600">$'+fmt(debTotal)+'</span></div>'
+    +'<div style="display:flex;justify-content:space-between;padding:8px 0 4px;font-size:14px;border-top:1px solid var(--b1);margin-top:8px"><span style="font-weight:700">Jami Aktiv</span><span style="font-family:var(--mono);font-weight:700;color:var(--acc)">$'+fmt(Math.round(totalAssets))+'</span></div></div>'
+    +'<div style="padding:16px 20px;border-right:1px solid var(--b1)">'
+    +'<div style="font-size:11px;color:var(--t3);margin-bottom:8px;font-weight:600">MAJBURIYATLAR</div>'
+    +'<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px"><span style="color:var(--t2)">Kreditorlar</span><span style="font-family:var(--mono);font-weight:600;color:#FF4D6A">$'+fmt(kredTotal)+'</span></div>'
+    +'<div style="display:flex;justify-content:space-between;padding:8px 0 4px;font-size:14px;border-top:1px solid var(--b1);margin-top:8px"><span style="font-weight:700">Jami Majburiyat</span><span style="font-family:var(--mono);font-weight:700;color:#FF4D6A">$'+fmt(totalLiab)+'</span></div></div>'
+    +'<div style="padding:16px 20px">'
+    +'<div style="font-size:11px;color:var(--t3);margin-bottom:8px;font-weight:600">SOF KAPITAL</div>'
+    +'<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px"><span style="color:var(--t2)">Davr foydasi</span><span style="font-family:var(--mono);font-weight:600;color:'+tl(netIncome)+'">$'+fmt(Math.round(netIncome))+'</span></div>'
+    +'<div style="display:flex;justify-content:space-between;padding:8px 0 4px;font-size:14px;border-top:1px solid var(--b1);margin-top:8px"><span style="font-weight:700">Sof Kapital</span><span style="font-family:var(--mono);font-weight:700;color:'+tl(netWorth)+'">$'+fmt(Math.round(netWorth))+'</span></div></div>'
+    +'</div></div>';
+
+  h+='</div>'; // main wrapper
+
+  document.getElementById('pg-l1').innerHTML=h;
+
+  // Chart.js grafik
+  setTimeout(function(){
+    var ctx=document.getElementById('execMonthlyChart');
+    if(!ctx||!months.length) return;
+    new Chart(ctx,{
+      type:'bar',
+      data:{
+        labels:months,
+        datasets:[
+          {label:'Daromad',data:revData,backgroundColor:'rgba(23,179,116,0.7)',borderRadius:4},
+          {label:'Xarajat',data:expData,backgroundColor:'rgba(255,77,106,0.5)',borderRadius:4},
+          {label:'Foyda',data:profData,type:'line',borderColor:'#6C8EFF',backgroundColor:'transparent',borderWidth:2,pointRadius:4,tension:0.3}
+        ]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'top'},tooltip:{callbacks:{label:function(c){return c.dataset.label+': $'+Math.round(c.raw).toLocaleString();}}}},
+        scales:{y:{ticks:{callback:function(v){return '$'+Math.round(v).toLocaleString();}}}}
+      }
+    });
+  },100);
+}
+// ══════════════════════════════════════════════════════════════
 
 function renderPL(focusDir){
 
