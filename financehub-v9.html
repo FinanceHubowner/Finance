@@ -789,6 +789,7 @@ function showDash(profile) {
       initRequestsFromSB();
       syncAllFromSB();
       exchInjectToDATA();
+      procInjectToDATA();
       // Owner / holding_head → rahbar xulosasi sahifasiga yo'naltirish
       var _execRoles = ['owner','holding_head'];
       if(CUR_USER && _execRoles.indexOf(CUR_USER.role) !== -1){
@@ -9440,6 +9441,8 @@ function syncAllFromSB(){
   procSyncFromSB();
   // EXCH_CLIENT_TXNS → DATA['exchange'] inject (barcha hisobotlar uchun)
   setTimeout(exchInjectToDATA, 500);
+  // PROC_ORDERS → DATA['procurement'] inject
+  setTimeout(procInjectToDATA, 800);
   // Sync tugagandan keyin: ma'lumotlarni qayta hisoblash + joriy sahifani render
   setTimeout(function(){
     try{
@@ -11966,11 +11969,13 @@ function procSaveAgents(){
 }
 function procSaveOrders(){
   lsSave('proc_orders', PROC_ORDERS);
+  procInjectToDATA();
   if(!SB||DEMO_MODE) return;
   SB.from('proc_orders').upsert(PROC_ORDERS,{onConflict:'id'}).then(function(r){if(r.error)console.warn('[PROC orders]',r.error.message);});
 }
 function procSaveExpenses(){
   lsSave('proc_expenses', PROC_EXPENSES);
+  procInjectToDATA();
   if(!SB||DEMO_MODE) return;
   SB.from('proc_expenses').upsert(PROC_EXPENSES,{onConflict:'id'}).then(function(r){if(r.error)console.warn('[PROC expenses]',r.error.message);});
 }
@@ -11984,10 +11989,49 @@ function procSyncFromSB(){
   SB.from('proc_orders').select('*').then(function(r){
     if(r.error||!r.data) return;
     if(r.data.length){ PROC_ORDERS=r.data; lsSave('proc_orders',PROC_ORDERS); }
+    procInjectToDATA();
   });
   SB.from('proc_expenses').select('*').then(function(r){
     if(r.error||!r.data) return;
     if(r.data.length){ PROC_EXPENSES=r.data; lsSave('proc_expenses',PROC_EXPENSES); }
+    procInjectToDATA();
+  });
+}
+
+// PROC_ORDERS + PROC_EXPENSES → DATA['procurement'] synthetic rows
+// Shu orqali P&L, Holding konsolidatsiya, Executive Dashboard avtomatik ishlaydi
+function procInjectToDATA(){
+  if(!DATA) return;
+  if(!DATA['procurement']) DATA['procurement'] = [];
+  DATA['procurement'] = DATA['procurement'].filter(function(r){ return !r._proc_inject; });
+  var cny = PROC_CNY_RATE || 7.15;
+  var uzsRate = (typeof OB!=='undefined'&&OB&&OB.fx_rate_uzs)||12700;
+  PROC_ORDERS.forEach(function(ord){
+    var pl = procOrderPL(ord);
+    DATA['procurement'].push({
+      _proc_inject: true,
+      date: (ord.created_at||new Date().toISOString()).slice(0,10),
+      commission: pl.commission,
+      net: pl.net,
+      expense: pl.expenses,
+      order_id: ord.id,
+      agent_id: ord.agent_id,
+      note: (ord.client_name||'')+(ord.product_name?' — '+ord.product_name:''),
+    });
+  });
+  // Agent-level (non-order) expenses
+  PROC_EXPENSES.filter(function(e){ return !e.order_id; }).forEach(function(e){
+    var amtUSD = e.currency==='RMB' ? (+(e.amount||0))/cny
+               : e.currency==='UZS' ? (+(e.amount||0))/uzsRate
+               : +(e.amount||0);
+    DATA['procurement'].push({
+      _proc_inject: true,
+      date: (e.date||new Date().toISOString()).slice(0,10),
+      commission: 0,
+      net: -amtUSD,
+      expense: amtUSD,
+      note: (e.category||'Xarajat')+(e.note?' — '+e.note:''),
+    });
   });
 }
 function rebuildProcNav(){
@@ -18792,6 +18836,11 @@ function renderProcOverview(){
     var vatInc=ords.filter(function(o){return o.vat_scenario===1;}).reduce(function(s,o){return s+(+(o.vat_refund_received_rmb||0))/cny;},0);
     return {a:a,orders:ords.length,comm:comm,exp:exp,net:comm+vatInc-exp};
   });
+  // Konsolidatsiya P&L (barcha agentlar yig'indisi)
+  var totComm=agentRows.reduce(function(s,r){return s+r.comm;},0);
+  var totExp=agentRows.reduce(function(s,r){return s+r.exp;},0);
+  var totVat=PROC_ORDERS.filter(function(o){return o.vat_scenario===1;}).reduce(function(s,o){return s+(+(o.vat_refund_received_rmb||0))/cny;},0);
+  var totNet=totComm+totVat-totExp;
   var recent=PROC_ORDERS.slice().sort(function(a,b){return (b.created_at||'').localeCompare(a.created_at||'');}).slice(0,10);
   var stageMap={};PROC_STAGES.forEach(function(s){stageMap[s.id]=s;});
   function sb(sid){var s=stageMap[sid]||{lbl:sid||'—',color:'#6B7280'};return '<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:'+s.color+'22;color:'+s.color+';border:1px solid '+s.color+'44">'+s.lbl+'</span>';}
@@ -18806,6 +18855,16 @@ function renderProcOverview(){
     +'<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:16px"><div style="font-size:11px;color:var(--t3)">Jami komissiya</div><div style="font-size:24px;font-weight:700;color:#10B981">'+fmt(totalComm)+'</div></div>'
     +'<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:16px"><div style="font-size:11px;color:var(--t3)">QQS qaytimi kutilmoqda</div><div style="font-size:24px;font-weight:700;color:#6366F1">'+fmtR(totalVatPend)+'</div></div>'
     +'</div>'
+    +(PROC_ORDERS.length?'<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;margin-bottom:20px;padding:16px 20px">'
+    +'<div style="font-weight:700;font-size:13px;color:var(--t1);margin-bottom:14px">📊 Konsolidatsiya — Foyda va Zarar (Barcha agentlar)</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">'
+    +'<div style="background:var(--s3);border-radius:10px;padding:14px"><div style="font-size:11px;color:var(--t3);margin-bottom:4px">Jami komissiya</div><div style="font-size:20px;font-weight:700;color:#10B981">'+fmt(totComm)+'</div></div>'
+    +'<div style="background:var(--s3);border-radius:10px;padding:14px"><div style="font-size:11px;color:var(--t3);margin-bottom:4px">QQS qaytimi (olingan)</div><div style="font-size:20px;font-weight:700;color:#6366F1">'+fmt(totVat)+'</div></div>'
+    +'<div style="background:var(--s3);border-radius:10px;padding:14px"><div style="font-size:11px;color:var(--t3);margin-bottom:4px">Jami xarajatlar</div><div style="font-size:20px;font-weight:700;color:#EF4444">'+fmt(totExp)+'</div></div>'
+    +'<div style="background:var(--s3);border-radius:10px;padding:14px;border:2px solid '+(totNet>=0?'#10B981':'#EF4444')+'44"><div style="font-size:11px;color:var(--t3);margin-bottom:4px">Sof foyda</div><div style="font-size:22px;font-weight:700;color:'+(totNet>=0?'#10B981':'#EF4444')+'">'+fmt(totNet)+'</div></div>'
+    +'</div>'
+    +'<div style="margin-top:10px;font-size:11px;color:var(--t3)">* Holding P&L da avtomatik konsolidatsiya qilinadi</div>'
+    +'</div>':'')
     +(agentRows.length?'<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;margin-bottom:20px;overflow:hidden">'
     +'<div style="padding:12px 16px;border-bottom:1px solid var(--b1);font-weight:600;font-size:13px;color:var(--t1)">Mutaxassislar samaradorligi</div>'
     +'<table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--s3)">'
