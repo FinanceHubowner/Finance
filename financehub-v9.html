@@ -11995,7 +11995,7 @@ function rebuildProcNav(){
   (PROC_AGENTS||[]).forEach(function(a){
     tabs.push({id:'agent_'+a.id, lbl:(a.name||'Agent').split(' ')[0], icon:'👤'});
   });
-  var canManage = CUR_USER && ['owner','holding_head','dir_head'].indexOf(CUR_USER.role)!==-1;
+  var canManage = CUR_USER && ['owner','holding_head','dir_head','holding_fin'].indexOf(CUR_USER.role)!==-1;
   if(canManage) tabs.push({id:'addagent', lbl:'+ Agent', icon:'➕'});
   SUBNAV_DEFS.procurement = tabs;
   buildNav();
