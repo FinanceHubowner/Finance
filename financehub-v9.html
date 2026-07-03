@@ -784,6 +784,7 @@ function showDash(profile) {
       ACTV = "l1";
 
       buildNav();
+      rebuildProcNav();
       exSyncFromSupabase();
       initRequestsFromSB();
       syncAllFromSB();
@@ -9436,6 +9437,7 @@ function syncAllFromSB(){
   exchPartnerSyncFromSB();
   exchChannelSyncFromSB();
   obSyncFromSB();
+  procSyncFromSB();
   // EXCH_CLIENT_TXNS → DATA['exchange'] inject (barcha hisobotlar uchun)
   setTimeout(exchInjectToDATA, 500);
   // Sync tugagandan keyin: ma'lumotlarni qayta hisoblash + joriy sahifani render
@@ -11907,21 +11909,7 @@ const SUBNAV_DEFS = {
     {id:'entry',         lbl:'Kiritish',           icon:'✏️'},
   ],
   procurement: [
-    {id:'dashboard', lbl:'Dashboard',        icon:'📊'},
-    {id:'pl',        lbl:'P&L',              icon:'📈'},
-    {id:'cashflow',  lbl:'Cash Flow',        icon:'💵'},
-    {id:'balance',   lbl:'Balans',           icon:'⚖️'},
-    {id:'kassa',     lbl:'Kassa',            icon:'💳'},
-    {id:'inventory', lbl:'Inventar',         icon:'📦'},
-    {id:'debcred',   lbl:'Debitor/Kreditor', icon:'📋'},
-    {id:'crm',       lbl:'Mijozlar',         icon:'👥'},
-    {id:'pipeline',  lbl:'Pipeline',         icon:'📈'},
-    {id:'payroll',   lbl:'Payroll',          icon:'👨‍💼'},
-    {id:'hrm',       lbl:'Xodimlar',         icon:'👥'},
-    {id:'tasks',     lbl:'Vazifalar',        icon:'✅'},
-    {id:'requests',  lbl:"So'rovlar",       icon:'📝'},
-    {id:'actfact',   lbl:'Actual vs Fact',  icon:'📊'},
-    {id:'entry',     lbl:'Kiritish',         icon:'✏️'},
+    {id:'overview', lbl:'Umumiy', icon:'📊'},
   ],
 };
 
@@ -11940,6 +11928,103 @@ var REQUESTS = (function(){ var s=lsLoad('requests'); return s||[]; })();
 var EXCH_CLIENTS     = (function(){ return lsLoad('exch_clients')     || []; })();
 var EXCH_CLIENT_TXNS = (function(){ return lsLoad('exch_client_txns') || []; })();
 var EXCH_EXPENSES    = (function(){ return lsLoad('exch_expenses')    || []; })();
+
+// ══════════════════════════════════════════════════════════════
+// PROCUREMENT MODULE — Data Layer
+// ══════════════════════════════════════════════════════════════
+var PROC_AGENTS   = (function(){ return lsLoad('proc_agents')   || []; })();
+var PROC_ORDERS   = (function(){ return lsLoad('proc_orders')   || []; })();
+var PROC_EXPENSES = (function(){ return lsLoad('proc_expenses') || []; })();
+var PROC_AGENT_TAB = 'pipeline'; // current inner sub-tab for agent view
+var PROC_CNY_RATE  = 7.15;       // CNY→USD default rate
+
+var PROC_STAGES = [
+  {id:'lead',            lbl:'Murojaat',         color:'#6B7280'},
+  {id:'negotiations',    lbl:'Muzokaralar',      color:'#3B82F6'},
+  {id:'contract',        lbl:'Shartnoma',        color:'#8B5CF6'},
+  {id:'client_payment',  lbl:"Mijoz to'lovi",    color:'#F59E0B'},
+  {id:'china_purchase',  lbl:'Xitoyda xarid',    color:'#EF4444'},
+  {id:'shipped',         lbl:"Jo'natildi",       color:'#06B6D4'},
+  {id:'customs_cleared', lbl:'Bojxonadan o\'tdi',color:'#6366F1'},
+  {id:'delivered',       lbl:'Yetkazildi',       color:'#10B981'},
+];
+var PROC_EXP_CATS = [
+  {id:'yashash',   lbl:'Yashash'},
+  {id:'transport', lbl:'Transport'},
+  {id:'yol',       lbl:"Yo'l xarajati"},
+  {id:'operatsion',lbl:'Operatsion'},
+  {id:'boshqa',    lbl:'Boshqa'},
+];
+
+function procGenId(prefix){
+  return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+}
+function procSaveAgents(){
+  lsSave('proc_agents', PROC_AGENTS);
+  if(!SB||DEMO_MODE) return;
+  SB.from('proc_agents').upsert(PROC_AGENTS,{onConflict:'id'}).then(function(r){if(r.error)console.warn('[PROC agents]',r.error.message);});
+}
+function procSaveOrders(){
+  lsSave('proc_orders', PROC_ORDERS);
+  if(!SB||DEMO_MODE) return;
+  SB.from('proc_orders').upsert(PROC_ORDERS,{onConflict:'id'}).then(function(r){if(r.error)console.warn('[PROC orders]',r.error.message);});
+}
+function procSaveExpenses(){
+  lsSave('proc_expenses', PROC_EXPENSES);
+  if(!SB||DEMO_MODE) return;
+  SB.from('proc_expenses').upsert(PROC_EXPENSES,{onConflict:'id'}).then(function(r){if(r.error)console.warn('[PROC expenses]',r.error.message);});
+}
+function procSyncFromSB(){
+  if(!SB) return;
+  SB.from('proc_agents').select('*').then(function(r){
+    if(r.error||!r.data) return;
+    if(r.data.length){ PROC_AGENTS=r.data; lsSave('proc_agents',PROC_AGENTS); }
+    rebuildProcNav();
+  });
+  SB.from('proc_orders').select('*').then(function(r){
+    if(r.error||!r.data) return;
+    if(r.data.length){ PROC_ORDERS=r.data; lsSave('proc_orders',PROC_ORDERS); }
+  });
+  SB.from('proc_expenses').select('*').then(function(r){
+    if(r.error||!r.data) return;
+    if(r.data.length){ PROC_EXPENSES=r.data; lsSave('proc_expenses',PROC_EXPENSES); }
+  });
+}
+function rebuildProcNav(){
+  var tabs = [{id:'overview', lbl:'Umumiy', icon:'📊'}];
+  (PROC_AGENTS||[]).forEach(function(a){
+    tabs.push({id:'agent_'+a.id, lbl:(a.name||'Agent').split(' ')[0], icon:'👤'});
+  });
+  var canManage = CUR_USER && ['owner','holding_head','dir_head'].indexOf(CUR_USER.role)!==-1;
+  if(canManage) tabs.push({id:'addagent', lbl:'+ Agent', icon:'➕'});
+  SUBNAV_DEFS.procurement = tabs;
+  buildNav();
+}
+
+// Per-order P&L calculator
+function procOrderPL(ord){
+  var cny = PROC_CNY_RATE || 7.15;
+  var commission = +(ord.commission_usd||0);
+  // VAT refund as income (scenario 1 only)
+  var vatIncome = 0;
+  if(ord.vat_scenario===1){
+    vatIncome = (+(ord.vat_refund_received_rmb||0)) / cny;
+  }
+  // Expenses for this order
+  var expUSD = (PROC_EXPENSES||[]).filter(function(e){ return e.order_id===ord.id; })
+    .reduce(function(s,e){
+      var a=+(e.amount||0);
+      if(e.currency==='RMB') return s+a/cny;
+      if(e.currency==='UZS') return s+a/(OB.fx_rate_uzs||12700);
+      return s+a;
+    },0);
+  // Freight/docs (paid by DASA)
+  var freightUSD = ord.freight_paid_by==='dasa' ? (+(ord.freight_cost_usd||0)) : 0;
+  var docsUSD    = ord.docs_paid_by==='dasa'    ? (+(ord.docs_cost_usd||0))    : 0;
+  var totalExp   = expUSD + freightUSD + docsUSD;
+  var net = commission + vatIncome - totalExp;
+  return {commission:commission, vatIncome:vatIncome, expenses:totalExp, net:net};
+}
 
 // EXCH_CLIENT_TXNS → DATA['exchange'] inject funksiyasi
 // Transfer komissiyalarini DATA['exchange'] ga synthetic row sifatida qo'shadi
@@ -12455,9 +12540,9 @@ function goNav(id){
 
 
     var subExists = (SUBNAV_DEFS[topId]||[]).some(function(s){return s.id===ACTV_SUB;});
+    var firstSub = ((SUBNAV_DEFS[topId]||[])[0]||{}).id || 'dashboard';
 
-
-    subId = subExists ? ACTV_SUB : 'dashboard';
+    subId = subExists ? ACTV_SUB : firstSub;
 
 
     id = topId + ':' + subId;
@@ -12688,6 +12773,12 @@ function goNav(id){
 
     renderExchPozitsiya();
 
+  } else if(dirId==='procurement' && subId==='overview'){
+    renderProcOverview();
+  } else if(dirId==='procurement' && subId.indexOf('agent_')===0){
+    renderProcAgentView(subId.replace('agent_',''));
+  } else if(dirId==='procurement' && subId==='addagent'){
+    renderProcAddAgent();
   } else {
 
 
@@ -18677,6 +18768,528 @@ var PL_INTERCO = true;     // intercompany elimination on/off
 
 
 
+
+// ══════════════════════════════════════════════════════════════
+// PROCUREMENT MODULE — Render Functions
+// ══════════════════════════════════════════════════════════════
+
+function renderProcOverview(){
+  var el = document.getElementById('pg-l2'); el.classList.add('on');
+  setBc([{lbl:'🏭 Procurement',fn:"goNav('procurement')"},{lbl:'📊 Umumiy',fn:''}]);
+  var cny=PROC_CNY_RATE||7.15;
+  var fmt=function(v){return '$'+(+v||0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',');};
+  var fmtR=function(v){return '¥'+(+v||0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',');};
+  var totalOrders=PROC_ORDERS.length;
+  var activeOrders=PROC_ORDERS.filter(function(o){return o.stage!=='delivered';}).length;
+  var totalComm=PROC_ORDERS.reduce(function(s,o){return s+(+o.commission_usd||0);},0);
+  var totalVatPend=PROC_ORDERS.filter(function(o){return o.vat_scenario===1;})
+    .reduce(function(s,o){return s+(+(o.vat_refund_expected_rmb||0))-(+(o.vat_refund_received_rmb||0));},0);
+  var agentMap={};PROC_AGENTS.forEach(function(a){agentMap[a.id]=a;});
+  var agentRows=PROC_AGENTS.map(function(a){
+    var ords=PROC_ORDERS.filter(function(o){return o.agent_id===a.id;});
+    var comm=ords.reduce(function(s,o){return s+(+o.commission_usd||0);},0);
+    var exp=PROC_EXPENSES.filter(function(e){return e.agent_id===a.id;}).reduce(function(s,e){var v=+(e.amount||0);return e.currency==='RMB'?s+v/cny:e.currency==='UZS'?s+v/(OB.fx_rate_uzs||12700):s+v;},0);
+    var vatInc=ords.filter(function(o){return o.vat_scenario===1;}).reduce(function(s,o){return s+(+(o.vat_refund_received_rmb||0))/cny;},0);
+    return {a:a,orders:ords.length,comm:comm,exp:exp,net:comm+vatInc-exp};
+  });
+  var recent=PROC_ORDERS.slice().sort(function(a,b){return (b.created_at||'').localeCompare(a.created_at||'');}).slice(0,10);
+  var stageMap={};PROC_STAGES.forEach(function(s){stageMap[s.id]=s;});
+  function sb(sid){var s=stageMap[sid]||{lbl:sid||'—',color:'#6B7280'};return '<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:'+s.color+'22;color:'+s.color+';border:1px solid '+s.color+'44">'+s.lbl+'</span>';}
+  el.innerHTML='<div style="padding:20px 24px;max-width:1200px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">'
+    +'<h2 style="font-size:20px;font-weight:700;color:var(--t1);margin:0">🏭 Procurement — Umumiy</h2>'
+    +'<button onclick="renderProcAddOrder(null)" style="padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px">+ Yangi buyurtma</button>'
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">'
+    +'<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:16px"><div style="font-size:11px;color:var(--t3)">Jami buyurtmalar</div><div style="font-size:24px;font-weight:700;color:var(--t1)">'+totalOrders+'</div></div>'
+    +'<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:16px"><div style="font-size:11px;color:var(--t3)">Faol buyurtmalar</div><div style="font-size:24px;font-weight:700;color:#F59E0B">'+activeOrders+'</div></div>'
+    +'<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:16px"><div style="font-size:11px;color:var(--t3)">Jami komissiya</div><div style="font-size:24px;font-weight:700;color:#10B981">'+fmt(totalComm)+'</div></div>'
+    +'<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:16px"><div style="font-size:11px;color:var(--t3)">QQS qaytimi kutilmoqda</div><div style="font-size:24px;font-weight:700;color:#6366F1">'+fmtR(totalVatPend)+'</div></div>'
+    +'</div>'
+    +(agentRows.length?'<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;margin-bottom:20px;overflow:hidden">'
+    +'<div style="padding:12px 16px;border-bottom:1px solid var(--b1);font-weight:600;font-size:13px;color:var(--t1)">Mutaxassislar samaradorligi</div>'
+    +'<table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--s3)">'
+    +'<th style="padding:10px 16px;text-align:left;font-size:11px;color:var(--t3);font-weight:600">MUTAXASSIS</th>'
+    +'<th style="padding:10px 16px;text-align:right;font-size:11px;color:var(--t3);font-weight:600">BUYURTMALAR</th>'
+    +'<th style="padding:10px 16px;text-align:right;font-size:11px;color:var(--t3);font-weight:600">KOMISSIYA</th>'
+    +'<th style="padding:10px 16px;text-align:right;font-size:11px;color:var(--t3);font-weight:600">XARAJAT</th>'
+    +'<th style="padding:10px 16px;text-align:right;font-size:11px;color:var(--t3);font-weight:600">SOF FOYDA</th>'
+    +'</tr></thead><tbody>'
+    +agentRows.map(function(r){return '<tr style="border-top:1px solid var(--b1);cursor:pointer" onclick="goNav(\'procurement:agent_'+r.a.id+'\')">'
+    +'<td style="padding:12px 16px"><div style="font-weight:600;color:var(--t1)">'+escHtml(r.a.name)+'</div><div style="font-size:11px;color:var(--t3)">'+escHtml(r.a.specialty||'')+'</div></td>'
+    +'<td style="padding:12px 16px;text-align:right;color:var(--t1)">'+r.orders+'</td>'
+    +'<td style="padding:12px 16px;text-align:right;color:#10B981;font-weight:600">'+fmt(r.comm)+'</td>'
+    +'<td style="padding:12px 16px;text-align:right;color:#EF4444">'+fmt(r.exp)+'</td>'
+    +'<td style="padding:12px 16px;text-align:right;font-weight:700;color:'+(r.net>=0?'#10B981':'#EF4444')+'">'+fmt(r.net)+'</td>'
+    +'</tr>';}).join('')+'</tbody></table></div>':'')
+    +'<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;overflow:hidden">'
+    +'<div style="padding:12px 16px;border-bottom:1px solid var(--b1);font-weight:600;font-size:13px;color:var(--t1)">So\'nggi buyurtmalar</div>'
+    +(recent.length===0?'<div style="padding:40px;text-align:center;color:var(--t3)">Buyurtmalar yo\'q. + Yangi buyurtma tugmasini bosing.</div>'
+    :'<table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--s3)">'
+    +'<th style="padding:10px 16px;text-align:left;font-size:11px;color:var(--t3);font-weight:600">BUYURTMA</th>'
+    +'<th style="padding:10px 16px;text-align:left;font-size:11px;color:var(--t3);font-weight:600">AGENT</th>'
+    +'<th style="padding:10px 16px;text-align:left;font-size:11px;color:var(--t3);font-weight:600">MIJOZ</th>'
+    +'<th style="padding:10px 16px;text-align:right;font-size:11px;color:var(--t3);font-weight:600">KOMISSIYA</th>'
+    +'<th style="padding:10px 16px;text-align:left;font-size:11px;color:var(--t3);font-weight:600">BOSQICH</th>'
+    +'<th style="padding:10px 16px;text-align:left;font-size:11px;color:var(--t3);font-weight:600">SANA</th>'
+    +'</tr></thead><tbody>'
+    +recent.map(function(o){var ag=agentMap[o.agent_id]||{name:'?'};return '<tr style="border-top:1px solid var(--b1);cursor:pointer" onclick="procOpenOrderModal(\''+o.id+'\')">'
+    +'<td style="padding:10px 16px;font-weight:600;color:var(--accent)">'+escHtml(o.order_no||o.id.slice(-6).toUpperCase())+'</td>'
+    +'<td style="padding:10px 16px;color:var(--t2)">'+escHtml(ag.name)+'</td>'
+    +'<td style="padding:10px 16px;color:var(--t1)">'+escHtml(o.client_name||'—')+'</td>'
+    +'<td style="padding:10px 16px;text-align:right;color:#10B981;font-weight:600">'+fmt(o.commission_usd)+'</td>'
+    +'<td style="padding:10px 16px">'+sb(o.stage)+'</td>'
+    +'<td style="padding:10px 16px;color:var(--t3);font-size:12px">'+(o.created_at||'').slice(0,10)+'</td>'
+    +'</tr>';}).join('')+'</tbody></table>')
+    +'</div></div>';
+}
+
+function renderProcAddAgent(){
+  var el=document.getElementById('pg-l2');el.classList.add('on');
+  setBc([{lbl:'🏭 Procurement',fn:"goNav('procurement')"},{lbl:'+ Agent qo\'shish',fn:''}]);
+  el.innerHTML='<div style="padding:20px 24px;max-width:600px">'
+    +'<h2 style="font-size:18px;font-weight:700;color:var(--t1);margin:0 0 20px">+ Yangi mutaxassis (agent)</h2>'
+    +'<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:24px">'
+    +'<div style="display:grid;gap:16px">'
+    +'<div><label style="display:block;font-size:12px;color:var(--t3);margin-bottom:6px">To\'liq ism *</label>'
+    +'<input id="pa_name" placeholder="Masalan: Aziz Karimov" style="width:100%;padding:10px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:14px;box-sizing:border-box"></div>'
+    +'<div><label style="display:block;font-size:12px;color:var(--t3);margin-bottom:6px">Ixtisoslik / Yo\'nalish</label>'
+    +'<input id="pa_specialty" placeholder="Masalan: Elektronika, Og\'ir texnika..." style="width:100%;padding:10px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:14px;box-sizing:border-box"></div>'
+    +'<div><label style="display:block;font-size:12px;color:var(--t3);margin-bottom:6px">Default komissiya foizi (%)</label>'
+    +'<input id="pa_comm" type="number" step="0.1" min="0" max="100" value="4.5" style="width:100%;padding:10px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:14px;box-sizing:border-box"></div>'
+    +'<div><label style="display:block;font-size:12px;color:var(--t3);margin-bottom:6px">Telefon / Kontakt</label>'
+    +'<input id="pa_contact" placeholder="+998..." style="width:100%;padding:10px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:14px;box-sizing:border-box"></div>'
+    +'</div>'
+    +'<div style="display:flex;gap:12px;margin-top:24px">'
+    +'<button onclick="procSaveAgent()" style="flex:1;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600">Saqlash</button>'
+    +'<button onclick="goNav(\'procurement:overview\')" style="padding:12px 20px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:14px">Bekor</button>'
+    +'</div></div></div>';
+}
+
+function procSaveAgent(){
+  var name=(document.getElementById('pa_name')||{}).value||'';
+  if(!name.trim()){alert('Ismni kiriting!');return;}
+  var agent={id:procGenId('ag'),name:name.trim(),specialty:(document.getElementById('pa_specialty')||{}).value||'',
+    commission_default:+(document.getElementById('pa_comm')||{value:4.5}).value||4.5,
+    contact:(document.getElementById('pa_contact')||{}).value||'',created_at:new Date().toISOString().slice(0,10)};
+  PROC_AGENTS.push(agent);procSaveAgents();rebuildProcNav();goNav('procurement:agent_'+agent.id);
+}
+
+function renderProcAgentView(agentId){
+  var agent=PROC_AGENTS.find(function(a){return a.id===agentId;});
+  if(!agent){renderProcOverview();return;}
+  var el=document.getElementById('pg-l2');el.classList.add('on');
+  setBc([{lbl:'🏭 Procurement',fn:"goNav('procurement')"},{lbl:escHtml(agent.name),fn:''}]);
+  var tabs=[{id:'pipeline',lbl:'Pipeline',icon:'📋'},{id:'expenses',lbl:'Xarajatlar',icon:'💸'},{id:'pl',lbl:'P&L',icon:'📈'},{id:'clients',lbl:'Mijozlar',icon:'👥'}];
+  var innerNav='<div style="display:flex;gap:2px;margin-bottom:20px;background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:4px;width:fit-content">'
+    +tabs.map(function(t){var active=PROC_AGENT_TAB===t.id;return '<button onclick="PROC_AGENT_TAB=\''+t.id+'\';renderProcAgentView(\''+agentId+'\')" style="padding:8px 16px;border:none;border-radius:7px;cursor:pointer;font-size:13px;font-weight:'+(active?'600':'400')+';background:'+(active?'var(--accent)':'transparent')+';color:'+(active?'#fff':'var(--t2)')+'">'+t.icon+' '+t.lbl+'</button>';}).join('')+'</div>';
+  var header='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">'
+    +'<div><h2 style="font-size:20px;font-weight:700;color:var(--t1);margin:0">👤 '+escHtml(agent.name)+'</h2>'
+    +'<div style="font-size:12px;color:var(--t3);margin-top:4px">'+(agent.specialty?escHtml(agent.specialty)+' · ':'')+'Default komissiya: '+(agent.commission_default||4.5)+'%</div></div>'
+    +'<button onclick="renderProcAddOrder(\''+agentId+'\')" style="padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px">+ Yangi buyurtma</button>'
+    +'</div>';
+  el.innerHTML='<div style="padding:20px 24px;max-width:1200px">'+header+innerNav+'<div id="proc-inner"></div></div>';
+  if(PROC_AGENT_TAB==='pipeline') renderProcPipeline(agentId);
+  else if(PROC_AGENT_TAB==='expenses') renderProcExpenses(agentId);
+  else if(PROC_AGENT_TAB==='pl') renderProcPL(agentId);
+  else if(PROC_AGENT_TAB==='clients') renderProcClients(agentId);
+}
+
+function renderProcPipeline(agentId){
+  var inn=document.getElementById('proc-inner');if(!inn)return;
+  var orders=PROC_ORDERS.filter(function(o){return o.agent_id===agentId;});
+  var stageMap={};PROC_STAGES.forEach(function(s){stageMap[s.id]=s;});
+  function sb(sid){var s=stageMap[sid]||{lbl:sid||'—',color:'#6B7280'};return '<span style="font-size:10px;padding:3px 10px;border-radius:10px;background:'+s.color+'22;color:'+s.color+';border:1px solid '+s.color+'44;white-space:nowrap">'+s.lbl+'</span>';}
+  var fmt=function(v){return '$'+(+v||0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',');};
+  inn.innerHTML='<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;overflow:hidden">'
+    +(orders.length===0?'<div style="padding:60px;text-align:center;color:var(--t3)">Buyurtmalar yo\'q.<br><button onclick="renderProcAddOrder(\''+agentId+'\')" style="margin-top:12px;padding:10px 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer">+ Birinchi buyurtma qo\'shish</button></div>'
+    :'<table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--s3)">'
+    +'<th style="padding:10px 16px;text-align:left;font-size:11px;color:var(--t3);font-weight:600">BUYURTMA #</th>'
+    +'<th style="padding:10px 16px;text-align:left;font-size:11px;color:var(--t3);font-weight:600">MIJOZ</th>'
+    +'<th style="padding:10px 16px;text-align:left;font-size:11px;color:var(--t3);font-weight:600">MAHSULOT</th>'
+    +'<th style="padding:10px 16px;text-align:right;font-size:11px;color:var(--t3);font-weight:600">NARX (USD)</th>'
+    +'<th style="padding:10px 16px;text-align:right;font-size:11px;color:var(--t3);font-weight:600">KOMISSIYA</th>'
+    +'<th style="padding:10px 16px;text-align:center;font-size:11px;color:var(--t3);font-weight:600">QQS</th>'
+    +'<th style="padding:10px 16px;text-align:left;font-size:11px;color:var(--t3);font-weight:600">BOSQICH</th>'
+    +'<th style="padding:10px 16px;text-align:left;font-size:11px;color:var(--t3);font-weight:600">SANA</th>'
+    +'</tr></thead><tbody>'
+    +orders.slice().sort(function(a,b){return (b.created_at||'').localeCompare(a.created_at||'');}).map(function(o){
+      return '<tr style="border-top:1px solid var(--b1);cursor:pointer" onclick="procOpenOrderModal(\''+o.id+'\')">'
+      +'<td style="padding:10px 16px;font-weight:700;color:var(--accent)">'+escHtml(o.order_no||o.id.slice(-6).toUpperCase())+'</td>'
+      +'<td style="padding:10px 16px;color:var(--t1)">'+escHtml(o.client_name||'—')+'</td>'
+      +'<td style="padding:10px 16px;color:var(--t2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(o.product_name||'—')+'</td>'
+      +'<td style="padding:10px 16px;text-align:right;color:var(--t1)">'+fmt(o.client_price)+'</td>'
+      +'<td style="padding:10px 16px;text-align:right;color:#10B981;font-weight:600">'+fmt(o.commission_usd)+'</td>'
+      +'<td style="padding:10px 16px;text-align:center;font-size:11px;color:var(--t3)">S'+(o.vat_scenario||1)+'</td>'
+      +'<td style="padding:10px 16px">'+sb(o.stage)+'</td>'
+      +'<td style="padding:10px 16px;color:var(--t3);font-size:12px">'+(o.created_at||'').slice(0,10)+'</td>'
+      +'</tr>';}).join('')+'</tbody></table>')
+    +'</div>';
+}
+
+function renderProcExpenses(agentId){
+  var inn=document.getElementById('proc-inner');if(!inn)return;
+  var orders=PROC_ORDERS.filter(function(o){return o.agent_id===agentId;});
+  var expenses=PROC_EXPENSES.filter(function(e){return e.agent_id===agentId;}).slice().sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+  var cny=PROC_CNY_RATE||7.15;
+  var fmt=function(v){return '$'+(+v||0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',');};
+  var today=new Date().toISOString().slice(0,10);
+  var catMap={};PROC_EXP_CATS.forEach(function(c){catMap[c.id]=c.lbl;});
+  var orderOpts='<option value="">— Umumiy (buyurtmasiz) —</option>'+orders.map(function(o){return '<option value="'+o.id+'">'+escHtml((o.order_no||o.id.slice(-6).toUpperCase())+' — '+(o.client_name||''));}).join('');
+  inn.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">'
+    +'<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:20px">'
+    +'<div style="font-weight:600;font-size:14px;color:var(--t1);margin-bottom:16px">💸 Xarajat qo\'shish</div>'
+    +'<div style="display:grid;gap:12px">'
+    +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:5px">Sana</label><input id="pe_date" type="date" value="'+today+'" style="width:100%;padding:9px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px;box-sizing:border-box"></div>'
+    +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:5px">Buyurtma (ixtiyoriy)</label><select id="pe_order" style="width:100%;padding:9px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px;box-sizing:border-box">'+orderOpts+'</select></div>'
+    +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:5px">Kategoriya</label><select id="pe_cat" style="width:100%;padding:9px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px;box-sizing:border-box">'+PROC_EXP_CATS.map(function(c){return '<option value="'+c.id+'">'+c.lbl+'</option>';}).join('')+'</select></div>'
+    +'<div style="display:grid;grid-template-columns:1fr auto;gap:8px">'
+    +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:5px">Summa</label><input id="pe_amount" type="number" min="0" placeholder="0" style="width:100%;padding:9px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px;box-sizing:border-box"></div>'
+    +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:5px">Valyuta</label><select id="pe_cur" style="padding:9px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px"><option value="RMB">RMB</option><option value="USD">USD</option><option value="UZS">UZS</option></select></div></div>'
+    +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:5px">Izoh</label><input id="pe_desc" placeholder="Qisqacha tavsif..." style="width:100%;padding:9px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px;box-sizing:border-box"></div>'
+    +'</div><button onclick="procSaveExpense(\''+agentId+'\')" style="margin-top:16px;width:100%;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600">Saqlash</button></div>'
+    +'<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;overflow:hidden">'
+    +'<div style="padding:12px 16px;border-bottom:1px solid var(--b1);font-weight:600;font-size:14px;color:var(--t1)">Xarajatlar tarixi</div>'
+    +(expenses.length===0?'<div style="padding:40px;text-align:center;color:var(--t3)">Xarajatlar yo\'q</div>'
+    :'<div style="max-height:420px;overflow-y:auto"><table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--s3)">'
+    +'<th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--t3);font-weight:600">SANA</th>'
+    +'<th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--t3);font-weight:600">KAT.</th>'
+    +'<th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--t3);font-weight:600">SUMMA</th>'
+    +'<th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--t3);font-weight:600">USD</th>'
+    +'<th style="padding:8px 12px"></th></tr></thead><tbody>'
+    +expenses.map(function(e){var usd=e.currency==='RMB'?(+(e.amount||0))/cny:e.currency==='UZS'?(+(e.amount||0))/(OB.fx_rate_uzs||12700):(+(e.amount||0));var sym=e.currency==='RMB'?'¥':e.currency==='UZS'?'so\'m':'$';
+      return '<tr style="border-top:1px solid var(--b1)">'
+      +'<td style="padding:8px 12px;color:var(--t3);font-size:12px">'+(e.date||'').slice(0,10)+'</td>'
+      +'<td style="padding:8px 12px;color:var(--t2);font-size:12px">'+(catMap[e.category]||e.category||'—')+'</td>'
+      +'<td style="padding:8px 12px;text-align:right;color:var(--t1);font-size:12px">'+sym+(+(e.amount||0)).toLocaleString()+'</td>'
+      +'<td style="padding:8px 12px;text-align:right;color:#EF4444;font-size:12px">'+fmt(usd)+'</td>'
+      +'<td style="padding:8px 12px;text-align:center"><span onclick="procDelExpense(\''+e.id+'\',\''+agentId+'\')" style="cursor:pointer;color:var(--t3)" title="O\'chirish">🗑</span></td>'
+      +'</tr>';}).join('')+'</tbody></table></div>')
+    +'</div></div>';
+}
+
+function procSaveExpense(agentId){
+  var g=function(id){var el=document.getElementById(id);return el?el.value:'';};
+  var amount=+(g('pe_amount'))||0;if(!amount){alert('Summani kiriting!');return;}
+  PROC_EXPENSES.push({id:procGenId('pe'),agent_id:agentId,order_id:g('pe_order')||null,
+    date:g('pe_date')||new Date().toISOString().slice(0,10),category:g('pe_cat')||'boshqa',
+    amount:amount,currency:g('pe_cur')||'RMB',description:g('pe_desc'),
+    created_at:new Date().toISOString().slice(0,10)});
+  procSaveExpenses();renderProcExpenses(agentId);
+}
+function procDelExpense(id,agentId){
+  if(!confirm('Bu xarajatni o\'chirasizmi?'))return;
+  PROC_EXPENSES=PROC_EXPENSES.filter(function(e){return e.id!==id;});
+  procSaveExpenses();renderProcExpenses(agentId);
+}
+
+function renderProcPL(agentId){
+  var inn=document.getElementById('proc-inner');if(!inn)return;
+  var orders=PROC_ORDERS.filter(function(o){return o.agent_id===agentId;});
+  var cny=PROC_CNY_RATE||7.15;
+  var fmt=function(v){return '$'+(+v||0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',');};
+  var stageMap={};PROC_STAGES.forEach(function(s){stageMap[s.id]=s;});
+  var genExp=PROC_EXPENSES.filter(function(e){return e.agent_id===agentId&&!e.order_id;}).reduce(function(s,e){var v=+(e.amount||0);return e.currency==='RMB'?s+v/cny:e.currency==='UZS'?s+v/(OB.fx_rate_uzs||12700):s+v;},0);
+  var rows=orders.map(function(o){return {o:o,pl:procOrderPL(o)};});
+  var totComm=rows.reduce(function(s,r){return s+r.pl.commission;},0);
+  var totVat=rows.reduce(function(s,r){return s+r.pl.vatIncome;},0);
+  var totExp=rows.reduce(function(s,r){return s+r.pl.expenses;},0)+genExp;
+  var totNet=totComm+totVat-totExp;
+  inn.innerHTML='<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;overflow:hidden">'
+    +'<div style="padding:12px 16px;border-bottom:1px solid var(--b1);font-weight:600;font-size:14px;color:var(--t1)">📈 Buyurtma bo\'yicha P&L</div>'
+    +(rows.length===0?'<div style="padding:40px;text-align:center;color:var(--t3)">Buyurtmalar yo\'q</div>'
+    :'<table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--s3)">'
+    +'<th style="padding:10px 16px;text-align:left;font-size:11px;color:var(--t3);font-weight:600">BUYURTMA</th>'
+    +'<th style="padding:10px 16px;text-align:left;font-size:11px;color:var(--t3);font-weight:600">MIJOZ</th>'
+    +'<th style="padding:10px 16px;text-align:left;font-size:11px;color:var(--t3);font-weight:600">BOSQICH</th>'
+    +'<th style="padding:10px 16px;text-align:right;font-size:11px;color:var(--t3);font-weight:600">KOMISSIYA</th>'
+    +'<th style="padding:10px 16px;text-align:right;font-size:11px;color:var(--t3);font-weight:600">QQS QAYTIMI</th>'
+    +'<th style="padding:10px 16px;text-align:right;font-size:11px;color:var(--t3);font-weight:600">XARAJAT</th>'
+    +'<th style="padding:10px 16px;text-align:right;font-size:11px;color:var(--t3);font-weight:600">SOF FOYDA</th>'
+    +'</tr></thead><tbody>'
+    +rows.map(function(r){var sg=stageMap[r.o.stage]||{lbl:r.o.stage,color:'#6B7280'};return '<tr style="border-top:1px solid var(--b1);cursor:pointer" onclick="procOpenOrderModal(\''+r.o.id+'\')">'
+    +'<td style="padding:10px 16px;font-weight:700;color:var(--accent)">'+escHtml(r.o.order_no||r.o.id.slice(-6).toUpperCase())+'</td>'
+    +'<td style="padding:10px 16px;color:var(--t1)">'+escHtml(r.o.client_name||'—')+'</td>'
+    +'<td style="padding:10px 16px"><span style="font-size:10px;padding:2px 8px;border-radius:10px;background:'+sg.color+'22;color:'+sg.color+'">'+sg.lbl+'</span></td>'
+    +'<td style="padding:10px 16px;text-align:right;color:#10B981;font-weight:600">'+fmt(r.pl.commission)+'</td>'
+    +'<td style="padding:10px 16px;text-align:right;color:#6366F1">'+fmt(r.pl.vatIncome)+'</td>'
+    +'<td style="padding:10px 16px;text-align:right;color:#EF4444">'+fmt(r.pl.expenses)+'</td>'
+    +'<td style="padding:10px 16px;text-align:right;font-weight:700;color:'+(r.pl.net>=0?'#10B981':'#EF4444')+'">'+fmt(r.pl.net)+'</td>'
+    +'</tr>';}).join('')
+    +(genExp>0?'<tr style="border-top:1px solid var(--b1);background:var(--s3)"><td colspan="5" style="padding:10px 16px;color:var(--t3);font-size:12px;font-style:italic">Buyurtmasiz umumiy xarajatlar</td><td style="padding:10px 16px;text-align:right;color:#EF4444">'+fmt(genExp)+'</td><td></td></tr>':'')
+    +'<tr style="border-top:2px solid var(--b1);background:var(--s3);font-weight:700">'
+    +'<td colspan="3" style="padding:12px 16px;color:var(--t1)">JAMI</td>'
+    +'<td style="padding:12px 16px;text-align:right;color:#10B981">'+fmt(totComm)+'</td>'
+    +'<td style="padding:12px 16px;text-align:right;color:#6366F1">'+fmt(totVat)+'</td>'
+    +'<td style="padding:12px 16px;text-align:right;color:#EF4444">'+fmt(totExp)+'</td>'
+    +'<td style="padding:12px 16px;text-align:right;color:'+(totNet>=0?'#10B981':'#EF4444')+'">'+fmt(totNet)+'</td>'
+    +'</tr></tbody></table>')
+    +'</div>';
+}
+
+function renderProcClients(agentId){
+  var inn=document.getElementById('proc-inner');if(!inn)return;
+  var orders=PROC_ORDERS.filter(function(o){return o.agent_id===agentId;});
+  var clientMap={};orders.forEach(function(o){if(!o.client_name)return;var k=(o.client_name||'').toLowerCase();if(!clientMap[k])clientMap[k]={name:o.client_name,contact:o.client_contact||'',orders:[],totalComm:0};clientMap[k].orders.push(o);clientMap[k].totalComm+=(+o.commission_usd||0);});
+  var clients=Object.values(clientMap);
+  var fmt=function(v){return '$'+(+v||0).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',');};
+  inn.innerHTML='<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;overflow:hidden">'
+    +'<div style="padding:12px 16px;border-bottom:1px solid var(--b1);font-weight:600;font-size:14px;color:var(--t1)">👥 Mijozlar — '+clients.length+' ta</div>'
+    +(clients.length===0?'<div style="padding:40px;text-align:center;color:var(--t3)">Mijozlar yo\'q. Buyurtma qo\'shganda mijoz avtomatik qo\'shiladi.</div>'
+    :'<table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--s3)">'
+    +'<th style="padding:10px 16px;text-align:left;font-size:11px;color:var(--t3);font-weight:600">MIJOZ NOMI</th>'
+    +'<th style="padding:10px 16px;text-align:left;font-size:11px;color:var(--t3);font-weight:600">KONTAKT</th>'
+    +'<th style="padding:10px 16px;text-align:center;font-size:11px;color:var(--t3);font-weight:600">BUYURTMALAR</th>'
+    +'<th style="padding:10px 16px;text-align:right;font-size:11px;color:var(--t3);font-weight:600">JAMI KOMISSIYA</th>'
+    +'</tr></thead><tbody>'
+    +clients.sort(function(a,b){return b.totalComm-a.totalComm;}).map(function(c){return '<tr style="border-top:1px solid var(--b1)">'
+    +'<td style="padding:12px 16px;font-weight:600;color:var(--t1)">'+escHtml(c.name)+'</td>'
+    +'<td style="padding:12px 16px;color:var(--t3);font-size:12px">'+escHtml(c.contact)+'</td>'
+    +'<td style="padding:12px 16px;text-align:center;color:var(--t2)">'+c.orders.length+'</td>'
+    +'<td style="padding:12px 16px;text-align:right;color:#10B981;font-weight:600">'+fmt(c.totalComm)+'</td></tr>';}).join('')
+    +'</tbody></table>')
+    +'</div>';
+}
+
+function procOpenOrderModal(orderId){
+  var ord=PROC_ORDERS.find(function(o){return o.id===orderId;})||null;
+  renderProcAddOrder(ord?ord.agent_id:'',ord);
+}
+
+function renderProcAddOrder(agentId,existingOrder){
+  var el=document.getElementById('pg-l2');
+  var isEdit=!!existingOrder;
+  var o=existingOrder||{agent_id:agentId,stage:'lead',vat_scenario:1,commission_rate:'',freight_paid_by:'dasa',docs_paid_by:'dasa',vat_rate:13,created_at:new Date().toISOString().slice(0,10)};
+  var stageSelect=PROC_STAGES.map(function(s){return '<option value="'+s.id+'"'+(o.stage===s.id?' selected':'')+'>'+s.lbl+'</option>';}).join('');
+  var agentSelect=PROC_AGENTS.map(function(a){return '<option value="'+a.id+'"'+(o.agent_id===a.id?' selected':'')+'>'+escHtml(a.name)+'</option>';}).join('');
+  var orderNo=o.order_no||('PO-'+new Date().getFullYear()+'-'+String(PROC_ORDERS.length+1).padStart(3,'0'));
+  var stageProg='';
+  if(isEdit){
+    var curIdx=PROC_STAGES.findIndex(function(s){return s.id===o.stage;});
+    stageProg='<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:16px;margin-bottom:16px">'
+    +'<div style="font-size:12px;color:var(--t3);margin-bottom:10px;font-weight:600">BUYURTMA BOSQICHI</div>'
+    +'<div style="display:flex;gap:4px;flex-wrap:wrap">'
+    +PROC_STAGES.map(function(s,i){var done=i<curIdx,active=i===curIdx;return '<button onclick="procSetStage(\''+o.id+'\',\''+s.id+'\')" style="flex:1;min-width:80px;padding:6px 4px;border:1px solid '+(active?s.color:done?s.color+'66':'var(--b1)')+';border-radius:6px;background:'+(active?s.color:done?s.color+'22':'transparent')+';color:'+(active||done?s.color:'var(--t3)')+';cursor:pointer;font-size:10px;text-align:center">'+s.lbl+'</button>';}).join('')
+    +'</div></div>';
+  }
+  var vatSc=+(o.vat_scenario||1);
+  var vatScOptions=[
+    {v:1,title:'Stsenary 1: DASA temp to\'laydi',desc:'DASA QQSni vaqtincha to\'laydi, davlat qaytaradi — bizning daromad'},
+    {v:2,title:'Stsenary 2: Mijoz QQS to\'laydi',desc:'Mijoz QQS miqdorini bizga yuboradi, davlat qaytaradi — logistika kompaniyaga'},
+    {v:3,title:'Stsenary 3: Mijoz hamma xarajatni to\'laydi',desc:'Barcha xarajatlar mijoz narxiga kiritilgan, QQS alohida kuzatilmaydi'},
+  ];
+  el.classList.add('on');
+  el.innerHTML='<div style="padding:20px 24px;max-width:900px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">'
+    +'<h2 style="font-size:18px;font-weight:700;color:var(--t1);margin:0">'+(isEdit?'✏️ Buyurtma: '+escHtml(o.order_no||orderNo):'+ Yangi buyurtma')+'</h2>'
+    +'<div style="display:flex;gap:8px">'
+    +(isEdit?'<button onclick="procDeleteOrder(\''+o.id+'\')" style="padding:8px 14px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;color:#EF4444;cursor:pointer;font-size:12px">🗑 O\'chirish</button>':'')
+    +'<button onclick="goNav(\'procurement:'+(agentId?'agent_'+agentId:'overview')+'\')" style="padding:8px 14px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:13px">← Orqaga</button>'
+    +'</div></div>'
+    +(isEdit?stageProg:'')
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">'
+    // LEFT
+    +'<div style="display:grid;gap:16px;align-content:start">'
+    +'<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:20px">'
+    +'<div style="font-weight:600;font-size:13px;color:var(--t1);margin-bottom:12px">👤 Asosiy ma\'lumot</div>'
+    +'<div style="display:grid;gap:10px">'
+    +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:4px">Buyurtma raqami</label><input id="po_no" value="'+escHtml(o.order_no||orderNo)+'" style="width:100%;padding:8px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px;box-sizing:border-box"></div>'
+    +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:4px">Mutaxassis</label><select id="po_agent" style="width:100%;padding:8px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px;box-sizing:border-box">'+agentSelect+'</select></div>'
+    +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:4px">Mijoz nomi *</label><input id="po_client" value="'+escHtml(o.client_name||'')+'" placeholder="Kompaniya yoki shaxs nomi" style="width:100%;padding:8px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px;box-sizing:border-box"></div>'
+    +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:4px">Mijoz kontakt</label><input id="po_client_contact" value="'+escHtml(o.client_contact||'')+'" placeholder="+998..." style="width:100%;padding:8px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px;box-sizing:border-box"></div>'
+    +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:4px">Mahsulot nomi *</label><input id="po_product" value="'+escHtml(o.product_name||'')+'" placeholder="Masalan: Yuklovchi kran XC-50" style="width:100%;padding:8px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px;box-sizing:border-box"></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
+    +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:4px">Miqdori</label><input id="po_qty" type="number" min="1" value="'+(o.product_qty||1)+'" style="width:100%;padding:8px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px;box-sizing:border-box"></div>'
+    +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:4px">O\'lchov birligi</label><input id="po_unit" value="'+escHtml(o.product_unit||'dona')+'" style="width:100%;padding:8px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px;box-sizing:border-box"></div>'
+    +'</div>'
+    +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:4px">Bosqich</label><select id="po_stage" style="width:100%;padding:8px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px;box-sizing:border-box">'+stageSelect+'</select></div>'
+    +'</div></div>'
+    // Narxlar
+    +'<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:20px">'
+    +'<div style="font-weight:600;font-size:13px;color:var(--t1);margin-bottom:12px">💰 Narxlar & Komissiya</div>'
+    +'<div style="display:grid;gap:10px">'
+    +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:4px">Mijozga narx (USD, QQSsiz)</label><input id="po_client_price" type="number" min="0" value="'+(o.client_price||'')+'" placeholder="0" oninput="procCalcComm()" style="width:100%;padding:8px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px;box-sizing:border-box"></div>'
+    +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:4px">Komissiya foizi (%)</label><input id="po_comm_rate" type="number" step="0.1" min="0" max="100" value="'+(o.commission_rate||'')+'" placeholder="4.5" oninput="procCalcComm()" style="width:100%;padding:8px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px;box-sizing:border-box"></div>'
+    +'<div style="background:var(--s3);border-radius:8px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;color:var(--t3)">Komissiya (USD):</span><span id="po_comm_display" style="font-size:16px;font-weight:700;color:#10B981">$'+(o.commission_usd?(+o.commission_usd).toFixed(0):'0')+'</span></div>'
+    +'<input type="hidden" id="po_comm_usd" value="'+(o.commission_usd||0)+'">'
+    +'</div></div>'
+    // To'lovlar
+    +'<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:20px">'
+    +'<div style="font-weight:600;font-size:13px;color:var(--t1);margin-bottom:12px">💳 To\'lovlar</div>'
+    +'<div style="display:grid;gap:10px">'
+    +'<div><div style="font-size:11px;color:var(--t3);margin-bottom:6px">Mijoz to\'lovi (USD)</div><div style="display:grid;grid-template-columns:1fr auto;gap:8px"><input id="po_client_paid" type="number" min="0" value="'+(o.client_paid_usd||'')+'" placeholder="0" style="width:100%;padding:8px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px;box-sizing:border-box"><input id="po_client_paid_date" type="date" value="'+(o.client_paid_date||'')+'" style="padding:8px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px"></div></div>'
+    +'<div><div style="font-size:11px;color:var(--t3);margin-bottom:6px">Yetkazib beruvchiga to\'lov (RMB)</div><div style="display:grid;grid-template-columns:1fr auto;gap:8px"><input id="po_supp_paid" type="number" min="0" value="'+(o.supplier_paid_rmb||'')+'" placeholder="0" style="width:100%;padding:8px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px;box-sizing:border-box"><input id="po_supp_paid_date" type="date" value="'+(o.supplier_paid_date||'')+'" style="padding:8px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px"></div></div>'
+    +'</div></div>'
+    +'</div>' // end left
+    // RIGHT
+    +'<div style="display:grid;gap:16px;align-content:start">'
+    // Shartnoma PDF
+    +'<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:20px">'
+    +'<div style="font-weight:600;font-size:13px;color:var(--t1);margin-bottom:12px">📄 Shartnoma</div>'
+    +'<div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;margin-bottom:10px">'
+    +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:4px">Shartnoma raqami</label><input id="po_contract_no" value="'+escHtml(o.contract_no||'')+'" placeholder="CT-2026-001" style="width:100%;padding:8px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px;box-sizing:border-box"></div>'
+    +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:4px">Sana</label><input id="po_contract_date" type="date" value="'+(o.contract_date||'')+'" style="padding:8px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px"></div>'
+    +'</div>'
+    +(o.contract_pdf_text?'<div style="padding:8px 12px;background:var(--s3);border-radius:7px;font-size:11px;color:#10B981">✓ PDF matn saqlangan</div>'
+    :'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:4px">PDF yuklash (AI shartnomani o\'qiydi)</label>'
+    +'<input id="po_pdf_file" type="file" accept=".pdf" onchange="procParsePDF(this,\''+o.id+'\')" style="font-size:12px;color:var(--t3)">'
+    +'<div id="po_pdf_status" style="font-size:11px;color:var(--t3);margin-top:4px"></div></div>')
+    +'</div>'
+    // Supplier
+    +'<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:20px">'
+    +'<div style="font-weight:600;font-size:13px;color:var(--t1);margin-bottom:12px">🏭 Yetkazib beruvchi (Xitoy)</div>'
+    +'<div style="display:grid;gap:10px">'
+    +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:4px">Kompaniya nomi</label><input id="po_supplier" value="'+escHtml(o.supplier_name||'')+'" placeholder="Shenzhen ... Co." style="width:100%;padding:8px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px;box-sizing:border-box"></div>'
+    +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:4px">Narx (RMB, QQSsiz)</label><input id="po_supp_price" type="number" min="0" value="'+(o.supplier_price_rmb||'')+'" placeholder="0" oninput="procCalcVAT()" style="width:100%;padding:8px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px;box-sizing:border-box"></div>'
+    +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:4px">QQS stavkasi (%)</label><input id="po_vat_rate" type="number" step="0.1" min="0" max="100" value="'+(o.vat_rate||13)+'" oninput="procCalcVAT()" style="width:100%;padding:8px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px;box-sizing:border-box"></div>'
+    +'<div style="background:var(--s3);border-radius:8px;padding:10px 12px">'
+    +'<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:11px;color:var(--t3)">QQS miqdori:</span><span id="po_vat_display" style="font-size:13px;font-weight:600;color:#6366F1">¥'+(o.vat_amount_rmb?(+o.vat_amount_rmb).toFixed(0):'0')+'</span></div>'
+    +'<div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:var(--t3)">Jami (QQS bilan):</span><span id="po_supp_total_display" style="font-size:13px;font-weight:600;color:var(--t1)">¥'+(o.supplier_total_rmb?(+o.supplier_total_rmb).toFixed(0):'0')+'</span></div>'
+    +'</div>'
+    +'<input type="hidden" id="po_vat_amount" value="'+(o.vat_amount_rmb||0)+'"><input type="hidden" id="po_supp_total" value="'+(o.supplier_total_rmb||0)+'">'
+    +'</div></div>'
+    // QQS stsenariy
+    +'<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:20px">'
+    +'<div style="font-weight:600;font-size:13px;color:var(--t1);margin-bottom:12px">🔄 QQS Stsenariy</div>'
+    +'<div style="display:grid;gap:8px">'
+    +vatScOptions.map(function(sc){var sel=vatSc===sc.v;return '<label style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:'+(sel?'rgba(99,102,241,.1)':'var(--s3)')+';border:1px solid '+(sel?'#6366F1':'var(--b1)')+';border-radius:8px;cursor:pointer">'
+    +'<input type="radio" name="po_vat_sc" value="'+sc.v+'"'+(sel?' checked':'')+' onchange="procUpdateVATScenario(this.value)" style="margin-top:2px;accent-color:#6366F1">'
+    +'<div><div style="font-size:12px;font-weight:600;color:var(--t1)">'+sc.title+'</div><div style="font-size:11px;color:var(--t3);margin-top:2px">'+sc.desc+'</div></div></label>';}).join('')
+    +'</div>'
+    +'<div id="po_vat_refund_section" style="margin-top:12px;'+(vatSc===3?'display:none':'')+'">'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
+    +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:4px">Kutilayotgan qaytim (RMB)</label><input id="po_vat_exp" type="number" value="'+(o.vat_refund_expected_rmb||'')+'" placeholder="Avtomatik" style="width:100%;padding:8px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px;box-sizing:border-box"></div>'
+    +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:4px">Qabul qilingan (RMB)</label><input id="po_vat_rec" type="number" value="'+(o.vat_refund_received_rmb||'')+'" placeholder="0" style="width:100%;padding:8px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px;box-sizing:border-box"></div>'
+    +'</div>'
+    +'<div style="margin-top:8px"><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:4px">Qaytim sanasi</label><input id="po_vat_date" type="date" value="'+(o.vat_refund_date||'')+'" style="padding:8px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px"></div>'
+    +'</div></div>'
+    // Freight
+    +'<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:20px">'
+    +'<div style="font-weight:600;font-size:13px;color:var(--t1);margin-bottom:12px">🚢 Freight & Hujjatlar</div>'
+    +'<div style="display:grid;gap:10px">'
+    +'<div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end">'
+    +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:4px">Freight narxi (USD)</label><input id="po_freight" type="number" min="0" value="'+(o.freight_cost_usd||'')+'" placeholder="0" style="width:100%;padding:8px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px;box-sizing:border-box"></div>'
+    +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:4px">Kim to\'laydi</label><select id="po_freight_by" style="padding:8px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px"><option value="dasa"'+(o.freight_paid_by!=='client'?' selected':'')+'>DASA</option><option value="client"'+(o.freight_paid_by==='client'?' selected':'')+'>Mijoz</option></select></div>'
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end">'
+    +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:4px">Bojxona & hujjat (USD)</label><input id="po_docs" type="number" min="0" value="'+(o.docs_cost_usd||'')+'" placeholder="0" style="width:100%;padding:8px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px;box-sizing:border-box"></div>'
+    +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:4px">Kim to\'laydi</label><select id="po_docs_by" style="padding:8px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px"><option value="dasa"'+(o.docs_paid_by!=='client'?' selected':'')+'>DASA</option><option value="client"'+(o.docs_paid_by==='client'?' selected':'')+'>Mijoz</option></select></div>'
+    +'</div></div></div>'
+    // Izoh
+    +'<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:20px">'
+    +'<div style="font-weight:600;font-size:13px;color:var(--t1);margin-bottom:10px">📝 Izoh</div>'
+    +'<textarea id="po_notes" rows="3" placeholder="Qo\'shimcha izohlar..." style="width:100%;padding:10px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:13px;resize:vertical;box-sizing:border-box">'+escHtml(o.notes||'')+'</textarea>'
+    +'</div>'
+    +'</div>' // end right
+    +'</div>' // end grid
+    +'<div style="display:flex;gap:12px;margin-top:20px">'
+    +'<button onclick="procSaveOrderForm(\''+o.id+'\','+(isEdit?'true':'false')+')" style="flex:1;padding:13px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:15px;font-weight:700">💾 Saqlash</button>'
+    +'<button onclick="goNav(\'procurement:'+(agentId?'agent_'+agentId:'overview')+'\')" style="padding:13px 20px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:14px">Bekor</button>'
+    +'</div></div>';
+}
+
+function procCalcComm(){
+  var price=+(document.getElementById('po_client_price')||{value:0}).value||0;
+  var rate=+(document.getElementById('po_comm_rate')||{value:0}).value||0;
+  var comm=price*rate/100;
+  var disp=document.getElementById('po_comm_display'),inp=document.getElementById('po_comm_usd');
+  if(disp)disp.textContent='$'+comm.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+  if(inp)inp.value=comm.toFixed(2);
+}
+function procCalcVAT(){
+  var price=+(document.getElementById('po_supp_price')||{value:0}).value||0;
+  var rate=+(document.getElementById('po_vat_rate')||{value:13}).value||13;
+  var vat=price*rate/100,total=price+vat;
+  var vatD=document.getElementById('po_vat_display'),totD=document.getElementById('po_supp_total_display');
+  var vatI=document.getElementById('po_vat_amount'),totI=document.getElementById('po_supp_total');
+  if(vatD)vatD.textContent='¥'+vat.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+  if(totD)totD.textContent='¥'+total.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+  if(vatI)vatI.value=vat.toFixed(2);if(totI)totI.value=total.toFixed(2);
+}
+function procUpdateVATScenario(val){
+  var sec=document.getElementById('po_vat_refund_section');
+  if(sec)sec.style.display=val==='3'?'none':'';
+}
+function procSaveOrderForm(existingId,isEdit){
+  var g=function(id){var el=document.getElementById(id);return el?el.value:'';};
+  var clientName=(g('po_client')||'').trim();if(!clientName){alert('Mijoz nomini kiriting!');return;}
+  var productName=(g('po_product')||'').trim();if(!productName){alert('Mahsulot nomini kiriting!');return;}
+  var vatSc=+(document.querySelector('input[name="po_vat_sc"]:checked')||{value:1}).value||1;
+  var suppPrice=+(g('po_supp_price'))||0,vatRate=+(g('po_vat_rate'))||13,vatAmt=suppPrice*vatRate/100;
+  var agentId=g('po_agent');
+  var ord={
+    id:isEdit?existingId:procGenId('po'),
+    order_no:g('po_no')||('PO-'+new Date().getFullYear()+'-'+String(PROC_ORDERS.length+1).padStart(3,'0')),
+    agent_id:agentId,stage:g('po_stage')||'lead',
+    client_name:clientName,client_contact:g('po_client_contact'),
+    product_name:productName,product_qty:+(g('po_qty'))||1,product_unit:g('po_unit')||'dona',
+    client_price:+(g('po_client_price'))||0,commission_rate:+(g('po_comm_rate'))||0,commission_usd:+(g('po_comm_usd'))||0,
+    contract_no:g('po_contract_no'),contract_date:g('po_contract_date'),
+    supplier_name:g('po_supplier'),supplier_price_rmb:suppPrice,vat_rate:vatRate,vat_amount_rmb:vatAmt,supplier_total_rmb:suppPrice+vatAmt,
+    vat_scenario:vatSc,vat_refund_expected_rmb:+(g('po_vat_exp'))||vatAmt,vat_refund_received_rmb:+(g('po_vat_rec'))||0,vat_refund_date:g('po_vat_date')||null,
+    freight_cost_usd:+(g('po_freight'))||0,freight_paid_by:g('po_freight_by')||'dasa',docs_cost_usd:+(g('po_docs'))||0,docs_paid_by:g('po_docs_by')||'dasa',
+    client_paid_usd:+(g('po_client_paid'))||0,client_paid_date:g('po_client_paid_date')||null,
+    supplier_paid_rmb:+(g('po_supp_paid'))||0,supplier_paid_date:g('po_supp_paid_date')||null,
+    notes:g('po_notes'),updated_at:new Date().toISOString().slice(0,10),
+    created_at:isEdit?(PROC_ORDERS.find(function(o){return o.id===existingId;})||{created_at:''}).created_at||new Date().toISOString().slice(0,10):new Date().toISOString().slice(0,10)
+  };
+  if(isEdit){
+    var ex=PROC_ORDERS.find(function(o){return o.id===existingId;});
+    if(ex&&ex.contract_pdf_text)ord.contract_pdf_text=ex.contract_pdf_text;
+    PROC_ORDERS=PROC_ORDERS.map(function(o){return o.id===existingId?ord:o;});
+  } else { PROC_ORDERS.push(ord); }
+  procSaveOrders();
+  goNav('procurement:'+(agentId?'agent_'+agentId:'overview'));
+}
+function procSetStage(orderId,stageId){
+  var ord=PROC_ORDERS.find(function(o){return o.id===orderId;});if(!ord)return;
+  ord.stage=stageId;ord.updated_at=new Date().toISOString().slice(0,10);
+  procSaveOrders();renderProcAddOrder(ord.agent_id,ord);
+}
+function procDeleteOrder(id){
+  if(!confirm('Bu buyurtmani o\'chirasizmi? Buyurtmaga tegishli xarajatlar ham o\'chiriladi.'))return;
+  var agentId=(PROC_ORDERS.find(function(o){return o.id===id;})||{}).agent_id;
+  PROC_ORDERS=PROC_ORDERS.filter(function(o){return o.id!==id;});
+  PROC_EXPENSES=PROC_EXPENSES.filter(function(e){return e.order_id!==id;});
+  procSaveOrders();procSaveExpenses();
+  if(agentId)goNav('procurement:agent_'+agentId);else renderProcOverview();
+}
+function procParsePDF(input,orderId){
+  var file=input.files[0];if(!file)return;
+  var status=document.getElementById('po_pdf_status');
+  if(status)status.textContent='PDF o\'qilmoqda...';
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var b64=e.target.result.split(',')[1];
+    var key=window.AI_KEY||localStorage.getItem('fh_ai_key')||'';
+    if(!key){if(status)status.textContent='AI API key topilmadi. Shartnoma raqamini qo\'lda kiriting.';return;}
+    if(status)status.textContent='AI tahlil qilmoqda...';
+    fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+      headers:{'x-api-key':key,'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1024,
+        messages:[{role:'user',content:[
+          {type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},
+          {type:'text',text:'Extract from this contract: contract_no, contract_date (YYYY-MM-DD), client_name, product_name, client_price_usd (number), vat_rate (number, typically 13), supplier_name, supplier_price_rmb (number). Return as JSON only, no explanation.'}
+        ]}]})
+    }).then(function(r){return r.json();}).then(function(data){
+      try{
+        var txt=((data.content||[{}])[0]||{}).text||'{}';
+        var m=txt.match(/\{[\s\S]*\}/);if(!m)throw new Error('no json');
+        var ex=JSON.parse(m[0]);
+        var s=function(id,val){var el=document.getElementById(id);if(el&&val!==undefined)el.value=val;};
+        s('po_contract_no',ex.contract_no);s('po_contract_date',ex.contract_date);
+        s('po_client',ex.client_name);s('po_product',ex.product_name);
+        if(ex.client_price_usd){s('po_client_price',ex.client_price_usd);procCalcComm();}
+        s('po_supplier',ex.supplier_name);
+        if(ex.supplier_price_rmb){s('po_supp_price',ex.supplier_price_rmb);procCalcVAT();}
+        if(ex.vat_rate){s('po_vat_rate',ex.vat_rate);procCalcVAT();}
+        if(status)status.textContent='AI muvaffaqiyatli o\'qidi ✓ — Tekshirib, tasdiqlang';
+        if(orderId){var ord=PROC_ORDERS.find(function(o){return o.id===orderId;});if(ord){ord.contract_pdf_text=JSON.stringify(ex);procSaveOrders();}}
+      }catch(err){if(status)status.textContent='JSON parse xatosi. Qo\'lda to\'ldiring.';}
+    }).catch(function(err){if(status)status.textContent='AI xatosi: '+err.message;});
+  };
+  reader.readAsDataURL(file);
+}
 
 // ══════════════════════════════════════════════════════════════
 // RAHBAR XULOSASI — Executive Dashboard (owner / holding_head)
