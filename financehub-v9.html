@@ -13262,8 +13262,11 @@ function fhShowCreateUser(){
     +'<select id="fu_role" onchange="fhSuggestEmail()" style="width:100%;padding:10px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:13px">'
     +ROLES.map(function(r){return '<option value="'+r.v+'">'+escHtml(r.lbl)+'</option>';}).join('')
     +'</select></div>'
-    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">Email *</label>'
-    +'<input id="fu_email" type="email" placeholder="cargo.rahbar@chinwakil.com" style="width:100%;padding:10px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:13px;box-sizing:border-box"></div>'
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">Lavozim nomi (email uchun) *</label>'
+    +'<input id="fu_pos" placeholder="director, seller, finance, hr, staff..." oninput="fhSuggestEmail()" style="width:100%;padding:10px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:13px;box-sizing:border-box">'
+    +'<div style="font-size:10px;color:var(--t3);margin-top:4px">Email: <span id="fu_email_preview" style="color:var(--accent)">cargo@director.com</span></div></div>'
+    +'<div style="grid-column:1/-1"><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">Email (avtomatik yoki o\'zgartiring) *</label>'
+    +'<input id="fu_email" type="email" placeholder="cargo@director.com" style="width:100%;padding:10px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:13px;box-sizing:border-box"></div>'
     +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">Parol *</label>'
     +'<div style="display:flex;gap:8px"><input id="fu_pass" type="password" placeholder="Kamida 8 belgi" style="flex:1;padding:10px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:13px;box-sizing:border-box">'
     +'<button onclick="fhGenPass()" style="padding:10px 14px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:12px" title="Avtomatik parol">🎲</button></div></div>'
@@ -13278,17 +13281,24 @@ function fhShowCreateUser(){
 }
 
 function fhSuggestEmail(){
-  var name = (document.getElementById('fu_name')||{}).value||'';
-  var dir  = (document.getElementById('fu_dir')||{}).value||'';
-  var role = (document.getElementById('fu_role')||{}).value||'';
-  if(!name||!dir||!role) return;
-  var roleSuffix = {dir_head:'rahbar',dir_finance:'moliya',dept_head:'bulim',holding_fin:'moliya',holding_head:'rahbar',staff:'xodim'};
-  var parts = name.trim().toLowerCase().split(' ');
-  var slug = parts[0];
-  var suf  = roleSuffix[role]||role;
-  var suggested = dir+'.'+suf+'@chinwakil.com';
-  var el = document.getElementById('fu_email'); if(el&&!el.value) el.value=suggested;
+  var dir = (document.getElementById('fu_dir')||{}).value||'';
+  var pos = ((document.getElementById('fu_pos')||{}).value||'').trim().toLowerCase().replace(/\s+/g,'');
+  // Email preview doim yangilanadi
+  var preview = dir && pos ? dir+'@'+pos+'.com' : (dir ? dir+'@....com' : 'cargo@director.com');
+  var prev = document.getElementById('fu_email_preview');
+  if(prev) prev.textContent = preview;
+  // Email maydonini faqat bo'sh bo'lsa avtomatik to'ldiradi
+  if(dir && pos){
+    var el = document.getElementById('fu_email');
+    if(el && !el._userEdited) el.value = dir+'@'+pos+'.com';
+  }
 }
+// Foydalanuvchi emailni o'zi o'zgartirsa, avtomatik to'ldirishni to'xtatamiz
+(function(){
+  document.addEventListener('input', function(e){
+    if(e.target && e.target.id==='fu_email') e.target._userEdited = true;
+  });
+}());
 
 function fhGenPass(){
   var chars='abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789@#!';
