@@ -858,20 +858,29 @@ async function LGO() {
 
 
     var uid = res.data.user.id;
+    var userMeta = (res.data.user.user_metadata) || {};
 
-    // 1. Aniq belgilangan owner/manager emaillar
+    // 1. Aniq belgilangan owner/manager emaillar (hardcoded)
     var profile;
     if (FH_USER_PROFILES[email]) {
-      profile = FH_USER_PROFILES[email];
+      profile = Object.assign({}, FH_USER_PROFILES[email]);
+    } else if (userMeta.role) {
+      // 2. Admin panel orqali yaratilgan foydalanuvchi — user_metadata dan
+      profile = {
+        role:      userMeta.role      || 'staff',
+        direction: userMeta.direction || null,
+        full_name: userMeta.full_name || email,
+      };
     } else {
-      // 2. Supabase profiles jadvalidan direction o'qish
-      var prof = await SB.from('profiles').select('direction,full_name').eq('id', uid).single();
-      var sbDir = prof.data && prof.data.direction ? prof.data.direction : null;
-      if (sbDir) {
-        // direction bor — o'sha yo'nalish xodimi (role hech qachon owner emas)
+      // 3. Supabase profiles jadvalidan direction o'qish (eski fallback)
+      var prof = await SB.from('profiles').select('direction,full_name,role').eq('id', uid).single();
+      var sbDir  = prof.data && prof.data.direction ? prof.data.direction : null;
+      var sbRole = prof.data && prof.data.role ? prof.data.role : null;
+      if (sbRole) {
+        profile = {role: sbRole, direction: sbDir, full_name: (prof.data.full_name || email)};
+      } else if (sbDir) {
         profile = {role:'staff', direction:sbDir, full_name: (prof.data.full_name || email)};
       } else {
-        // direction yo'q — Tangachi (Exchange) xodimi
         profile = Object.assign({}, FH_DEFAULT_PROFILE, {full_name: email});
       }
     }
@@ -11859,6 +11868,7 @@ const SUBNAV_DEFS = {
     {id:'requests',  lbl:"So'rovlar",           icon:'📝'},
     {id:'actfact',   lbl:'Actual vs Fact',      icon:'📊'},
     {id:'hrm',       lbl:'Xodimlar',            icon:'👥'},
+    {id:'users',     lbl:'Foydalanuvchilar',    icon:'🔑'},
   ],
   cargo: [
     {id:'dashboard', lbl:'Dashboard',        icon:'📊'},
@@ -12684,6 +12694,7 @@ function goNav(id){
     else if(subId==='actfact')   renderActualFact('all');
     else if(subId==='hrm')       renderHREmployees('all');
     else if(subId==='orgchart')  renderOrgChart();
+    else if(subId==='users')     renderUserMgmt();
 
     // payroll direction-level only
 
@@ -13148,6 +13159,207 @@ function toast(msg){
 
 
 // ════════════════════════════════════════════
+
+// ── FOYDALANUVCHILAR MANAGEMENT ────────────────────────────────────────────
+var FH_MANAGED_USERS = (function(){ return JSON.parse(localStorage.getItem('fh_managed_users')||'[]'); })();
+
+function renderUserMgmt(){
+  var canManage = CUR_USER && (CUR_USER.role==='owner'||CUR_USER.role==='holding_head'||CUR_USER.role==='holding_fin');
+  var MC = document.getElementById('pg-l1'); if(!MC) return;
+  MC.classList.add('on');
+  setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:'🔑 Foydalanuvchilar',fn:''}]);
+
+  var ROLES = [
+    {v:'dir_head',     lbl:'Yo\'nalish rahbari',    desc:'3-bosqich tasdiqlash'},
+    {v:'dir_finance',  lbl:'Yo\'nalish moliyachisi', desc:'2-bosqich tasdiqlash'},
+    {v:'dept_head',    lbl:'Bo\'lim boshlig\'i',     desc:'1-bosqich tasdiqlash'},
+    {v:'staff',        lbl:'Xodim',                  desc:'Cheklangan ko\'rinish'},
+    {v:'holding_fin',  lbl:'Holding moliyachisi',    desc:'4-bosqich, barcha yo\'nalish'},
+    {v:'holding_head', lbl:'Holding rahbari',        desc:'5-bosqich, barcha ko\'rinish'},
+  ];
+  var DIRS = [
+    {v:'cargo',       lbl:'📦 Cargo'},
+    {v:'logistics',   lbl:'🚛 Logistics'},
+    {v:'exchange',    lbl:'💱 Exchange (Tangachi)'},
+    {v:'procurement', lbl:'🏭 Procurement'},
+    {v:'holding',     lbl:'🏦 Holding'},
+  ];
+
+  var roleColors = {
+    owner:'#F59E0B', holding_head:'#8B5CF6', holding_fin:'#6366F1',
+    dir_head:'#3B82F6', dir_finance:'#10B981', dept_head:'#06B6D4', staff:'#6B7280'
+  };
+  var dirEmoji = {cargo:'📦',logistics:'🚛',exchange:'💱',procurement:'🏭',holding:'🏦'};
+
+  var listHTML = FH_MANAGED_USERS.length ? FH_MANAGED_USERS.map(function(u,i){
+    var rc = roleColors[u.role]||'#6B7280';
+    return '<tr style="border-top:1px solid var(--b1)">'
+      +'<td style="padding:12px 16px"><div style="font-weight:600;color:var(--t1)">'+escHtml(u.full_name)+'</div>'
+      +'<div style="font-size:11px;color:var(--t3);margin-top:2px">'+escHtml(u.email)+'</div></td>'
+      +'<td style="padding:12px 16px"><span style="font-size:11px;padding:3px 10px;border-radius:20px;background:'+rc+'22;color:'+rc+';border:1px solid '+rc+'44">'+escHtml(u.role)+'</span></td>'
+      +'<td style="padding:12px 16px;color:var(--t2)">'+(u.direction?(dirEmoji[u.direction]||'')+'  '+u.direction:'— Holding')+'</td>'
+      +'<td style="padding:12px 16px"><span style="font-size:11px;padding:2px 8px;border-radius:10px;background:'+(u.created?'#10B98122':'#F59E0B22')+';color:'+(u.created?'#10B981':'#F59E0B')+'">'+(u.created?'✓ Yaratildi':'⏳ Kutmoqda')+'</span></td>'
+      +'<td style="padding:12px 16px;text-align:right"><button onclick="fhDeleteLocalUser('+i+')" style="padding:4px 10px;font-size:11px;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08);color:#EF4444;border-radius:6px;cursor:pointer">O\'chirish</button></td>'
+      +'</tr>';
+  }).join('') : '<tr><td colspan="5" style="padding:32px;text-align:center;color:var(--t3)">Hali foydalanuvchi yaratilmagan</td></tr>';
+
+  MC.innerHTML = '<div style="padding:20px 24px;max-width:1100px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">'
+    +'<h2 style="font-size:20px;font-weight:700;color:var(--t1);margin:0">🔑 Foydalanuvchilarni boshqarish</h2>'
+    +(canManage?'<button onclick="fhShowCreateUser()" style="padding:9px 18px;background:#3B82F6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">+ Yangi foydalanuvchi</button>':'')
+    +'</div>'
+
+    // Rol tushuntirish
+    +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px">'
+    +[{v:'dept_head',lbl:"Bo'lim boshlig'i",icon:'1️⃣'},{v:'dir_finance',lbl:'Moliyachi',icon:'2️⃣'},{v:'dir_head',lbl:"Yo'nalish rahbari",icon:'3️⃣'},
+      {v:'holding_fin',lbl:'Holding moliyachisi',icon:'4️⃣'},{v:'holding_head',lbl:'Holding rahbari',icon:'5️⃣'},{v:'owner',lbl:'Owner',icon:'👑'}]
+    .map(function(r){var rc=roleColors[r.v]||'#6B7280';return '<div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px"><span style="font-size:18px">'+r.icon+'</span><div><div style="font-size:12px;font-weight:600;color:var(--t1)">'+escHtml(r.lbl)+'</div><div style="font-size:10px;color:'+rc+'">'+escHtml(r.v)+'</div></div></div>';}).join('')
+    +'</div>'
+
+    // Form placeholder
+    +'<div id="fh-user-form-wrap"></div>'
+
+    // Jadval
+    +'<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;overflow:hidden">'
+    +'<div style="padding:12px 16px;border-bottom:1px solid var(--b1);font-weight:600;font-size:13px;color:var(--t1)">Yaratilgan foydalanuvchilar</div>'
+    +'<table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--s3)">'
+    +'<th style="padding:10px 16px;text-align:left;font-size:11px;color:var(--t3)">ISM / EMAIL</th>'
+    +'<th style="padding:10px 16px;text-align:left;font-size:11px;color:var(--t3)">ROL</th>'
+    +'<th style="padding:10px 16px;text-align:left;font-size:11px;color:var(--t3)">YO\'NALISH</th>'
+    +'<th style="padding:10px 16px;text-align:left;font-size:11px;color:var(--t3)">HOLAT</th>'
+    +'<th style="padding:10px 16px;text-align:right;font-size:11px;color:var(--t3)">AMAL</th>'
+    +'</tr></thead><tbody>'+listHTML+'</tbody></table>'
+    +'</div></div>';
+}
+
+function fhShowCreateUser(){
+  var wrap = document.getElementById('fh-user-form-wrap'); if(!wrap) return;
+  var ROLES = [
+    {v:'dept_head',   lbl:"Bo'lim boshlig'i (1-bosqich)"},
+    {v:'dir_finance', lbl:'Yo\'nalish moliyachisi (2-bosqich)'},
+    {v:'dir_head',    lbl:"Yo'nalish rahbari (3-bosqich)"},
+    {v:'holding_fin', lbl:'Holding moliyachisi (4-bosqich)'},
+    {v:'holding_head',lbl:'Holding rahbari (5-bosqich)'},
+    {v:'staff',       lbl:'Xodim (ko\'rinish cheklangan)'},
+  ];
+  var DIRS = [
+    {v:'cargo',       lbl:'📦 Cargo'},
+    {v:'logistics',   lbl:'🚛 Logistics'},
+    {v:'exchange',    lbl:'💱 Exchange (Tangachi)'},
+    {v:'procurement', lbl:'🏭 Procurement'},
+    {v:'holding',     lbl:'🏦 Holding (barcha yo\'nalish)'},
+  ];
+  wrap.innerHTML = '<div style="background:var(--s2);border:2px solid #3B82F644;border-radius:12px;padding:24px;margin-bottom:20px">'
+    +'<h3 style="font-size:15px;font-weight:700;color:var(--t1);margin:0 0 18px">+ Yangi foydalanuvchi yaratish</h3>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">'
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">To\'liq ism *</label>'
+    +'<input id="fu_name" placeholder="Masalan: Aziz Karimov" oninput="fhSuggestEmail()" style="width:100%;padding:10px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:13px;box-sizing:border-box"></div>'
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">Yo\'nalish *</label>'
+    +'<select id="fu_dir" onchange="fhSuggestEmail()" style="width:100%;padding:10px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:13px">'
+    +DIRS.map(function(d){return '<option value="'+d.v+'">'+d.lbl+'</option>';}).join('')
+    +'</select></div>'
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">Lavozim / Rol *</label>'
+    +'<select id="fu_role" onchange="fhSuggestEmail()" style="width:100%;padding:10px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:13px">'
+    +ROLES.map(function(r){return '<option value="'+r.v+'">'+escHtml(r.lbl)+'</option>';}).join('')
+    +'</select></div>'
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">Email *</label>'
+    +'<input id="fu_email" type="email" placeholder="cargo.rahbar@chinwakil.com" style="width:100%;padding:10px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:13px;box-sizing:border-box"></div>'
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">Parol *</label>'
+    +'<div style="display:flex;gap:8px"><input id="fu_pass" type="password" placeholder="Kamida 8 belgi" style="flex:1;padding:10px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:13px;box-sizing:border-box">'
+    +'<button onclick="fhGenPass()" style="padding:10px 14px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:12px" title="Avtomatik parol">🎲</button></div></div>'
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:5px">Parolni tasdiqlang *</label>'
+    +'<input id="fu_pass2" type="password" placeholder="Yuqoridagi parolni qaytaring" style="width:100%;padding:10px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:13px;box-sizing:border-box"></div>'
+    +'</div>'
+    +'<div id="fu_msg" style="margin-top:14px;font-size:12px;display:none"></div>'
+    +'<div style="display:flex;gap:10px;margin-top:18px">'
+    +'<button onclick="fhCreateUser()" style="padding:11px 24px;background:#3B82F6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">✅ Yaratish</button>'
+    +'<button onclick="document.getElementById(\'fh-user-form-wrap\').innerHTML=\'\'" style="padding:11px 18px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:13px">Bekor</button>'
+    +'</div></div>';
+}
+
+function fhSuggestEmail(){
+  var name = (document.getElementById('fu_name')||{}).value||'';
+  var dir  = (document.getElementById('fu_dir')||{}).value||'';
+  var role = (document.getElementById('fu_role')||{}).value||'';
+  if(!name||!dir||!role) return;
+  var roleSuffix = {dir_head:'rahbar',dir_finance:'moliya',dept_head:'bulim',holding_fin:'moliya',holding_head:'rahbar',staff:'xodim'};
+  var parts = name.trim().toLowerCase().split(' ');
+  var slug = parts[0];
+  var suf  = roleSuffix[role]||role;
+  var suggested = dir+'.'+suf+'@chinwakil.com';
+  var el = document.getElementById('fu_email'); if(el&&!el.value) el.value=suggested;
+}
+
+function fhGenPass(){
+  var chars='abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789@#!';
+  var p=''; for(var i=0;i<12;i++) p+=chars[Math.floor(Math.random()*chars.length)];
+  var el=document.getElementById('fu_pass'); if(el) el.value=p; el.type='text';
+  var el2=document.getElementById('fu_pass2'); if(el2) el2.value=p;
+  setTimeout(function(){if(el)el.type='password';},3000);
+}
+
+async function fhCreateUser(){
+  var name  = (document.getElementById('fu_name')||{}).value||'';
+  var email = (document.getElementById('fu_email')||{}).value||'';
+  var pass  = (document.getElementById('fu_pass')||{}).value||'';
+  var pass2 = (document.getElementById('fu_pass2')||{}).value||'';
+  var role  = (document.getElementById('fu_role')||{}).value||'staff';
+  var dir   = (document.getElementById('fu_dir')||{}).value||'';
+  var msg   = document.getElementById('fu_msg');
+
+  function showMsg(txt, ok){
+    if(!msg) return;
+    msg.style.display='block';
+    msg.style.color = ok ? '#10B981' : '#EF4444';
+    msg.style.background = ok ? '#10B98115' : '#EF444415';
+    msg.style.padding = '10px 14px';
+    msg.style.borderRadius = '8px';
+    msg.textContent = txt;
+  }
+  if(!name||!email||!pass) return showMsg('❌ Barcha maydonlarni to\'ldiring!', false);
+  if(pass !== pass2) return showMsg('❌ Parollar mos kelmayapti!', false);
+  if(pass.length < 8) return showMsg('❌ Parol kamida 8 belgi bo\'lishi kerak!', false);
+  if(!SB) return showMsg('❌ Supabase ulanmagan!', false);
+
+  showMsg('⏳ Yaratilmoqda...', true);
+
+  var direction = (dir==='holding') ? null : dir;
+  var res = await SB.auth.signUp({
+    email: email,
+    password: pass,
+    options: { data: { full_name: name, role: role, direction: direction } }
+  });
+
+  if(res.error){
+    showMsg('❌ Xato: '+res.error.message, false);
+    return;
+  }
+
+  var uid = res.data && res.data.user && res.data.user.id;
+  // profiles jadvaliga ham yozing (role column mavjud bo'lsa)
+  if(uid && SB){
+    SB.from('profiles').upsert({id: uid, full_name: name, direction: direction, role: role},{onConflict:'id'}).then(function(){});
+  }
+
+  // Lokal ro'yxatga saqlash
+  FH_MANAGED_USERS.push({full_name:name, email:email, role:role, direction:direction, created:true, uid:uid, created_at:new Date().toISOString()});
+  localStorage.setItem('fh_managed_users', JSON.stringify(FH_MANAGED_USERS));
+
+  var needsConfirm = res.data && res.data.user && !res.data.session;
+  if(needsConfirm){
+    showMsg('✅ Yaratildi! Foydalanuvchiga email tasdiqlash xati yuborildi. (Supabase Dashboard > Auth > Settings > "Confirm email" ni o\'chirish mumkin)', true);
+  } else {
+    showMsg('✅ Muvaffaqiyatli yaratildi! Login: '+email+' | Parol: '+pass, true);
+  }
+  setTimeout(renderUserMgmt, 2500);
+}
+
+function fhDeleteLocalUser(idx){
+  if(!confirm('Ro\'yxatdan o\'chirasizmi? (Supabase Auth akkauntiga ta\'sir qilmaydi)')) return;
+  FH_MANAGED_USERS.splice(idx,1);
+  localStorage.setItem('fh_managed_users', JSON.stringify(FH_MANAGED_USERS));
+  renderUserMgmt();
+}
 
 // ── TASHKILIY TUZILMA MODULE ───────────────────────────────────────────────
 window._orgTab = window._orgTab || 'depts';
