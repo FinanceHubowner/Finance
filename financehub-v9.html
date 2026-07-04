@@ -12483,8 +12483,8 @@ function buildNav(){
   if(CUR_USER && CUR_USER.role === 'holding_hr') {
     snItems = snItems.filter(function(s){ return s.id === 'payroll'; });
   }
-  // 'users' tab faqat owner ko'radi
-  if(CUR_USER && CUR_USER.role !== 'owner'){
+  // 'users' tab faqat owner va holding_fin ko'radi
+  if(CUR_USER && CUR_USER.role !== 'owner' && CUR_USER.role !== 'holding_fin'){
     snItems = snItems.filter(function(s){ return s.id !== 'users'; });
   }
   // holding_fin: barcha tablar ko'rinadi (cheklov yo'q)
@@ -13186,7 +13186,7 @@ function toast(msg){
 var FH_MANAGED_USERS = (function(){ return JSON.parse(localStorage.getItem('fh_managed_users')||'[]'); })();
 
 function renderUserMgmt(){
-  var canManage = CUR_USER && CUR_USER.role==='owner';
+  var canManage = CUR_USER && (CUR_USER.role==='owner'||CUR_USER.role==='holding_fin');
   var MC = document.getElementById('pg-l1'); if(!MC) return;
   MC.classList.add('on');
   setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:'🔑 Foydalanuvchilar',fn:''}]);
