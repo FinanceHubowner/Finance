@@ -538,6 +538,24 @@ var FH_USER_PROFILES = {
   'procurement@hr.com':         {role:'staff',   direction:'procurement', full_name:'Procurement HR',      dept:'hr'},
   'procurement@staff.com':      {role:'staff',   direction:'procurement', full_name:'Procurement Staff'},
 };
+// Rol + yo'nalishga qarab biznes unvoni qaytaradi
+function FH_ROLE_LABEL(role, direction){
+  var DIR_NAME = {cargo:'Cargo',logistics:'Logistics',exchange:'Exchange',procurement:'Procurement',holding:'Holding'};
+  var d = direction && direction!=='holding' ? (DIR_NAME[direction]||direction)+' ' : '';
+  var map = {
+    owner:        'Holding Egasi',
+    holding_head: 'Holding Rahbari',
+    holding_fin:  'Finance Direktor',
+    holding_hr:   'HR Direktor',
+    dir_head:     d+'Rahbar',
+    dir_finance:  direction==='holding'||!direction ? 'Finance Manager' : d+'Moliyachi',
+    dept_head:    d+"Bo'lim Boshlig'i",
+    manager:      d+'Menejer',
+    staff:        d+'Xodim',
+  };
+  return map[role] || role;
+}
+
 // Tanilmagan email → Supabase profiles jadvalidan o'qiladi
 var FH_DEFAULT_PROFILE = {role:'staff', direction:'exchange', full_name:'Xodim'};
 
@@ -656,19 +674,19 @@ function showDash(profile) {
     if (el) {
 
 
-      var rc = {owner:"#00E5A0", manager:"#6C8EFF", staff:"#FFB830"};
-
-
+      var rc = {
+        owner:"#00E5A0", holding_head:"#8B5CF6", holding_fin:"#6366F1",
+        dir_head:"#3B82F6", dir_finance:"#10B981", dept_head:"#06B6D4",
+        manager:"#6C8EFF", staff:"#FFB830", holding_hr:"#F59E0B"
+      };
       var role = profile.role || "staff";
-
+      var dir  = profile.direction || null;
+      // Biznes unvoni: rol + yo'nalishga qarab
+      var roleLbl = FH_ROLE_LABEL(role, dir);
 
       el.innerHTML =
-
-
         "<span style='color:#94A3C4;font-size:11px'>" + escHtml(profile.full_name || profile.email) + "</span> " +
-
-
-        "<span style='background:rgba(108,142,255,0.1);color:" + (rc[role]||"#6C8EFF") + ";font-size:10px;padding:2px 8px;border-radius:999px'>" + escHtml(role) + "</span> " +
+        "<span style='background:rgba(108,142,255,0.1);color:" + (rc[role]||"#6C8EFF") + ";font-size:10px;padding:2px 8px;border-radius:999px'>" + escHtml(roleLbl) + "</span> " +
 
 
         "<button onclick='LGOUT()' style='padding:4px 10px;border-radius:5px;border:1px solid rgba(108,142,255,0.2);background:transparent;color:#506080;cursor:pointer;font-size:11px'>Chiqish</button>";
@@ -12465,6 +12483,10 @@ function buildNav(){
   if(CUR_USER && CUR_USER.role === 'holding_hr') {
     snItems = snItems.filter(function(s){ return s.id === 'payroll'; });
   }
+  // 'users' tab faqat owner ko'radi
+  if(CUR_USER && CUR_USER.role !== 'owner'){
+    snItems = snItems.filter(function(s){ return s.id !== 'users'; });
+  }
   // holding_fin: barcha tablar ko'rinadi (cheklov yo'q)
 
 
@@ -13164,7 +13186,7 @@ function toast(msg){
 var FH_MANAGED_USERS = (function(){ return JSON.parse(localStorage.getItem('fh_managed_users')||'[]'); })();
 
 function renderUserMgmt(){
-  var canManage = CUR_USER && (CUR_USER.role==='owner'||CUR_USER.role==='holding_head'||CUR_USER.role==='holding_fin');
+  var canManage = CUR_USER && CUR_USER.role==='owner';
   var MC = document.getElementById('pg-l1'); if(!MC) return;
   MC.classList.add('on');
   setBc([{lbl:'🏦 Holding',fn:"goNav('l1')"},{lbl:'🔑 Foydalanuvchilar',fn:''}]);
@@ -13235,12 +13257,12 @@ function renderUserMgmt(){
 function fhShowCreateUser(){
   var wrap = document.getElementById('fh-user-form-wrap'); if(!wrap) return;
   var ROLES = [
-    {v:'dept_head',   lbl:"Bo'lim boshlig'i (1-bosqich)"},
-    {v:'dir_finance', lbl:'Yo\'nalish moliyachisi (2-bosqich)'},
-    {v:'dir_head',    lbl:"Yo'nalish rahbari (3-bosqich)"},
-    {v:'holding_fin', lbl:'Holding moliyachisi (4-bosqich)'},
-    {v:'holding_head',lbl:'Holding rahbari (5-bosqich)'},
-    {v:'staff',       lbl:'Xodim (ko\'rinish cheklangan)'},
+    {v:'staff',        lbl:'Xodim — cheklangan ko\'rinish'},
+    {v:'dept_head',    lbl:"Bo'lim Boshlig'i — 1-bosqich tasdiqlash"},
+    {v:'dir_finance',  lbl:'Finance Manager / Yo\'nalish Moliyachisi — 2-bosqich'},
+    {v:'dir_head',     lbl:"Yo'nalish Rahbari — 3-bosqich tasdiqlash"},
+    {v:'holding_fin',  lbl:'Finance Direktor — 4-bosqich, barcha yo\'nalish'},
+    {v:'holding_head', lbl:'Holding Rahbari — 5-bosqich tasdiqlash'},
   ];
   var DIRS = [
     {v:'cargo',       lbl:'📦 Cargo'},
