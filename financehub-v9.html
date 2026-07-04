@@ -1554,7 +1554,7 @@ function auditLog(action, tableName, recordId, oldVal, newVal){
 function approveTxn(id){
   var t = TXNS.find(function(x){return x.id===id;});
   if(!t) return;
-  if(CUR_USER && (CUR_USER.role==='owner'||CUR_USER.role==='manager')){
+  if(CUR_USER && (CUR_USER.role==='owner'||CUR_USER.role==='manager'||CUR_USER.role==='holding_fin')){
     var oldStatus = t.approval_status;
     t.approval_status = 'approved';
     t.approved_by = CUR_USER.full_name || CUR_USER.email;
@@ -1568,7 +1568,7 @@ function approveTxn(id){
 function rejectTxn(id){
   var t = TXNS.find(function(x){return x.id===id;});
   if(!t) return;
-  if(CUR_USER && (CUR_USER.role==='owner'||CUR_USER.role==='manager')){
+  if(CUR_USER && (CUR_USER.role==='owner'||CUR_USER.role==='manager'||CUR_USER.role==='holding_fin')){
     var oldStatus = t.approval_status;
     t.approval_status = 'rejected';
     t.approved_by = CUR_USER.full_name || CUR_USER.email;
@@ -12324,8 +12324,14 @@ function canUserApprove(req){
     dir_head:'pending_dir_head', holding_fin:'pending_holding_finance', holding_finance:'pending_holding_finance',
     holding_head:'pending_holding_head'
   };
-  // owner roli faqat o'zi jo'natmagan so'rovlarni tasdiqlaydi
+  // owner — barcha bosqichlarni tasdiqlaydi
   if(CUR_USER.role==='owner'){
+    var chain = getReqChain(req);
+    return chain.some(function(s){ return 'pending_'+s.key===req.status; });
+  }
+  // holding_fin (Finance Direktor) — 1-4 bosqich (holding_head bosqichidan tashqari)
+  if(CUR_USER.role==='holding_fin'){
+    if(req.status==='pending_holding_head') return false; // faqat holding_head tasdiqlaydi
     var chain = getReqChain(req);
     return chain.some(function(s){ return 'pending_'+s.key===req.status; });
   }
@@ -15403,14 +15409,14 @@ window.openReqDetail = function(reqId){
 
   // Action buttons
   var actHtml='';
-  var canEdit = r.status!=='approved' && (CUR_USER&&(CUR_USER.role==='owner'||CUR_USER.name===r.requested_by));
+  var canEdit = r.status!=='approved' && (CUR_USER&&(CUR_USER.role==='owner'||CUR_USER.role==='holding_fin'||CUR_USER.name===r.requested_by));
   if(canEdit) actHtml+='<button onclick="openReqEdit(\''+reqId+'\')" style="padding:8px 16px;background:rgba(108,142,255,0.15);border:1px solid rgba(108,142,255,0.4);border-radius:8px;color:#6C8EFF;cursor:pointer;font-size:12px;font-weight:600">✏️ Tahrirlash</button>';
   if(canSubmit) actHtml+='<button onclick="reqSubmit(\''+reqId+'\');openReqDetail(\''+reqId+'\')" style="padding:8px 16px;background:#FFB830;border:none;border-radius:8px;color:#000;cursor:pointer;font-size:12px;font-weight:600">📤 Tasdiqqa yuborish</button>';
   if(canApprove){
     actHtml+='<button onclick="showApproveForm(\''+reqId+'\')" style="padding:8px 16px;background:#17B374;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:12px;font-weight:600">✓ Tasdiqlash</button>';
     actHtml+='<button onclick="showRejectForm(\''+reqId+'\')" style="padding:8px 16px;background:rgba(255,77,106,0.15);border:1px solid rgba(255,77,106,0.4);border-radius:8px;color:#FF4D6A;cursor:pointer;font-size:12px;font-weight:600">✗ Rad etish</button>';
   }
-  var canPermDelete = CUR_USER && (CUR_USER.role==='owner' || CUR_USER.role==='holding_head');
+  var canPermDelete = CUR_USER && (CUR_USER.role==='owner' || CUR_USER.role==='holding_head' || CUR_USER.role==='holding_fin');
   if(r.status==='draft' || canPermDelete) actHtml+='<button onclick="if(confirm(\'Bu so\\\'rovni o\\\'chirasizmi?\'))deleteReq(\''+reqId+'\')" style="padding:8px 12px;background:rgba(255,77,106,0.1);border:1px solid rgba(255,77,106,0.3);border-radius:8px;color:#FF4D6A;cursor:pointer;font-size:12px">🗑 O\'chirish</button>';
 
   var commentsHtml=_buildReqCommentsHtml(r);
