@@ -5105,7 +5105,7 @@ function buildDataFromTXNS(){
       else if(t.type==='advance')                     loan_in_  += a; // BS Joriy aktiv sifatida
 
 
-      else if(t.type==='income')                      income    += a;
+      else if(t.type==='income' && !t._dc_payment)     income    += a;
 
 
       // ✅ Refund/qaytarish → daromaddan ayiriladi
@@ -9054,6 +9054,7 @@ function renderDebCred(focusDir){
         date:date,
         direction:r.dir,
         type:type==='debitor'?'income':'expense',
+        _dc_payment:true, // P&L dan chiqarib tashlash — bu CF elementi
         amount:amt,
         currency:txnCur,
         kassa_type:txnKt,
