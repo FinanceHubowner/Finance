@@ -12098,8 +12098,12 @@ function procOrderPL(ord){
   var freightUSD = ord.freight_paid_by==='dasa' ? (+(ord.freight_cost_usd||0)) : 0;
   var docsUSD    = ord.docs_paid_by==='dasa'    ? (+(ord.docs_cost_usd||0))    : 0;
   var totalExp   = expUSD + freightUSD + docsUSD;
-  var net = commission + vatIncome - totalExp;
-  return {commission:commission, vatIncome:vatIncome, expenses:totalExp, net:net};
+  // Agent ulushi — komissiyadan agentga beriladigan qism (xarajat sifatida)
+  var agent = PROC_AGENTS.find(function(a){return a.id===ord.agent_id;});
+  var agentSharePct = agent ? (+(agent.agent_share_pct||0)) : 0;
+  var agentCost = commission * agentSharePct / 100;
+  var net = commission + vatIncome - totalExp - agentCost;
+  return {commission:commission, vatIncome:vatIncome, expenses:totalExp, agentCost:agentCost, agentSharePct:agentSharePct, net:net};
 }
 
 // EXCH_CLIENT_TXNS → DATA['exchange'] inject funksiyasi
@@ -19184,6 +19188,8 @@ function renderProcAddAgent(editId){
     +'<input id="pa_specialty" value="'+escHtml(a.specialty||'')+'" placeholder="Masalan: Elektronika, Og\'ir texnika..." style="width:100%;padding:10px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:14px;box-sizing:border-box"></div>'
     +'<div><label style="display:block;font-size:12px;color:var(--t3);margin-bottom:6px">Default komissiya foizi (%)</label>'
     +'<input id="pa_comm" type="number" step="0.1" min="0" max="100" value="'+(a.commission_default||4.5)+'" style="width:100%;padding:10px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:14px;box-sizing:border-box"></div>'
+    +'<div><label style="display:block;font-size:12px;color:var(--t3);margin-bottom:6px">Agent ulushi (%) — komissiyadan agentga beriladigan qism</label>'
+    +'<input id="pa_agent_share" type="number" step="1" min="0" max="100" value="'+(a.agent_share_pct||0)+'" placeholder="0" style="width:100%;padding:10px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:14px;box-sizing:border-box"></div>'
     +'<div><label style="display:block;font-size:12px;color:var(--t3);margin-bottom:6px">Telefon / Kontakt</label>'
     +'<input id="pa_contact" value="'+escHtml(a.contact||'')+'" placeholder="+998..." style="width:100%;padding:10px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:14px;box-sizing:border-box"></div>'
     +'</div>'
@@ -19198,6 +19204,7 @@ function procSaveAgent(editId, isEdit){
   if(!name.trim()){alert('Ismni kiriting!');return;}
   var data={name:name.trim(),specialty:(document.getElementById('pa_specialty')||{}).value||'',
     commission_default:+(document.getElementById('pa_comm')||{value:4.5}).value||4.5,
+    agent_share_pct:+(document.getElementById('pa_agent_share')||{value:0}).value||0,
     contact:(document.getElementById('pa_contact')||{}).value||''};
   if(isEdit && editId){
     PROC_AGENTS=PROC_AGENTS.map(function(a){return a.id===editId?Object.assign({},a,data,{updated_at:new Date().toISOString().slice(0,10)}):a;});
@@ -19234,7 +19241,7 @@ function renderProcAgentView(agentId){
     +tabs.map(function(t){var active=PROC_AGENT_TAB===t.id;return '<button onclick="PROC_AGENT_TAB=\''+t.id+'\';renderProcAgentView(\''+agentId+'\')" style="padding:8px 16px;border:none;border-radius:7px;cursor:pointer;font-size:13px;font-weight:'+(active?'600':'400')+';background:'+(active?'var(--accent)':'transparent')+';color:'+(active?'#fff':'var(--t2)')+'">'+t.icon+' '+t.lbl+'</button>';}).join('')+'</div>';
   var header='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">'
     +'<div><h2 style="font-size:20px;font-weight:700;color:var(--t1);margin:0">👤 '+escHtml(agent.name)+'</h2>'
-    +'<div style="font-size:12px;color:var(--t3);margin-top:4px">'+(agent.specialty?escHtml(agent.specialty)+' · ':'')+'Default komissiya: '+(agent.commission_default||4.5)+'%</div></div>'
+    +'<div style="font-size:12px;color:var(--t3);margin-top:4px">'+(agent.specialty?escHtml(agent.specialty)+' · ':'')+'Komissiya: '+(agent.commission_default||4.5)+'%'+(agent.agent_share_pct?' · <span style="color:#FFB830">Agent ulushi: '+agent.agent_share_pct+'%</span> · <span style="color:#17B374">Holding: '+(100-agent.agent_share_pct)+'%</span>':'')+'</div></div>'
     +'<div style="display:flex;gap:8px">'
     +'<button onclick="renderProcAddAgent(\''+agentId+'\')" style="padding:8px 14px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t2);cursor:pointer;font-size:13px">✏️ Tahrirlash</button>'
     +'<button onclick="renderProcAddOrder(\''+agentId+'\')" style="padding:8px 16px;background:#3B82F6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px">+ Yangi buyurtma</button>'
@@ -28720,7 +28727,7 @@ var EXCH_PARTNERS = (function(){ return lsLoad('exch_partners') || []; })();
 
 // Har yo'nalish uchun Holding ulushi % (Exchange avtomatik EXCH_PARTNERS dan)
 var HOLDING_DIR_SHARES = (function(){
-  var def = {cargo:0, logistics:0, procurement:0};
+  var def = {cargo:0, logistics:0, procurement:100};
   var saved = lsLoad('holding_dir_shares');
   return saved || def;
 })();
