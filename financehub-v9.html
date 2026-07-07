@@ -19924,6 +19924,7 @@ function renderExecDashboard(){
   var exShare = getExchangeHoldingShare();
   var dirShareRows = '';
   var holdingTotalShare = 0;
+  var totalGrossProfit = 0, holdingTotalOthers = 0;
   DIRS.filter(function(d){return d.id!=='holding';}).forEach(function(d){
     var rows = DATA[d.id]||[], pr=0;
     if(d.id==='cargo'||d.id==='logistics') pr=sk(rows,'margin');
@@ -19931,9 +19932,13 @@ function renderExecDashboard(){
     else if(d.id==='procurement') pr=sk(rows,'net');
     var sharePct = d.id==='exchange' ? exShare : (HOLDING_DIR_SHARES[d.id]||0);
     var holdAmt = pr * sharePct / 100;
+    var otherAmt = pr - holdAmt;
     holdingTotalShare += holdAmt;
+    holdingTotalOthers += otherAmt;
+    totalGrossProfit += pr;
     var prCol = pr>=0?'#17B374':'#FF4D6A';
     var haCol = holdAmt>=0?'#17B374':'#FF4D6A';
+    var otCol = otherAmt>=0?'#FFB830':'#FF4D6A';
     dirShareRows += '<tr style="border-top:1px solid var(--b1)">'
       +'<td style="padding:9px 14px;font-size:13px">'+(d.icon||'')+'  '+escHtml(d.name||d.id)+'</td>'
       +'<td style="padding:9px 14px;font-size:13px;font-family:var(--mono);text-align:right;color:'+prCol+'">$'+fmt(Math.round(pr))+'</td>'
@@ -19942,25 +19947,30 @@ function renderExecDashboard(){
           ?'<span style="font-size:11px;padding:2px 8px;border-radius:8px;background:rgba(108,142,255,0.15);color:var(--acc)">'+sharePct+'% (auto)</span>'
           :'<span onclick="openHoldingShareModal(\''+d.id+'\')" style="font-size:12px;padding:2px 10px;border-radius:8px;background:var(--s3);border:1px solid var(--b2);color:var(--t2);cursor:pointer">'+sharePct+'% ✏️</span>')
       +'</td>'
-      +'<td style="padding:9px 14px;font-size:14px;font-family:var(--mono);font-weight:700;text-align:right;color:'+haCol+'">$'+fmt(Math.round(holdAmt))+'</td>'
+      +'<td style="padding:9px 14px;font-size:13px;font-family:var(--mono);font-weight:700;text-align:right;color:'+haCol+'">$'+fmt(Math.round(holdAmt))+'</td>'
+      +'<td style="padding:9px 14px;font-size:13px;font-family:var(--mono);text-align:right;color:'+otCol+'">$'+fmt(Math.round(otherAmt))+'</td>'
       +'</tr>';
   });
   h+='<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;margin-bottom:16px">'
     +'<div style="padding:14px 16px;border-bottom:1px solid var(--b1);display:flex;justify-content:space-between;align-items:center">'
-    +'<div><span style="font-size:13px;font-weight:600;color:var(--t1)">🏦 Yo\'nalishlardan Holding Ulushi</span>'
+    +'<div><span style="font-size:13px;font-weight:600;color:var(--t1)">🏦 Foyda Taqsimoti — Yo\'nalishlar Kesimida</span>'
     +'<span style="font-size:11px;color:var(--t3);margin-left:10px">Real-vaqt · Joriy davr</span></div>'
-    +'<span style="font-size:16px;font-weight:700;font-family:var(--mono);color:'+(holdingTotalShare>=0?'#17B374':'#FF4D6A')+'">$'+fmt(Math.round(holdingTotalShare))+'</span></div>'
+    +'<span style="font-size:16px;font-weight:700;font-family:var(--mono);color:#17B374">Jami: $'+fmt(Math.round(totalGrossProfit))+'</span></div>'
     +'<table style="width:100%;border-collapse:collapse">'
     +'<thead><tr style="background:var(--s3)">'
     +'<th style="padding:8px 14px;text-align:left;font-size:11px;color:var(--t3);font-weight:600">YO\'NALISH</th>'
-    +'<th style="padding:8px 14px;text-align:right;font-size:11px;color:var(--t3);font-weight:600">SOF FOYDA</th>'
+    +'<th style="padding:8px 14px;text-align:right;font-size:11px;color:var(--t3);font-weight:600">UMUMIY FOYDA</th>'
     +'<th style="padding:8px 14px;text-align:center;font-size:11px;color:var(--t3);font-weight:600">HOLDING %</th>'
-    +'<th style="padding:8px 14px;text-align:right;font-size:11px;color:var(--t3);font-weight:600">HOLDING ULUSHI</th>'
+    +'<th style="padding:8px 14px;text-align:right;font-size:11px;color:var(--acc);font-weight:600">🏦 HOLDING ULUSHI</th>'
+    +'<th style="padding:8px 14px;text-align:right;font-size:11px;color:#FFB830;font-weight:600">👤 RAHBAR/AGENT ULUSHI</th>'
     +'</tr></thead><tbody>'+dirShareRows+'</tbody>'
     +'<tfoot><tr style="border-top:2px solid var(--b2);background:var(--s3)">'
-    +'<td style="padding:10px 14px;font-weight:700;font-size:13px" colspan="3">JAMI HOLDING ULUSHI</td>'
-    +'<td style="padding:10px 14px;font-weight:700;font-size:15px;font-family:var(--mono);text-align:right;color:'+(holdingTotalShare>=0?'#17B374':'#FF4D6A')+'">'
-    +'$'+fmt(Math.round(holdingTotalShare))+'</td></tr></tfoot></table></div>';
+    +'<td style="padding:10px 14px;font-weight:700;font-size:13px">JAMI</td>'
+    +'<td style="padding:10px 14px;font-weight:700;font-size:13px;font-family:var(--mono);text-align:right">$'+fmt(Math.round(totalGrossProfit))+'</td>'
+    +'<td></td>'
+    +'<td style="padding:10px 14px;font-weight:700;font-size:14px;font-family:var(--mono);text-align:right;color:#17B374">$'+fmt(Math.round(holdingTotalShare))+'</td>'
+    +'<td style="padding:10px 14px;font-weight:700;font-size:14px;font-family:var(--mono);text-align:right;color:#FFB830">$'+fmt(Math.round(holdingTotalOthers))+'</td>'
+    +'</tr></tfoot></table></div>';
 
   // 9. Holding o'z CF — oxirgi 60 kun TXNS (holding direction)
   var holdingTxns=(TXNS||[]).filter(function(t){return t.direction==='holding';})
