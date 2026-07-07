@@ -19913,6 +19913,51 @@ function renderExecDashboard(){
     +'<div style="display:flex;justify-content:space-between;padding:8px 0 4px;font-size:14px;border-top:1px solid var(--b1);margin-top:8px"><span style="font-weight:700">Sof Kapital</span><span style="font-family:var(--mono);font-weight:700;color:'+tl(netWorth)+'">$'+fmt(Math.round(netWorth))+'</span></div></div>'
     +'</div></div>';
 
+  // 8. Holding o'z CF — oxirgi 60 kun TXNS (holding direction)
+  var holdingTxns=(TXNS||[]).filter(function(t){return t.direction==='holding';})
+    .slice().sort(function(a,b){return (b.date||'').localeCompare(a.date||'');}).slice(0,30);
+  var hcfIn=0, hcfOut=0;
+  holdingTxns.forEach(function(t){
+    var a=+(t.amount||0);
+    if(t.type==='income'||t.type==='div_in') hcfIn+=a;
+    else if(t.type==='expense'||t.type==='opex'||t.type==='transfer') hcfOut+=a;
+  });
+  var hcfRows=holdingTxns.map(function(t){
+    var isIn=t.type==='income'||t.type==='div_in';
+    var col=isIn?'#17B374':'#FF4D6A';
+    var arrow=isIn?'↑':'↓';
+    var amt=+(t.amount||0);
+    var kat=t.category||t.subcat||t.type||'—';
+    var from=t.counterparty||t.note||'—';
+    return '<tr style="border-top:1px solid var(--b1)">'
+      +'<td style="padding:8px 12px;font-size:12px;color:var(--t3)">'+(t.date||'').slice(0,10)+'</td>'
+      +'<td style="padding:8px 12px;font-size:12px"><span style="color:'+col+';font-weight:700">'+arrow+'</span> <span style="color:var(--t2)">'+escHtml(kat)+'</span></td>'
+      +'<td style="padding:8px 12px;font-size:12px;color:var(--t3)">'+escHtml(String(from).slice(0,40))+'</td>'
+      +'<td style="padding:8px 12px;font-size:13px;font-family:var(--mono);font-weight:700;text-align:right;color:'+col+'">'+(isIn?'+':'-')+'$'+fmt(amt)+'</td>'
+      +'</tr>';
+  }).join('');
+  h+='<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;margin-bottom:16px">'
+    +'<div style="padding:14px 16px;border-bottom:1px solid var(--b1);display:flex;justify-content:space-between;align-items:center">'
+    +'<span style="font-size:13px;font-weight:600;color:var(--t1)">💵 Holding Pul Oqimi — So\'nggi Tranzaksiyalar</span>'
+    +'<button onclick="goNav(\'l1:kassa\')" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--b2);background:transparent;color:var(--acc);cursor:pointer">Kassa →</button></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:0;border-bottom:1px solid var(--b1)">'
+    +'<div style="padding:12px 20px;border-right:1px solid var(--b1)">'
+    +'<div style="font-size:11px;color:var(--t3)">↑ Jami Kirdi</div>'
+    +'<div style="font-size:20px;font-weight:700;color:#17B374;margin-top:4px">+$'+fmt(Math.round(hcfIn))+'</div></div>'
+    +'<div style="padding:12px 20px">'
+    +'<div style="font-size:11px;color:var(--t3)">↓ Jami Chiqdi</div>'
+    +'<div style="font-size:20px;font-weight:700;color:#FF4D6A;margin-top:4px">-$'+fmt(Math.round(hcfOut))+'</div></div></div>'
+    +(hcfRows
+      ?'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">'
+        +'<thead><tr style="background:var(--s3)">'
+        +'<th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--t3);font-weight:600">SANA</th>'
+        +'<th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--t3);font-weight:600">KATEGORIYA</th>'
+        +'<th style="padding:8px 12px;text-align:left;font-size:11px;color:var(--t3);font-weight:600">MAQSAD / MANBA</th>'
+        +'<th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--t3);font-weight:600">SUMMA</th>'
+        +'</tr></thead><tbody>'+hcfRows+'</tbody></table></div>'
+      :'<div style="padding:32px;text-align:center;color:var(--t3);font-size:13px">Holding tranzaksiyalari topilmadi</div>')
+    +'</div>';
+
   h+='</div>'; // main wrapper
 
   document.getElementById('pg-l1').innerHTML=h;
