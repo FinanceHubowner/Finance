@@ -8393,6 +8393,8 @@ function dcSyncFromSB(){
     });
     lsSave('dc_data',DC_DATA);
     console.log('[DC] synclandi:',rows.length);
+    // Agar Rahbar Xulosasi ochiq bo'lsa — qayta render qil
+    if(typeof ACTV_SUB !== 'undefined' && ACTV_SUB === 'exec') renderExecDashboard();
   });
 }
 
