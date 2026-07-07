@@ -19752,12 +19752,16 @@ function renderExecDashboard(){
     var overdue=t.due&&t.due<new Date().toISOString().slice(0,10);
     var priCol={'urgent':'#FF4D6A','high':'#FFB830','normal':'var(--acc)','low':'var(--t3)'}[t.priority]||'var(--t3)';
     var dObj=DIRS.find(function(d){return d.id===t.direction;})||{name:t.direction||'Umumiy'};
+    var stMap={todo:'Yangi',in_progress:'Jarayonda',review:'Tekshiruvda',done:'Bajarildi'};
+    var stCol={todo:'var(--t3)',in_progress:'#6C8EFF',review:'#FFB830',done:'#17B374'};
+    var stLbl=stMap[t.status]||t.status||'Yangi';
+    var stC=stCol[t.status]||'var(--t3)';
     taskRows+='<tr>'
       +'<td style="padding:8px 12px;font-size:13px">'+escHtml(t.title||'')+'</td>'
       +'<td style="padding:8px 12px;font-size:12px;color:var(--t3)">'+escHtml(dObj.name)+'</td>'
       +'<td style="padding:8px 12px;font-size:12px"><span style="color:'+priCol+';font-weight:600">'+(t.priority||'normal')+'</span></td>'
+      +'<td style="padding:8px 12px;font-size:12px"><span style="color:'+stC+';font-weight:600">'+stLbl+'</span></td>'
       +'<td style="padding:8px 12px;font-size:12px;color:'+(overdue?'#FF4D6A':'var(--t3)')+';">'+(t.due||'—')+(overdue?' ⚠':'')+'</td>'
-      +'<td style="padding:8px 12px;font-size:12px;color:var(--t3)">'+escHtml(t.assignee||'')+'</td>'
       +'</tr>';
   });
 
