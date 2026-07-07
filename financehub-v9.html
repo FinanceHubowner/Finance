@@ -5105,7 +5105,7 @@ function buildDataFromTXNS(){
       else if(t.type==='advance')                     loan_in_  += a; // BS Joriy aktiv sifatida
 
 
-      else if(t.type==='income' && !t._dc_payment)     income    += a;
+      else if(t.type==='income' && !t._dc_payment && t.category!=="Debitor to'lovi" && t.category!=="Kreditor to'lovi")     income    += a;
 
 
       // ✅ Refund/qaytarish → daromaddan ayiriladi
