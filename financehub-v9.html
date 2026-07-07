@@ -12098,11 +12098,13 @@ function procOrderPL(ord){
   var freightUSD = ord.freight_paid_by==='dasa' ? (+(ord.freight_cost_usd||0)) : 0;
   var docsUSD    = ord.docs_paid_by==='dasa'    ? (+(ord.docs_cost_usd||0))    : 0;
   var totalExp   = expUSD + freightUSD + docsUSD;
-  // Agent ulushi — komissiyadan agentga beriladigan qism (xarajat sifatida)
+  // Avval sof foyda (agent ulushisiz)
+  var netBeforeAgent = commission + vatIncome - totalExp;
+  // Agent ulushi — sof foydadan (komissiyadan emas!)
   var agent = PROC_AGENTS.find(function(a){return a.id===ord.agent_id;});
   var agentSharePct = agent ? (+(agent.agent_share_pct||0)) : 0;
-  var agentCost = commission * agentSharePct / 100;
-  var net = commission + vatIncome - totalExp - agentCost;
+  var agentCost = netBeforeAgent > 0 ? netBeforeAgent * agentSharePct / 100 : 0;
+  var net = netBeforeAgent - agentCost;
   return {commission:commission, vatIncome:vatIncome, expenses:totalExp, agentCost:agentCost, agentSharePct:agentSharePct, net:net};
 }
 
