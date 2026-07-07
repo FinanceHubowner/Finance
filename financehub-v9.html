@@ -706,8 +706,9 @@ function showDash(profile) {
 
     var d = profile.direction;
 
-    // Faqat holding_fin va holding_hr barcha yo'nalishlarni ko'ra oladi
-    var isHoldingStaff = (profile.role === 'holding_fin' || profile.role === 'holding_hr');
+    // holding_fin, holding_hr, holding_head, va holding yo'nalishidagi boshqa rollar barcha yo'nalishlarni ko'ra oladi
+    var isHoldingStaff = (profile.role === 'holding_fin' || profile.role === 'holding_hr' || profile.role === 'holding_head') ||
+                         (profile.role !== 'staff' && (!profile.direction || profile.direction === 'holding'));
 
     // Non-owner: ALLOWED_NAVS orqali har doim cheklangan nav
     if (profile.role !== "owner" && !isHoldingStaff) {
@@ -19707,8 +19708,8 @@ function renderExecDashboard(){
 
   // ── 3. Debitor / Kreditor ─────────────────────────────────
   var debTotal=0, kredTotal=0;
-  (DC_DATA.debitor||[]).forEach(function(r){debTotal+=(+r.balance||0);});
-  (DC_DATA.kreditor||[]).forEach(function(r){kredTotal+=(+r.balance||0);});
+  (DC_DATA.debitor||[]).forEach(function(r){debTotal+=(+r.amount||0)-(+r.paid||0);});
+  (DC_DATA.kreditor||[]).forEach(function(r){kredTotal+=(+r.amount||0)-(+r.paid||0);});
 
   var dcRows='';
   var dcAll=[];
@@ -19720,7 +19721,7 @@ function renderExecDashboard(){
       +'<td style="padding:8px 12px;font-size:13px">'+escHtml(r.company||'')+'</td>'
       +'<td style="padding:8px 12px"><span style="font-size:10px;padding:2px 7px;border-radius:8px;background:'+col+'22;color:'+col+'">'+lbl+'</span></td>'
       +'<td style="padding:8px 12px;font-size:12px;color:var(--t3)">'+escHtml(r.currency||'USD')+'</td>'
-      +'<td style="padding:8px 12px;font-size:13px;font-family:var(--mono);font-weight:700;text-align:right;color:'+col+'">'+fmt(Math.abs(+r.balance||0))+'</td>'
+      +'<td style="padding:8px 12px;font-size:13px;font-family:var(--mono);font-weight:700;text-align:right;color:'+col+'">'+fmt(Math.abs((+r.amount||0)-(+r.paid||0)))+'</td>'
       +'</tr>';
   });
 
