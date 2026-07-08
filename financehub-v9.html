@@ -12183,8 +12183,10 @@ function exchClientSave(){
       .then(function(r){ if(r.error) console.warn('[EXCH_TXN]',r.error.message); });
 }
 
-function exchClientSyncFromSB(){
+function exchClientSyncFromSB(onDone){
   if(!SB||DEMO_MODE) return;
+  var done=0; var total=2;
+  function check(){ done++; if(done>=total){ exchInjectToDATA(); if(onDone) onDone(); } }
   SB.from('app_exch_clients').select('*').then(function(r){
     if(!r.error && r.data && r.data.length){
       r.data.forEach(function(row){
@@ -12193,6 +12195,7 @@ function exchClientSyncFromSB(){
       });
       lsSave('exch_clients', EXCH_CLIENTS);
     }
+    check();
   });
   SB.from('app_exch_client_txns').select('*').order('date',{ascending:false}).then(function(r){
     if(!r.error && r.data && r.data.length){
@@ -12202,8 +12205,22 @@ function exchClientSyncFromSB(){
       });
       lsSave('exch_client_txns', EXCH_CLIENT_TXNS);
     }
+    check();
   });
 }
+
+// Har 60 soniyada Exchange data avtomatik yangilanadi (fon rejimda, silent)
+(function startExchAutoSync(){
+  setInterval(function(){
+    if(!SB||DEMO_MODE) return;
+    exchClientSyncFromSB(function(){
+      // Faqat Exchange sahifasi ochiq bo'lsa UI ni yangilash
+      if(typeof ACTV_DIR!=='undefined' && ACTV_DIR==='exchange'){
+        if(typeof renderExchangeDash==='function') renderExchangeDash();
+      }
+    });
+  }, 60000);
+})();
 
 // Mijoz joriy balansi: {USD:0, CNY:0, UZS:0, ...}
 function exchClientBalance(clientId){
