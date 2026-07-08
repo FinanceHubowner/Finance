@@ -29510,7 +29510,8 @@ function renderExchangeDash(){
   h += '<span style="font-size:10px;color:#16a34a;background:#f0fdf4;padding:2px 8px;border-radius:4px;font-weight:700;">📥 Buying ¥'+buyR+'</span>';
   h += '<span style="font-size:10px;color:#ef4444;background:#fef2f2;padding:2px 8px;border-radius:4px;font-weight:700;">📤 Selling ¥'+sellR+'</span>';
   h += '<button onclick="exFxModal()" style="padding:4px 8px;border-radius:5px;border:1px solid var(--b2);background:transparent;color:var(--t3);cursor:pointer;font-size:10px;">⚙️</button>';
-  h += '<button onclick="exFetchLiveAndRefresh()" style="padding:4px 8px;border-radius:5px;border:none;background:#6C8EFF;color:#fff;cursor:pointer;font-size:10px;font-weight:700;">🔄</button>';
+  h += '<button onclick="exFetchLiveAndRefresh()" style="padding:4px 8px;border-radius:5px;border:none;background:#6C8EFF;color:#fff;cursor:pointer;font-size:10px;font-weight:700;">🔄 Kurs</button>';
+  h += '<button onclick="exchSyncAndRefresh()" style="padding:4px 8px;border-radius:5px;border:none;background:#17B374;color:#fff;cursor:pointer;font-size:10px;font-weight:700;">☁️ Sync</button>';
   h += '</div>';
   h += '<button onclick="renderExchangeEntry()" style="padding:7px 16px;border-radius:8px;border:none;background:#D48C0A;color:#fff;cursor:pointer;font-size:12px;font-weight:700;">+ Yangi Operatsiya</button>';
   h += '</div></div>';
@@ -30366,6 +30367,44 @@ function exFxModal(){
     var sp=(parseFloat(this.value)||0.06)/100;
     document.getElementById('exBuyDisp').textContent='¥'+Math.round(m*(1-sp)*10000)/10000;
     document.getElementById('exSellDisp').textContent='¥'+Math.round(m*(1+sp)*10000)/10000;
+  });
+}
+
+function exchSyncAndRefresh(){
+  if(DEMO_MODE){toast('Demo rejimda Supabase sync ishlamaydi! Demo tugmasini o\'chiring.','error');return;}
+  if(!SB){toast('Supabase ulanmagan!','error');return;}
+  toast('⏳ Supabase dan ma\'lumotlar yuklanmoqda...');
+  var done=0;
+  function check(){ done++; if(done>=3){ exchInjectToDATA(); renderExchangeDash(); toast('✅ Sinxronlashtirildi!','success'); } }
+  SB.from('app_exch_clients').select('*').then(function(r){
+    if(!r.error && r.data && r.data.length){
+      r.data.forEach(function(row){
+        var idx=EXCH_CLIENTS.findIndex(function(c){return c.id===row.id;});
+        if(idx===-1) EXCH_CLIENTS.push(row); else EXCH_CLIENTS[idx]=row;
+      });
+      lsSave('exch_clients', EXCH_CLIENTS);
+    }
+    check();
+  });
+  SB.from('app_exch_client_txns').select('*').order('date',{ascending:false}).then(function(r){
+    if(!r.error && r.data && r.data.length){
+      r.data.forEach(function(row){
+        var idx=EXCH_CLIENT_TXNS.findIndex(function(t){return t.id===row.id;});
+        if(idx===-1) EXCH_CLIENT_TXNS.push(row); else EXCH_CLIENT_TXNS[idx]=row;
+      });
+      lsSave('exch_client_txns', EXCH_CLIENT_TXNS);
+    }
+    check();
+  });
+  SB.from('app_exch_expenses').select('*').then(function(r){
+    if(!r.error && r.data && r.data.length){
+      r.data.forEach(function(row){
+        var idx=EXCH_EXPENSES.findIndex(function(x){return x.id===row.id;});
+        if(idx===-1) EXCH_EXPENSES.push(row); else EXCH_EXPENSES[idx]=row;
+      });
+      lsSave('exch_expenses', EXCH_EXPENSES);
+    }
+    check();
   });
 }
 
