@@ -19252,7 +19252,7 @@ function renderProcAddAgent(editId){
     +'<label style="display:block;font-size:12px;color:#6C8EFF;margin-bottom:6px;font-weight:600">🔗 FinanceHub foydalanuvchisi bilan bog\'lash</label>'
     +'<select id="pa_linked_user" style="width:100%;padding:10px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:14px">'
     +'<option value="">— Bog\'lanmagan —</option>'
-    +(FH_MANAGED_USERS||[]).filter(function(u){return u.direction==='procurement'||!u.direction;}).map(function(u){
+    +(FH_MANAGED_USERS||[]).map(function(u){
       var sel=(a.linked_user_email===u.email)?'selected':'';
       return '<option value="'+escHtml(u.email||'')+'" '+sel+'>'+escHtml(u.full_name||u.email)+'  ('+escHtml(u.email||'')+')</option>';
     }).join('')
