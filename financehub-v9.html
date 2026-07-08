@@ -9478,6 +9478,9 @@ function syncAllFromSB(){
   setTimeout(function(){
     try{
       if(!DEMO_MODE) buildDataFromTXNS();
+      // Inject-lar buildDataFromTXNS keyin qayta qo'shilishi shart
+      exchInjectToDATA();
+      procInjectToDATA();
       goNavCurrent();
     }catch(e){}
   }, 1800);
