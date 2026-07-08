@@ -12118,20 +12118,39 @@ function exchInjectToDATA(){
   DATA['exchange'] = DATA['exchange'].filter(function(r){ return !r._exch_inject; });
   // Yangilarini qo'shish
   EXCH_CLIENT_TXNS.forEach(function(t){
-    if(t.type!=='transfer' || !t.commission_amount) return;
     var cli = EXCH_CLIENTS.find(function(c){ return c.id===t.client_id; })||{};
-    var komUSD = t.commission_currency==='CNY'
-      ? (+(t.commission_amount||0))/(EX_FX_RATE||7.1)
-      : +(t.commission_amount||0);
-    DATA['exchange'].push({
-      date:    t.date||new Date().toISOString().slice(0,10),
-      spread:  komUSD,
-      expense: 0,
-      net:     komUSD,
-      note:    'Transfer: '+(cli.name||'')+(t.target?' → '+t.target:''),
-      _exch_inject: true,
-      _txn_id: t.id
-    });
+    var fxRate = EX_FX_RATE||7.1;
+    if(t.type==='transfer' && t.commission_amount){
+      var komUSD = t.commission_currency==='CNY'
+        ? (+(t.commission_amount||0))/fxRate
+        : +(t.commission_amount||0);
+      DATA['exchange'].push({
+        date:    t.date||new Date().toISOString().slice(0,10),
+        spread:  komUSD,
+        expense: 0,
+        net:     komUSD,
+        note:    'Transfer komissiya: '+(cli.name||'')+(t.target?' → '+t.target:''),
+        _exch_inject: true,
+        _txn_id: t.id
+      });
+    }
+    if(t.type==='konversiya' && t.spread_profit){
+      // spread_profit chiqdi valyutasida (CNY) — USD ga o'tkazamiz
+      var spUSD = t.currency_out==='CNY'
+        ? (+(t.spread_profit||0))/fxRate
+        : (+(t.spread_profit||0));
+      if(Math.abs(spUSD)>0.001){
+        DATA['exchange'].push({
+          date:    t.date||new Date().toISOString().slice(0,10),
+          spread:  spUSD>0?spUSD:0,
+          expense: spUSD<0?Math.abs(spUSD):0,
+          net:     spUSD,
+          note:    'Konversiya spread: '+(cli.name||'')+' ('+t.currency_in+'→'+t.currency_out+' kurs: '+(t.rate||0)+' / bank: '+(t.bank_rate||0)+')',
+          _exch_inject: true,
+          _txn_id: t.id
+        });
+      }
+    }
   });
   // EXCH_EXPENSES — operatsion xarajatlarni inject qilish (kassoviy metod)
   EXCH_EXPENSES.forEach(function(x){
@@ -29026,7 +29045,7 @@ window.openExchOpModal = function(clientId, prefillType){
     +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Valyuta *</label>'
     +'<select id="_eOCI" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px">'+curOpts+'</select></div>'
     +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px" id="_eOAmtLbl">Miqdor *</label>'
-    +'<input id="_eOA" type="number" min="0" placeholder="0" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box"></div>'
+    +'<input id="_eOA" type="number" min="0" placeholder="0" oninput="exchConvCalc(\'in\')" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box"></div>'
     +'</div>'
     // Jo'natish / Konversiya chiqim bloki
     +'<div id="_eOOutBlock" style="display:none;background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:14px">'
@@ -29035,10 +29054,17 @@ window.openExchOpModal = function(clientId, prefillType){
     +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Valyuta</label>'
     +'<select id="_eOCO" style="width:100%;padding:9px 12px;background:var(--bg2,var(--s1));border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px">'+curOpts+'</select></div>'
     +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Miqdor</label>'
-    +'<input id="_eOAO" type="number" min="0" placeholder="0" style="width:100%;padding:9px 12px;background:var(--bg2,var(--s1));border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box"></div>'
+    +'<input id="_eOAO" type="number" min="0" placeholder="0" oninput="exchConvCalc(\'out\')" style="width:100%;padding:9px 12px;background:var(--bg2,var(--s1));border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box"></div>'
     +'</div>'
-    +'<div id="_eOKursBlock"><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Kurs (1 kirdi valyuta = ? chiqdi valyuta)</label>'
-    +'<input id="_eOK" type="number" min="0" step="0.0001" placeholder="7.2000" style="width:100%;padding:9px 12px;background:var(--bg2,var(--s1));border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box"></div>'
+    +'<div id="_eOKursBlock">'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">'
+    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Mijoz kursi (client rate) *</label>'
+    +'<input id="_eOK" type="number" min="0" step="0.0001" placeholder="6.7650" oninput="exchConvCalc(\'rate\')" style="width:100%;padding:9px 12px;background:var(--bg2,var(--s1));border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box"></div>'
+    +'<div><label style="font-size:11px;color:#FFB830;display:block;margin-bottom:4px">Bank kursi (bozor)</label>'
+    +'<input id="_eOBK" type="number" min="0" step="0.0001" placeholder="6.7800" oninput="exchConvCalc(\'bank\')" style="width:100%;padding:9px 12px;background:var(--bg2,var(--s1));border:1px solid rgba(255,184,48,0.3);border-radius:8px;color:#FFB830;font-size:12px;box-sizing:border-box"></div>'
+    +'</div>'
+    +'<div id="_eOSpreadPreview" style="display:none;padding:10px 12px;border-radius:8px;font-size:12px;margin-top:4px"></div>'
+    +'</div>'
     +'</div>'
     // Maqsad hisob (jo'natishda)
     +'<div id="_eOTargetBlock" style="display:none"><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Maqsad hisob / Oluvchi</label>'
@@ -29085,6 +29111,52 @@ window.openExchOpModal = function(clientId, prefillType){
   document.body.appendChild(ov);
   ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
   exchOpTypeChange();
+};
+
+window.exchConvCalc = function(changed){
+  var type=(document.getElementById('_eOT')||{}).value;
+  if(type!=='konversiya') return;
+  var amtIn  = parseFloat((document.getElementById('_eOA') ||{}).value)||0;
+  var amtOut = parseFloat((document.getElementById('_eOAO')||{}).value)||0;
+  var rate   = parseFloat((document.getElementById('_eOK') ||{}).value)||0;
+  var bankR  = parseFloat((document.getElementById('_eOBK')||{}).value)||0;
+  // Auto-hisoblash
+  if(changed==='rate'||changed==='in'){
+    if(rate>0 && amtIn>0){
+      var calc=(amtIn*rate);
+      var el=document.getElementById('_eOAO');
+      if(el) el.value=calc.toFixed(2);
+      amtOut=calc;
+    }
+  } else if(changed==='out'){
+    if(amtIn>0 && amtOut>0){
+      var r=(amtOut/amtIn);
+      var ek=document.getElementById('_eOK');
+      if(ek) ek.value=r.toFixed(4);
+      rate=r;
+    }
+  } else if(changed==='bank'){
+    // faqat preview yangilanadi
+  }
+  // Spread preview
+  var prev=document.getElementById('_eOSpreadPreview');
+  if(!prev) return;
+  if(bankR>0 && rate>0 && amtIn>0){
+    var spread=bankR-rate;
+    var curOut=(document.getElementById('_eOCO')||{}).value||'CNY';
+    var spreadAmt=spread*amtIn;
+    if(Math.abs(spread)<0.00001){prev.style.display='none';return;}
+    var isProfit=spreadAmt>0;
+    prev.style.display='block';
+    prev.style.background=isProfit?'rgba(23,179,116,0.1)':'rgba(255,77,106,0.1)';
+    prev.style.border='1px solid '+(isProfit?'rgba(23,179,116,0.3)':'rgba(255,77,106,0.3)');
+    prev.innerHTML=(isProfit?'💹':'⚠️')+' Spread: <b>'+(spread>0?'+':'')+spread.toFixed(4)+'</b>'
+      +' × '+amtIn.toLocaleString()+' = <b style="color:'+(isProfit?'#17B374':'#FF4D6A')+'">'
+      +(isProfit?'+':'')+spreadAmt.toFixed(2)+' '+curOut+'</b>'
+      +(isProfit?' — Exchange foydasi P&L ga avtomatik yoziladi':'');
+  } else {
+    prev.style.display='none';
+  }
 };
 
 window.exchOpTypeChange = function(){
@@ -29157,6 +29229,9 @@ window.saveExchOp = function(){
   var partId   =(document.getElementById('_eOPAR')||{}).value||'';
   var komCur   =(document.getElementById('_eOKomCur')||{}).value||curIn;
   var komAmt   =parseFloat((document.getElementById('_eOKomAmt')||{}).value)||0;
+  var bankRate =parseFloat((document.getElementById('_eOBK')||{}).value)||0;
+  var spreadProfit=0;
+  if(type==='konversiya'&&bankRate>0&&kurs>0&&amtIn>0) spreadProfit=(bankRate-kurs)*amtIn;
 
   if(!cliId){toast('Mijoz tanlanishi shart!','error');return;}
   if(!amtIn||amtIn<=0){toast('Miqdor 0 dan katta bo\'lishi kerak!','error');return;}
@@ -29184,6 +29259,8 @@ window.saveExchOp = function(){
     partner_id:    partId,
     commission_currency: (type==='transfer')?komCur:'',
     commission_amount:   (type==='transfer')?komAmt:0,
+    bank_rate:      (type==='konversiya')?bankRate:0,
+    spread_profit:  (type==='konversiya')?spreadProfit:0,
     created_at: new Date().toISOString(),
     created_by: (CUR_USER&&CUR_USER.name)||''
   };
