@@ -12069,13 +12069,25 @@ function procInjectToDATA(){
     });
   });
 }
+function getProcLinkedAgent(){
+  if(!CUR_USER||!CUR_USER.email) return null;
+  return (PROC_AGENTS||[]).find(function(a){ return a.linked_user_email===CUR_USER.email; })||null;
+}
+
 function rebuildProcNav(){
-  var tabs = [{id:'overview', lbl:'Umumiy', icon:'📊'}];
-  (PROC_AGENTS||[]).forEach(function(a){
-    tabs.push({id:'agent_'+a.id, lbl:(a.name||'Agent').split(' ')[0], icon:'👤'});
-  });
-  var canManage = CUR_USER && ['owner','holding_head','dir_head','holding_fin'].indexOf(CUR_USER.role)!==-1;
-  if(canManage) tabs.push({id:'addagent', lbl:'+ Agent', icon:'➕'});
+  var linkedAgent = getProcLinkedAgent();
+  var tabs;
+  if(linkedAgent){
+    // Linked agent faqat o'z tabini ko'radi
+    tabs = [{id:'agent_'+linkedAgent.id, lbl:(linkedAgent.name||'Agent').split(' ')[0], icon:'👤'}];
+  } else {
+    tabs = [{id:'overview', lbl:'Umumiy', icon:'📊'}];
+    (PROC_AGENTS||[]).forEach(function(a){
+      tabs.push({id:'agent_'+a.id, lbl:(a.name||'Agent').split(' ')[0], icon:'👤'});
+    });
+    var canManage = CUR_USER && ['owner','holding_head','dir_head','holding_fin'].indexOf(CUR_USER.role)!==-1;
+    if(canManage) tabs.push({id:'addagent', lbl:'+ Agent', icon:'➕'});
+  }
   SUBNAV_DEFS.procurement = tabs;
   buildNav();
 }
@@ -19126,6 +19138,9 @@ var PL_INTERCO = true;     // intercompany elimination on/off
 // ══════════════════════════════════════════════════════════════
 
 function renderProcOverview(){
+  // Linked agent bo'lsa o'z viewiga yo'naltirish
+  var linkedAgent = getProcLinkedAgent();
+  if(linkedAgent){ goNav('procurement:agent_'+linkedAgent.id); return; }
   var el = document.getElementById('pg-l2'); el.classList.add('on');
   setBc([{lbl:'🏭 Procurement',fn:"goNav('procurement')"},{lbl:'📊 Umumiy',fn:''}]);
   var cny=PROC_CNY_RATE||7.15;
@@ -19233,6 +19248,17 @@ function renderProcAddAgent(editId){
     +'<input id="pa_agent_share" type="number" step="1" min="0" max="100" value="'+(a.agent_share_pct||0)+'" placeholder="0" style="width:100%;padding:10px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:14px;box-sizing:border-box"></div>'
     +'<div><label style="display:block;font-size:12px;color:var(--t3);margin-bottom:6px">Telefon / Kontakt</label>'
     +'<input id="pa_contact" value="'+escHtml(a.contact||'')+'" placeholder="+998..." style="width:100%;padding:10px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:14px;box-sizing:border-box"></div>'
+    +'<div style="background:rgba(108,142,255,0.07);border:1px solid rgba(108,142,255,0.25);border-radius:10px;padding:14px">'
+    +'<label style="display:block;font-size:12px;color:#6C8EFF;margin-bottom:6px;font-weight:600">🔗 FinanceHub foydalanuvchisi bilan bog\'lash</label>'
+    +'<select id="pa_linked_user" style="width:100%;padding:10px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:14px">'
+    +'<option value="">— Bog\'lanmagan —</option>'
+    +(FH_MANAGED_USERS||[]).filter(function(u){return u.direction==='procurement'||!u.direction;}).map(function(u){
+      var sel=(a.linked_user_email===u.email)?'selected':'';
+      return '<option value="'+escHtml(u.email||'')+'" '+sel+'>'+escHtml(u.full_name||u.email)+'  ('+escHtml(u.email||'')+')</option>';
+    }).join('')
+    +'</select>'
+    +'<div style="font-size:11px;color:var(--t3);margin-top:6px">Bu foydalanuvchi kirganida faqat ushbu agentning loyihalari ko\'rinadi</div>'
+    +'</div>'
     +'</div>'
     +'<div style="display:flex;gap:12px;margin-top:24px">'
     +'<button onclick="procSaveAgent(\''+( editId||'')+'\','+isEdit+')" style="flex:1;padding:12px;background:#3B82F6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600">'+(isEdit?'💾 Saqlash':'Saqlash')+'</button>'
@@ -19246,7 +19272,8 @@ function procSaveAgent(editId, isEdit){
   var data={name:name.trim(),specialty:(document.getElementById('pa_specialty')||{}).value||'',
     commission_default:+(document.getElementById('pa_comm')||{value:4.5}).value||4.5,
     agent_share_pct:+(document.getElementById('pa_agent_share')||{value:0}).value||0,
-    contact:(document.getElementById('pa_contact')||{}).value||''};
+    contact:(document.getElementById('pa_contact')||{}).value||'',
+    linked_user_email:(document.getElementById('pa_linked_user')||{}).value||''};
   if(isEdit && editId){
     PROC_AGENTS=PROC_AGENTS.map(function(a){return a.id===editId?Object.assign({},a,data,{updated_at:new Date().toISOString().slice(0,10)}):a;});
     procSaveAgents();rebuildProcNav();goNav('procurement:agent_'+editId);
