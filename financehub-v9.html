@@ -19371,8 +19371,9 @@ function renderProcExpenses(agentId){
     +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:5px">Buyurtma (ixtiyoriy)</label><select id="pe_order" style="width:100%;padding:9px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px;box-sizing:border-box">'+orderOpts+'</select></div>'
     +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:5px">Kategoriya</label><select id="pe_cat" style="width:100%;padding:9px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px;box-sizing:border-box">'+PROC_EXP_CATS.map(function(c){return '<option value="'+c.id+'">'+c.lbl+'</option>';}).join('')+'</select></div>'
     +'<div style="display:grid;grid-template-columns:1fr auto;gap:8px">'
-    +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:5px">Summa</label><input id="pe_amount" type="number" min="0" placeholder="0" style="width:100%;padding:9px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px;box-sizing:border-box"></div>'
-    +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:5px">Valyuta</label><select id="pe_cur" style="padding:9px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px"><option value="RMB">RMB</option><option value="USD">USD</option><option value="UZS">UZS</option></select></div></div>'
+    +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:5px">Summa</label><input id="pe_amount" type="number" min="0" placeholder="0" oninput="procExpCalcUSD()" style="width:100%;padding:9px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px;box-sizing:border-box"></div>'
+    +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:5px">Valyuta</label><select id="pe_cur" onchange="procExpCalcUSD()" style="padding:9px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px"><option value="RMB">¥ RMB</option><option value="USD">$ USD</option><option value="UZS">so\'m UZS</option></select></div></div>'
+    +'<div id="pe_usd_preview" style="display:none;padding:8px 12px;background:rgba(23,179,116,0.08);border:1px solid rgba(23,179,116,0.2);border-radius:7px;font-size:12px;color:#17B374"></div>'
     +'<div><label style="display:block;font-size:11px;color:var(--t3);margin-bottom:5px">Izoh</label><input id="pe_desc" placeholder="Qisqacha tavsif..." style="width:100%;padding:9px 12px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:13px;box-sizing:border-box"></div>'
     +'</div><button onclick="procSaveExpense(\''+agentId+'\')" style="margin-top:16px;width:100%;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600">Saqlash</button></div>'
     +'<div style="background:var(--s2);border:1px solid var(--b1);border-radius:12px;overflow:hidden">'
@@ -19384,23 +19385,47 @@ function renderProcExpenses(agentId){
     +'<th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--t3);font-weight:600">SUMMA</th>'
     +'<th style="padding:8px 12px;text-align:right;font-size:11px;color:var(--t3);font-weight:600">USD</th>'
     +'<th style="padding:8px 12px"></th></tr></thead><tbody>'
-    +expenses.map(function(e){var usd=e.currency==='RMB'?(+(e.amount||0))/cny:e.currency==='UZS'?(+(e.amount||0))/(OB.fx_rate_uzs||12700):(+(e.amount||0));var sym=e.currency==='RMB'?'¥':e.currency==='UZS'?'so\'m':'$';
+    +expenses.map(function(e){
+      var usd=e.usd_at_entry||(e.currency==='RMB'?(+(e.amount||0))/(e.rate_at_entry||cny):e.currency==='UZS'?(+(e.amount||0))/(e.rate_at_entry||(OB.fx_rate_uzs||12700)):(+(e.amount||0)));
+      var sym=e.currency==='RMB'?'¥':e.currency==='UZS'?'so\'m':'$';
+      var rateHint=e.rate_at_entry&&e.currency!=='USD'?' title="Kiritish kunidagi kurs: '+(e.currency==='RMB'?'¥':'so\'m')+e.rate_at_entry+' = $1"':'';
       return '<tr style="border-top:1px solid var(--b1)">'
       +'<td style="padding:8px 12px;color:var(--t3);font-size:12px">'+(e.date||'').slice(0,10)+'</td>'
       +'<td style="padding:8px 12px;color:var(--t2);font-size:12px">'+(catMap[e.category]||e.category||'—')+'</td>'
       +'<td style="padding:8px 12px;text-align:right;color:var(--t1);font-size:12px">'+sym+(+(e.amount||0)).toLocaleString()+'</td>'
-      +'<td style="padding:8px 12px;text-align:right;color:#EF4444;font-size:12px">'+fmt(usd)+'</td>'
+      +'<td style="padding:8px 12px;text-align:right;color:#EF4444;font-size:12px"'+rateHint+'>'+fmt(usd)+'</td>'
       +'<td style="padding:8px 12px;text-align:center"><span onclick="procDelExpense(\''+e.id+'\',\''+agentId+'\')" style="cursor:pointer;color:var(--t3)" title="O\'chirish">🗑</span></td>'
       +'</tr>';}).join('')+'</tbody></table></div>')
     +'</div></div>';
 }
 
+function procExpCalcUSD(){
+  var amt=+(document.getElementById('pe_amount')||{value:0}).value||0;
+  var cur=(document.getElementById('pe_cur')||{value:'RMB'}).value;
+  var prev=document.getElementById('pe_usd_preview');
+  if(!prev||!amt){if(prev)prev.style.display='none';return;}
+  var cny=PROC_CNY_RATE||7.15;
+  var uzs=(typeof OB!=='undefined'&&OB.fx_rate_uzs)||12700;
+  var usd=cur==='RMB'?amt/cny:cur==='UZS'?amt/uzs:amt;
+  if(cur==='USD'){prev.style.display='none';return;}
+  prev.style.display='block';
+  prev.innerHTML='≈ <b>$'+usd.toFixed(2)+'</b> USD'
+    +(cur==='RMB'?' (kurs: ¥'+cny+' = $1)':' (kurs: '+uzs.toFixed(0)+' so\'m = $1)');
+}
+
 function procSaveExpense(agentId){
   var g=function(id){var el=document.getElementById(id);return el?el.value:'';};
   var amount=+(g('pe_amount'))||0;if(!amount){alert('Summani kiriting!');return;}
+  var cur=g('pe_cur')||'RMB';
+  var cny=PROC_CNY_RATE||7.15;
+  var uzs=(typeof OB!=='undefined'&&OB.fx_rate_uzs)||12700;
+  var usdAtEntry=cur==='RMB'?amount/cny:cur==='UZS'?amount/uzs:amount;
   PROC_EXPENSES.push({id:procGenId('pe'),agent_id:agentId,order_id:g('pe_order')||null,
     date:g('pe_date')||new Date().toISOString().slice(0,10),category:g('pe_cat')||'boshqa',
-    amount:amount,currency:g('pe_cur')||'RMB',description:g('pe_desc'),
+    amount:amount,currency:cur,
+    usd_at_entry:+usdAtEntry.toFixed(4),
+    rate_at_entry:cur==='RMB'?cny:cur==='UZS'?uzs:1,
+    description:g('pe_desc'),
     created_at:new Date().toISOString().slice(0,10)});
   procSaveExpenses();renderProcExpenses(agentId);
 }
@@ -19696,7 +19721,7 @@ function procParsePDF(input,orderId){
       body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1024,
         messages:[{role:'user',content:[
           {type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},
-          {type:'text',text:'Extract from this contract: contract_no, contract_date (YYYY-MM-DD), client_name, product_name, client_price_usd (number), vat_rate (number, typically 13), supplier_name, supplier_price_rmb (number). Return as JSON only, no explanation.'}
+          {type:'text',text:'Extract from this contract and return as JSON only (no explanation, no markdown):\n- contract_no: string\n- contract_date: YYYY-MM-DD\n- client_name: string (translate Chinese characters to English)\n- product_name: string (translate Chinese characters to English)\n- client_price_usd: number\n- vat_rate: number (typically 13 for China)\n- supplier_name: string (translate Chinese company name to English, e.g. 义乌市大尘港出口有限公司 → Yiwu Dachengang Export Co., Ltd)\n- supplier_price_rmb: number\nIMPORTANT: Translate ALL Chinese text to English. Return only valid JSON.'}
         ]}]})
     }).then(function(r){return r.json();}).then(function(data){
       try{
