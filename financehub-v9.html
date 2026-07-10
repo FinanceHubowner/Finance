@@ -19721,7 +19721,7 @@ function procParsePDF(input,orderId){
       body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1024,
         messages:[{role:'user',content:[
           {type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},
-          {type:'text',text:'Extract from this contract and return as JSON only (no explanation, no markdown):\n- contract_no: string\n- contract_date: YYYY-MM-DD\n- client_name: string (translate Chinese characters to English)\n- product_name: string (translate Chinese characters to English)\n- client_price_usd: number\n- vat_rate: number (typically 13 for China)\n- supplier_name: string (translate Chinese company name to English, e.g. 义乌市大尘港出口有限公司 → Yiwu Dachengang Export Co., Ltd)\n- supplier_price_rmb: number\nIMPORTANT: Translate ALL Chinese text to English. Return only valid JSON.'}
+          {type:'text',text:'Extract from this contract and return as JSON only (no explanation, no markdown):\n- contract_no: string\n- contract_date: YYYY-MM-DD\n- client_name: string (translate Chinese characters to English)\n- product_name: string (translate Chinese characters to English)\n- client_price_usd: number (ONLY if explicitly stated in USD; otherwise set to 0)\n- client_price_rmb: number (price in RMB/CNY/yuan if stated in Chinese currency; otherwise 0)\n- vat_rate: number (typically 13 for China)\n- supplier_name: string (translate Chinese company name to English, e.g. 义乌市大尘港出口有限公司 → Yiwu Dachengang Export Co., Ltd)\n- supplier_price_rmb: number\nIMPORTANT: Translate ALL Chinese text to English. Do NOT convert currencies yourself. Return only valid JSON.'}
         ]}]})
     }).then(function(r){return r.json();}).then(function(data){
       try{
@@ -19736,7 +19736,11 @@ function procParsePDF(input,orderId){
           return str;};
         s('po_contract_no',ex.contract_no);s('po_contract_date',normDate(ex.contract_date));
         s('po_client',ex.client_name);s('po_product',ex.product_name);
-        if(ex.client_price_usd){s('po_client_price',ex.client_price_usd);procCalcComm();}
+        var cnyRate=PROC_CNY_RATE||7.15;
+        var clientUSD=ex.client_price_usd&&ex.client_price_usd>0?ex.client_price_usd
+          :ex.client_price_rmb&&ex.client_price_rmb>0?+(ex.client_price_rmb/cnyRate).toFixed(2)
+          :ex.supplier_price_rmb&&ex.supplier_price_rmb>0?+(ex.supplier_price_rmb/cnyRate).toFixed(2):0;
+        if(clientUSD){s('po_client_price',clientUSD);procCalcComm();}
         s('po_supplier',ex.supplier_name);
         if(ex.supplier_price_rmb){s('po_supp_price',ex.supplier_price_rmb);procCalcVAT();}
         if(ex.vat_rate){s('po_vat_rate',ex.vat_rate);procCalcVAT();}
