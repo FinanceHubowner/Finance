@@ -13496,6 +13496,7 @@ function renderOrgChart(){
     {id:'teams',    lbl:'Teamlar',        icon:'👥'},
     {id:'lavozims', lbl:'Lavozimlar',     icon:'🎯'},
     {id:'shtat',    lbl:'Shtat Jadvali',  icon:'📊'},
+    {id:'daraxt',   lbl:'Org Chart',      icon:'🌳'},
   ];
 
   var h = '<div style="padding:20px;max-width:1300px;margin:0 auto">';
@@ -13561,6 +13562,7 @@ function renderOrgChart(){
   else if(tab==='teams')    h += orgRenderTeams();
   else if(tab==='lavozims') h += orgRenderLavozims();
   else if(tab==='shtat')    h += orgRenderShtat();
+  else if(tab==='daraxt')   h += orgRenderDaraxtFrame();
 
   // Modal
   h += orgModalHTML();
@@ -13809,6 +13811,366 @@ function orgRenderShtat(){
   h += '</tbody></table></div>';
   return h;
 }
+
+// ══════════════════════════════════════════════════════════════
+// ORG CHART — DARAXT KO'RINISHI
+// ══════════════════════════════════════════════════════════════
+var _ocPan={x:80,y:60}, _ocZoom=0.85, _ocDrag=null, _ocCollapsed={}, _ocSearch='', _ocFilterDir='all', _ocNodes=[], _ocEdges=[];
+var OC_CW=168, OC_CH=88, OC_HGAP=28, OC_VGAP=72;
+
+function orgRenderDaraxtFrame(){
+  var dirOpts='<option value="all">— Barcha yo\'nalishlar —</option>';
+  (DIRS||[]).forEach(function(d){ dirOpts+='<option value="'+d.id+'"'+(_ocFilterDir===d.id?' selected':'')+'>'+(d.icon||'🏢')+' '+escHtml(d.name)+'</option>'; });
+  var h='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;overflow:hidden">';
+  // Toolbar
+  h+='<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--b1);flex-wrap:wrap">';
+  h+='<input id="_ocSearch" type="text" placeholder="🔍 Ism, lavozim, bo\'lim..." value="'+escHtml(_ocSearch)+'" oninput="orgOcSearch(this.value)" style="flex:1;min-width:180px;padding:7px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px">';
+  h+='<select id="_ocDirFlt" onchange="orgOcFilterDir(this.value)" style="padding:7px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px">'+dirOpts+'</select>';
+  h+='<button onclick="orgOcZoom(0.15)" title="Kattalashtirish" style="padding:6px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--t1);cursor:pointer;font-size:14px">＋</button>';
+  h+='<button onclick="orgOcZoom(-0.15)" title="Kichraytirish" style="padding:6px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--t1);cursor:pointer;font-size:14px">－</button>';
+  h+='<button onclick="orgOcReset()" title="Markazga qaytish" style="padding:6px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--t1);cursor:pointer;font-size:12px">⊙</button>';
+  h+='<button onclick="orgOcCollapseAll()" style="padding:6px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--t1);cursor:pointer;font-size:11px">Yig\'ish</button>';
+  h+='<button onclick="orgOcExpandAll()" style="padding:6px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;color:var(--t1);cursor:pointer;font-size:11px">Ochish</button>';
+  h+='<button onclick="orgOcExportPNG()" style="padding:6px 10px;background:rgba(108,142,255,0.15);border:1px solid rgba(108,142,255,0.3);border-radius:7px;color:#6C8EFF;cursor:pointer;font-size:11px">📸 PNG</button>';
+  h+='</div>';
+  // Canvas area
+  h+='<div id="_ocViewport" style="position:relative;width:100%;height:calc(100vh - 280px);min-height:500px;overflow:hidden;background:var(--s2);cursor:grab" onmousedown="orgOcMD(event)" onmousemove="orgOcMM(event)" onmouseup="orgOcMU(event)" onmouseleave="orgOcMU(event)" onwheel="orgOcWheel(event)">';
+  h+='<div id="_ocCanvas" style="position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform">';
+  h+='<svg id="_ocSvg" style="position:absolute;top:0;left:0;overflow:visible;pointer-events:none"></svg>';
+  h+='<div id="_ocCards"></div>';
+  h+='</div></div></div>';
+  setTimeout(orgOcInit, 60);
+  return h;
+}
+
+function orgOcInit(){
+  var vp=document.getElementById('_ocViewport'); if(!vp) return;
+  orgOcBuild();
+  orgOcLayout();
+  orgOcDraw();
+  orgOcApplyTransform();
+}
+
+/* ── Build tree ── */
+function orgOcBuild(){
+  _ocNodes=[]; _ocEdges=[];
+  var dirs=(DIRS||[]).filter(function(d){ return _ocFilterDir==='all'||d.id===_ocFilterDir; });
+  var emps=HRM_EMP||[];
+
+  // ROOT: Holding
+  var root={id:'root',type:'holding',label:'Chinwakil Holding',sub:'',children:[],_w:0,x:0,y:0,depth:0};
+  _ocNodes.push(root);
+
+  dirs.forEach(function(d){
+    var dn={id:'dir_'+d.id,type:'dir',label:(d.icon||'🏢')+' '+d.name,sub:'',refId:d.id,children:[],_w:0,x:0,y:0,depth:1};
+    _ocNodes.push(dn); _ocEdges.push({from:'root',to:dn.id,type:'admin'});
+    root.children.push(dn.id);
+
+    // Departments in this dir
+    var depts=ORG_DEPTS.filter(function(x){ return x.dir_id===d.id&&x.status!=='Arxivlangan'; });
+    if(depts.length){
+      depts.forEach(function(dp){
+        var dpn={id:'dept_'+dp.id,type:'dept',label:dp.name,sub:'Departament',refId:dp.id,children:[],_w:0,x:0,y:0,depth:2};
+        _ocNodes.push(dpn); _ocEdges.push({from:dn.id,to:dpn.id,type:'admin'});
+        dn.children.push(dpn.id);
+
+        var bolims=ORG_BOLIMS.filter(function(b){ return b.dept_id===dp.id&&b.status!=='Arxivlangan'; });
+        orgOcAddBolims(bolims,dpn,d,emps,3);
+      });
+    } else {
+      // No depts — bolims directly under dir
+      var bolims=ORG_BOLIMS.filter(function(b){ return b.dir_id===d.id&&b.status!=='Arxivlangan'; });
+      orgOcAddBolims(bolims,dn,d,emps,2);
+    }
+
+    // Positions with no bolim (directly under dir)
+    var orphanLavs=ORG_LAVOZIMS.filter(function(lv){ return lv.dir_id===d.id&&!lv.bolim_id&&!lv.team_id&&lv.status!=='Arxivlangan'; });
+    orgOcAddLavozims(orphanLavs,dn,d,emps,2);
+
+    if(!dn.children.length) dn._leaf=true;
+  });
+}
+
+function orgOcAddBolims(bolims,parentNode,d,emps,depth){
+  bolims.forEach(function(b){
+    var bn={id:'bolim_'+b.id,type:'bolim',label:b.name,sub:"Bo'lim",refId:b.id,children:[],_w:0,x:0,y:0,depth:depth};
+    _ocNodes.push(bn); _ocEdges.push({from:parentNode.id,to:bn.id,type:'admin'});
+    parentNode.children.push(bn.id);
+
+    var teams=ORG_TEAMS.filter(function(t){ return t.bolim_id===b.id&&t.status==='Faol'; });
+    if(teams.length){
+      teams.forEach(function(tm){
+        var tmn={id:'team_'+tm.id,type:'team',label:tm.name,sub:'Team',refId:tm.id,children:[],_w:0,x:0,y:0,depth:depth+1};
+        _ocNodes.push(tmn); _ocEdges.push({from:bn.id,to:tmn.id,type:'admin'});
+        bn.children.push(tmn.id);
+        var lavs=ORG_LAVOZIMS.filter(function(lv){ return lv.team_id===tm.id&&lv.status!=='Arxivlangan'; });
+        orgOcAddLavozims(lavs,tmn,d,emps,depth+2);
+      });
+    }
+    // Lavozims directly under bolim (no team)
+    var lavs=ORG_LAVOZIMS.filter(function(lv){ return lv.bolim_id===b.id&&!lv.team_id&&lv.status!=='Arxivlangan'; });
+    orgOcAddLavozims(lavs,bn,d,emps,depth+1);
+  });
+}
+
+function orgOcAddLavozims(lavs,parentNode,d,emps,depth){
+  lavs.forEach(function(lv){
+    var bolim=lv.bolim_id?ORG_BOLIMS.find(function(b){return b.id===lv.bolim_id;}):null;
+    var bname=(bolim?bolim.name:'').toLowerCase();
+    var assigned=emps.filter(function(e){
+      return e.status==='Ishlayapti'
+        && (e.pos||'').toLowerCase().indexOf((lv.name||'').toLowerCase())>=0
+        && (e.dir===d.id)
+        && (!bname||(e.dept||'').toLowerCase().indexOf(bname)>=0);
+    });
+    var reja=parseInt(lv.shtat_soni)||1;
+    var vacant=Math.max(0,reja-assigned.length);
+
+    if(!assigned.length&&!vacant){ vacant=1; } // always show at least 1
+
+    assigned.forEach(function(e,i){
+      var fullName=((e.lname||'')+(e.fname?' '+e.fname:'')).trim()||(e.name||'Xodim');
+      var en={id:'emp_'+e.id+'_'+lv.id,type:'emp',label:fullName,sub:lv.name,refId:e.id,lavozimId:lv.id,dir:d.id,gender:e.gender,photo:e.photo,children:[],_w:0,x:0,y:0,depth:depth};
+      _ocNodes.push(en); _ocEdges.push({from:parentNode.id,to:en.id,type:'admin'});
+      parentNode.children.push(en.id);
+    });
+    for(var v=0;v<vacant;v++){
+      var vn={id:'vac_'+lv.id+'_'+v,type:'vacant',label:'VAKANT',sub:lv.name,lavozimId:lv.id,children:[],_w:0,x:0,y:0,depth:depth};
+      _ocNodes.push(vn); _ocEdges.push({from:parentNode.id,to:vn.id,type:'admin'});
+      parentNode.children.push(vn.id);
+    }
+  });
+}
+
+/* ── Layout (top-down, centered) ── */
+function orgOcLayout(){
+  var nodeMap={};
+  _ocNodes.forEach(function(n){ nodeMap[n.id]=n; });
+  // Collapse: remove children of collapsed nodes from layout
+  function subtreeW(nid){
+    var n=nodeMap[nid]; if(!n) return OC_CW;
+    var vis=n.children.filter(function(c){ return !_ocCollapsed[nid]; });
+    if(!vis.length) return OC_CW;
+    var total=0;
+    vis.forEach(function(c,i){ total+=subtreeW(c)+(i?OC_HGAP:0); });
+    n._w=Math.max(OC_CW,total);
+    return n._w;
+  }
+  function place(nid,x,y){
+    var n=nodeMap[nid]; if(!n) return;
+    n.x=x; n.y=y;
+    var vis=n.children.filter(function(){ return !_ocCollapsed[nid]; });
+    if(!vis.length) return;
+    var totalW=0;
+    vis.forEach(function(c,i){ totalW+=subtreeW(c)+(i?OC_HGAP:0); });
+    var cx=x-totalW/2;
+    vis.forEach(function(c){
+      var cw=subtreeW(c);
+      place(c,cx+cw/2,y+OC_CH+OC_VGAP);
+      cx+=cw+OC_HGAP;
+    });
+  }
+  subtreeW('root');
+  place('root',0,0);
+}
+
+/* ── Draw ── */
+function orgOcDraw(){
+  var nodeMap={};
+  _ocNodes.forEach(function(n){ nodeMap[n.id]=n; });
+
+  // Search filter
+  var sq=_ocSearch.toLowerCase().trim();
+  var matchIds={};
+  if(sq){
+    _ocNodes.forEach(function(n){
+      if((n.label||'').toLowerCase().indexOf(sq)>=0||(n.sub||'').toLowerCase().indexOf(sq)>=0)
+        matchIds[n.id]=true;
+    });
+  }
+
+  // Calculate canvas size
+  var minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  _ocNodes.forEach(function(n){
+    minX=Math.min(minX,n.x-OC_CW/2);minY=Math.min(minY,n.y);
+    maxX=Math.max(maxX,n.x+OC_CW/2);maxY=Math.max(maxY,n.y+OC_CH);
+  });
+  var pad=60;
+  var W=maxX-minX+pad*2, H=maxY-minY+pad*2;
+  var ox=-minX+pad, oy=-minY+pad;
+
+  // SVG lines
+  var svg=document.getElementById('_ocSvg'); if(!svg) return;
+  svg.setAttribute('width',W); svg.setAttribute('height',H);
+  svg.setAttribute('viewBox','0 0 '+W+' '+H);
+  var lines='';
+  _ocEdges.forEach(function(e){
+    var fn=nodeMap[e.from], tn=nodeMap[e.to];
+    if(!fn||!tn) return;
+    if(_ocCollapsed[e.from]) return;
+    var x1=fn.x+ox, y1=fn.y+oy+OC_CH;
+    var x2=tn.x+ox, y2=tn.y+oy;
+    var my=(y1+y2)/2;
+    var dash=e.type==='func'?'stroke-dasharray="6,4"':'';
+    lines+='<path d="M'+x1+','+y1+' C'+x1+','+my+' '+x2+','+my+' '+x2+','+y2+'" fill="none" stroke="rgba(108,142,255,0.45)" stroke-width="1.5" '+dash+'/>';
+  });
+  svg.innerHTML=lines;
+
+  // Cards
+  var cards=document.getElementById('_ocCards'); if(!cards) return;
+  var html='';
+  _ocNodes.forEach(function(n){
+    if(n.y===undefined||n.x===undefined) return;
+    var cx=n.x+ox-OC_CW/2, cy=n.y+oy;
+    var isMatch=sq&&matchIds[n.id];
+    var isDim=sq&&!matchIds[n.id];
+
+    var bg,border,labelColor,subColor;
+    if(n.type==='holding'){bg='linear-gradient(135deg,#1a2a4a,#0d1b2a)';border='#6C8EFF';labelColor='#fff';subColor='#B0BEC5';}
+    else if(n.type==='dir'){bg='linear-gradient(135deg,rgba(108,142,255,0.18),rgba(108,142,255,0.05))';border='#6C8EFF';labelColor='#6C8EFF';subColor='#B0BEC5';}
+    else if(n.type==='dept'){bg='rgba(23,179,116,0.08)';border='rgba(23,179,116,0.4)';labelColor='#17B374';subColor='#B0BEC5';}
+    else if(n.type==='bolim'){bg='rgba(255,184,48,0.07)';border='rgba(255,184,48,0.35)';labelColor='#FFB830';subColor='#B0BEC5';}
+    else if(n.type==='team'){bg='rgba(0,212,255,0.07)';border='rgba(0,212,255,0.35)';labelColor='#00D4FF';subColor='#B0BEC5';}
+    else if(n.type==='vacant'){bg='rgba(255,77,106,0.07)';border='rgba(255,77,106,0.3)';labelColor='#FF4D6A';subColor='#B0BEC5';}
+    else{bg='var(--s1)';border='var(--b1)';labelColor='var(--t1)';subColor='var(--t3)';}
+
+    if(isMatch){border='#FFB830';}
+    var opacity=isDim?0.35:1;
+    var hasChildren=n.children&&n.children.length>0;
+    var collapsed=_ocCollapsed[n.id];
+
+    // Avatar for emp
+    var avatarHtml='';
+    if(n.type==='emp'){
+      if(n.photo){
+        avatarHtml='<div style="width:32px;height:32px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2px solid #6C8EFF"><img src="'+escHtml(n.photo)+'" style="width:100%;height:100%;object-fit:cover"></div>';
+      } else {
+        var initials=((n.label||'?').split(' ').map(function(p){return p[0]||'';}).join('').slice(0,2)).toUpperCase();
+        var acolor=n.gender==='Ayol'?'#FF4D6A':'#6C8EFF';
+        avatarHtml='<div style="width:32px;height:32px;border-radius:50%;background:'+acolor+'22;border:2px solid '+acolor+';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:'+acolor+';flex-shrink:0">'+initials+'</div>';
+      }
+    } else if(n.type==='vacant'){
+      avatarHtml='<div style="width:32px;height:32px;border-radius:50%;background:rgba(255,77,106,0.1);border:2px dashed #FF4D6A;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">?</div>';
+    }
+
+    var clickFn='';
+    if(n.type==='emp') clickFn='orgOcOpenEmp(\''+n.refId+'\')';
+    else if(n.type==='dept') clickFn='orgOcOpenDept(\''+n.refId+'\')';
+    else if(n.type==='bolim') clickFn='orgOcOpenBolim(\''+n.refId+'\')';
+    else if(hasChildren) clickFn='orgOcToggle(\''+n.id+'\')';
+
+    var collapseBtn='';
+    if(hasChildren){
+      collapseBtn='<div onclick="event.stopPropagation();orgOcToggle(\''+n.id+'\')" style="position:absolute;bottom:-10px;left:50%;transform:translateX(-50%);width:20px;height:20px;border-radius:50%;background:var(--s2);border:1px solid var(--b1);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:10px;color:var(--t3);z-index:2">'+(collapsed?'+':'−')+'</div>';
+    }
+
+    var labelShort=(n.label||'').length>20?n.label.slice(0,19)+'…':n.label;
+    var subShort=(n.sub||'').length>22?n.sub.slice(0,21)+'…':n.sub;
+
+    html+='<div onclick="'+(clickFn||'')+'" style="position:absolute;left:'+cx+'px;top:'+cy+'px;width:'+OC_CW+'px;height:'+OC_CH+'px;background:'+bg+';border:1.5px solid '+(isMatch?'#FFB830':border)+';border-radius:10px;padding:10px;box-sizing:border-box;cursor:'+(clickFn?'pointer':'default')+';opacity:'+opacity+';transition:box-shadow 0.15s,opacity 0.15s;display:flex;align-items:center;gap:8px;overflow:hidden" '
+      +'onmouseover="if(!this._drag)this.style.boxShadow=\'0 0 0 2px '+(isMatch?'#FFB830':border)+'\'" onmouseout="this.style.boxShadow=\'\'">';
+    if(avatarHtml) html+=avatarHtml;
+    html+='<div style="min-width:0;flex:1">';
+    html+='<div style="font-size:11px;font-weight:700;color:'+labelColor+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3" title="'+escHtml(n.label||'')+'">'+escHtml(labelShort)+'</div>';
+    if(n.sub) html+='<div style="font-size:10px;color:'+subColor+';margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+escHtml(n.sub||'')+'">'+escHtml(subShort)+'</div>';
+    if(hasChildren&&!collapsed) html+='<div style="font-size:9px;color:var(--t3);margin-top:3px">'+n.children.length+' ta</div>';
+    html+='</div>';
+    html+=collapseBtn;
+    html+='</div>';
+  });
+  cards.innerHTML=html;
+
+  // Resize canvas
+  var cnv=document.getElementById('_ocCanvas');
+  if(cnv){cnv.style.width=W+'px';cnv.style.height=H+'px';}
+}
+
+function orgOcApplyTransform(){
+  var cnv=document.getElementById('_ocCanvas');
+  if(cnv) cnv.style.transform='translate('+_ocPan.x+'px,'+_ocPan.y+'px) scale('+_ocZoom+')';
+}
+
+/* ── Controls ── */
+window.orgOcZoom=function(delta){
+  _ocZoom=Math.min(2,Math.max(0.2,_ocZoom+delta));
+  orgOcApplyTransform();
+};
+window.orgOcReset=function(){
+  _ocPan={x:80,y:60};_ocZoom=0.85;orgOcApplyTransform();
+};
+window.orgOcCollapseAll=function(){
+  _ocNodes.forEach(function(n){ if(n.children&&n.children.length) _ocCollapsed[n.id]=true; });
+  orgOcLayout();orgOcDraw();
+};
+window.orgOcExpandAll=function(){
+  _ocCollapsed={};orgOcLayout();orgOcDraw();
+};
+window.orgOcToggle=function(id){
+  _ocCollapsed[id]=!_ocCollapsed[id];
+  orgOcLayout();orgOcDraw();
+};
+window.orgOcSearch=function(v){
+  _ocSearch=v;orgOcDraw();
+};
+window.orgOcFilterDir=function(v){
+  _ocFilterDir=v;_ocCollapsed={};orgOcBuild();orgOcLayout();orgOcDraw();
+};
+
+/* ── Pan (drag) ── */
+window.orgOcMD=function(e){
+  if(e.button!==0) return;
+  _ocDrag={sx:e.clientX-_ocPan.x,sy:e.clientY-_ocPan.y};
+  var vp=document.getElementById('_ocViewport');if(vp)vp.style.cursor='grabbing';
+};
+window.orgOcMM=function(e){
+  if(!_ocDrag) return;
+  _ocPan.x=e.clientX-_ocDrag.sx; _ocPan.y=e.clientY-_ocDrag.sy;
+  orgOcApplyTransform();
+};
+window.orgOcMU=function(){
+  _ocDrag=null;
+  var vp=document.getElementById('_ocViewport');if(vp)vp.style.cursor='grab';
+};
+window.orgOcWheel=function(e){
+  e.preventDefault();
+  var delta=e.deltaY>0?-0.08:0.08;
+  _ocZoom=Math.min(2,Math.max(0.2,_ocZoom+delta));
+  orgOcApplyTransform();
+};
+
+/* ── Card actions ── */
+window.orgOcOpenEmp=function(empId){
+  var e=(HRM_EMP||[]).find(function(x){return x.id===empId;});
+  if(!e) return;
+  window._prevOcState={pan:{x:_ocPan.x,y:_ocPan.y},zoom:_ocZoom,collapsed:JSON.stringify(_ocCollapsed)};
+  goNav((e.dir||'holding')+':hrm');
+  setTimeout(function(){ if(typeof openEmpProfile==='function') openEmpProfile(empId); },300);
+};
+window.orgOcOpenDept=function(deptId){
+  window._orgTab='depts'; renderOrgChart();
+};
+window.orgOcOpenBolim=function(bolimId){
+  window._orgTab='bolims'; renderOrgChart();
+};
+
+/* ── Export PNG ── */
+window.orgOcExportPNG=function(){
+  var cnv=document.getElementById('_ocCanvas');
+  if(!cnv){toast('Canvas topilmadi','error');return;}
+  // Use html2canvas alternative: create download of SVG as image
+  var svg=document.getElementById('_ocSvg');
+  if(!svg){toast('Eksport uchun daraxt mavjud emas','error');return;}
+  try{
+    var serializer=new XMLSerializer();
+    var svgStr=serializer.serializeToString(svg);
+    var blob=new Blob([svgStr],{type:'image/svg+xml'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    a.href=url;a.download='orgchart_'+new Date().toISOString().slice(0,10)+'.svg';
+    a.click();URL.revokeObjectURL(url);
+    toast('SVG yuklandi ✓','success');
+  }catch(err){toast('Eksport xatosi: '+err.message,'error');}
+};
 
 function orgModalHTML(){
   return '<div id="orgModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9000;display:none;align-items:center;justify-content:center">' +
