@@ -12189,13 +12189,23 @@ function exchClientSave(){
   lsSave('exch_clients',     EXCH_CLIENTS);
   lsSave('exch_client_txns', EXCH_CLIENT_TXNS);
   exchInjectToDATA();
-  if(!SB||DEMO_MODE) return;
+  if(!SB||DEMO_MODE){
+    if(!DEMO_MODE) toast('⚠️ Supabase ulanmagan — data faqat bu qurilmada saqlandi!','error');
+    return;
+  }
+  var errs=0;
   if(EXCH_CLIENTS.length)
     SB.from('app_exch_clients').upsert(EXCH_CLIENTS,{onConflict:'id'})
-      .then(function(r){ if(r.error) console.warn('[EXCH_CLI]',r.error.message); });
+      .then(function(r){
+        if(r.error){errs++;console.error('[EXCH_CLI]',r.error.message,r.error.code);
+          toast('⚠️ Mijozlar Supabase ga saqlanmadi: '+r.error.message,'error');}
+      });
   if(EXCH_CLIENT_TXNS.length)
     SB.from('app_exch_client_txns').upsert(EXCH_CLIENT_TXNS,{onConflict:'id'})
-      .then(function(r){ if(r.error) console.warn('[EXCH_TXN]',r.error.message); });
+      .then(function(r){
+        if(r.error){errs++;console.error('[EXCH_TXN]',r.error.message,r.error.code);
+          toast('⚠️ Tranzaksiyalar Supabase ga saqlanmadi: '+r.error.message,'error');}
+      });
 }
 
 function exchClientSyncFromSB(onDone){
