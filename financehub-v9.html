@@ -29527,9 +29527,11 @@ window.openExchOpModal = function(clientId, prefillType){
     +'<select id="_eOC" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px">'
     +(cliOpts||'<option value="">— Avval mijoz qo\'shing —</option>')
     +'</select></div>'
-    // Sana
+    // Sana (Juftlash da ham ko'rinadi)
     +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Sana *</label>'
     +'<input id="_eOD" type="date" value="'+today+'" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box"></div>'
+    // Oddiy operatsiya maydonlari (Juftlash da yashiriladi)
+    +'<div id="_eONormalFields">'
     // Valyuta kirim + miqdor
     +'<div style="display:grid;grid-template-columns:1fr 2fr;gap:8px">'
     +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Valyuta *</label>'
@@ -29590,7 +29592,8 @@ window.openExchOpModal = function(clientId, prefillType){
     +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Komissiya miqdori</label>'
     +'<input id="_eOKomAmt" type="number" min="0" step="0.01" placeholder="0.00" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box"></div>'
     +'</div></div>'
-    // Izoh
+    +'</div>'  // /_eONormalFields
+    // Izoh (Juftlash da ham ko'rinadi)
     +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Izoh</label>'
     +'<input id="_eON" placeholder="Qo\'shimcha ma\'lumot..." style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px;box-sizing:border-box"></div>'
     +'</div>'
@@ -29704,9 +29707,11 @@ window.exchOpTypeChange = function(){
   // Juftlash bloki va oddiy mijoz bloki
   var juftBlock=document.getElementById('_eOJuftBlock');
   var cliBlock=document.getElementById('_eOCBlock');
+  var normalFields=document.getElementById('_eONormalFields');
   var isJuft=(t==='juftlash');
   if(juftBlock) juftBlock.style.display=isJuft?'flex':'none';
   if(cliBlock) cliBlock.style.display=isJuft?'none':'block';
+  if(normalFields) normalFields.style.display=isJuft?'none':'contents';
   // Juftlashda asosiy bloklar ham yashiriladi
   if(isJuft){
     if(outBlock) outBlock.style.display='none';
