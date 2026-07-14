@@ -12249,17 +12249,53 @@ function exchClientSyncFromSB(onDone){
   });
 }
 
-// Har 60 soniyada Exchange data avtomatik yangilanadi (fon rejimda, silent)
-(function startExchAutoSync(){
-  setInterval(function(){
+// ── Exchange real-time + auto-sync ──────────────────────────
+(function startExchSync(){
+  if(typeof SB==='undefined') return;
+
+  // 1) Real-time subscription — kimdir saqlaganda darhol yangilash
+  function subscribeExchRealtime(){
     if(!SB||DEMO_MODE) return;
+    try {
+      SB.channel('exch-live')
+        .on('postgres_changes',{event:'*',schema:'public',table:'app_exch_clients'},   function(){ _exchLiveRefresh(); })
+        .on('postgres_changes',{event:'*',schema:'public',table:'app_exch_client_txns'},function(){ _exchLiveRefresh(); })
+        .subscribe(function(status){
+          if(status==='SUBSCRIBED') console.log('[EXCH RT] real-time ulandi');
+          else if(status==='CHANNEL_ERROR') _startExchPoll(); // real-time ishlamasa polling
+        });
+    } catch(e){ _startExchPoll(); }
+  }
+
+  // 2) Yangilash: sync + agar Exchange ochiq bo'lsa UI refresh
+  window._exchLiveRefresh = function(){
     exchClientSyncFromSB(function(){
-      // Faqat Exchange sahifasi ochiq bo'lsa UI ni yangilash
-      if(typeof ACTV_DIR!=='undefined' && ACTV_DIR==='exchange'){
-        if(typeof renderExchangeDash==='function') renderExchangeDash();
-      }
+      var isExch = (typeof ACTV!=='undefined'&&ACTV==='exchange') ||
+                   (typeof DRILL!=='undefined'&&DRILL.dir==='exchange');
+      if(isExch && typeof renderExchMijozlar==='function') renderExchMijozlar();
     });
-  }, 60000);
+  };
+
+  // 3) Fallback polling — 30 soniyada bir marta
+  var _exchPollTimer=null;
+  function _startExchPoll(){
+    if(_exchPollTimer) return;
+    _exchPollTimer=setInterval(function(){
+      if(!SB||DEMO_MODE) return;
+      _exchLiveRefresh();
+    }, 30000);
+  }
+
+  // Sahifa ko'rinishga qaytganda ham refresh
+  document.addEventListener('visibilitychange',function(){
+    if(!document.hidden) _exchLiveRefresh();
+  });
+
+  // Boshlash: real-time urinish, 5 soniyadan keyin polling ham yoqish (zaxira)
+  setTimeout(function(){
+    subscribeExchRealtime();
+    setTimeout(_startExchPoll, 5000);
+  }, 2000);
 })();
 
 // Mijoz joriy balansi: {USD:0, CNY:0, UZS:0, ...}
@@ -29145,10 +29181,14 @@ function renderExchTranzaksiya(){
   var typeCol= {kirim:'#17B374',jonatish:'#FF4D6A',konversiya:'#FFB830',qaytarish:'#6C8EFF'};
   var typeName={kirim:'Kirim',jonatish:"Jo'natish",konversiya:'Konversiya',qaytarish:'Qaytarish'};
 
-  // Statistika
-  var statKirim=txns.filter(function(t){return t.type==='kirim';}).reduce(function(s,t){return s+(t.amount_in||0);},0);
+  // Statistika — valyuta bo'yicha alohida
+  var statKirimUSD=txns.filter(function(t){return t.type==='kirim'&&t.currency_in==='USD';}).reduce(function(s,t){return s+(t.amount_in||0);},0);
+  var statKirimCNY=txns.filter(function(t){return t.type==='kirim'&&t.currency_in==='CNY';}).reduce(function(s,t){return s+(t.amount_in||0);},0);
+  var statKirimUZS=txns.filter(function(t){return t.type==='kirim'&&t.currency_in==='UZS';}).reduce(function(s,t){return s+(t.amount_in||0);},0);
   var statJon=txns.filter(function(t){return t.type==='jonatish';}).reduce(function(s,t){return s+(t.amount_in||0);},0);
   var statKon=txns.filter(function(t){return t.type==='konversiya';}).length;
+  var statJuft=txns.filter(function(t){return t.type==='juftlash';}).length;
+  var statJuftMargin=txns.filter(function(t){return t.type==='juftlash'&&(t.spread_profit||0)>0;}).reduce(function(s,t){return s+(t.spread_profit||0);},0);
 
   var h='<div style="padding:20px;max-width:1100px">';
   h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">';
@@ -29158,11 +29198,13 @@ function renderExchTranzaksiya(){
   h+='</div>';
 
   // Stat cards
-  h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px">';
-  h+='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:14px"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">JAMI OPERATSIYA</div><div style="font-size:22px;font-weight:700;color:var(--t1)">'+txns.length+'</div></div>';
-  h+='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:14px"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">JAMI KIRIM (USD)</div><div style="font-size:18px;font-weight:700;color:#17B374">$'+fS(Math.round(statKirim))+'</div></div>';
-  h+='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:14px"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">JAMI JO\'NATISH</div><div style="font-size:18px;font-weight:700;color:#FF4D6A">$'+fS(Math.round(statJon))+'</div></div>';
-  h+='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:14px"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">KONVERSIYALAR</div><div style="font-size:22px;font-weight:700;color:#FFB830">'+statKon+'</div></div>';
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px;margin-bottom:20px">';
+  h+='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:13px"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">JAMI OPERATSIYA</div><div style="font-size:22px;font-weight:700;color:var(--t1)">'+txns.length+'</div></div>';
+  if(statKirimUSD>0) h+='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:13px"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">KIRIM (USD)</div><div style="font-size:18px;font-weight:700;color:#17B374">$'+fS(Math.round(statKirimUSD))+'</div></div>';
+  if(statKirimCNY>0) h+='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:13px"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">KIRIM (CNY)</div><div style="font-size:18px;font-weight:700;color:#17B374">¥'+fS(Math.round(statKirimCNY))+'</div></div>';
+  if(statKirimUZS>0) h+='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:13px"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">KIRIM (UZS)</div><div style="font-size:18px;font-weight:700;color:#17B374">'+fS(Math.round(statKirimUZS))+" so'm"+'</div></div>';
+  if(statJuft>0)     h+='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:13px"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">JUFTLASH</div><div style="font-size:22px;font-weight:700;color:#6C8EFF">'+statJuft+'</div>'+(statJuftMargin>0?'<div style="font-size:11px;color:#17B374;margin-top:2px">+$'+fS(Math.round(statJuftMargin))+' marja</div>':'')+'</div>';
+  if(statKon>0)      h+='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:13px"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">KONVERSIYALAR</div><div style="font-size:22px;font-weight:700;color:#FFB830">'+statKon+'</div></div>';
   h+='</div>';
 
   if(!txns.length){
