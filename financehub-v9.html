@@ -4604,6 +4604,47 @@ const HOLD_TR_REASONS=[
 
 var PIPELINE_DATA = (function(){ var s=lsLoad('pipeline'); return (s&&s.length)?s:[]; })();
 
+// ── ORDERS (Buyurtmalar) ────────────────────────────────────────
+var ORDERS_DATA = (function(){ var s=lsLoad('orders_data'); return (s&&s.length)?s:[]; })();
+var ORDER_STATUSES = ['Kutilmoqda','Tasdiqlandi','Yuklash boshlandi','Chegarada','Bojxonada',"Yo'lda",'Yetkazildi','Bekor qilindi'];
+var ORDER_CARGO_TYPES = ['LTL','FTL','FCL','LCL','AIR','EXPRESS'];
+var ORDER_DELIVERY = ['Avtomobil',"Temir yo'l",'Avia','Dengiz'];
+var ORDER_PAY_TYPES = ["Oldindan to'lov","Qisman to'lov (50%)","Kechiktirilgan to'lov","Inkasso"];
+var ORDER_PRICE_UNITS = ['dona','kg','tonna','kub','m\xB2'];
+var ORDER_STATUS_COLORS = {
+  'Kutilmoqda':'#6C8EFF','Tasdiqlandi':'#FFB830','Yuklash boshlandi':'#FF7A50',
+  'Chegarada':'#FF5C8A','Bojxonada':'#9C6EFF',"Yo'lda":'#00BCD4',
+  'Yetkazildi':'#17B374','Bekor qilindi':'#B0BEC5'
+};
+function ordersSave(){
+  lsSave('orders_data', ORDERS_DATA);
+  if(!SB||!ORDERS_DATA.length) return;
+  var rows=ORDERS_DATA.map(function(t){return{id:t.id,data:t,dir:t.dir||'logistics'};});
+  SB.from('app_orders').upsert(rows,{onConflict:'id'}).then(function(r){if(r.error)console.warn('[ORDERS] SB:',r.error.message);});
+}
+function ordersSyncFromSB(){
+  if(!SB) return;
+  SB.from('app_orders').select('data').then(function(r){
+    if(r.error){console.warn('[ORDERS] sync:',r.error.message);return;}
+    var sb=(r.data||[]).map(function(x){return x.data;}).filter(Boolean);
+    sb.forEach(function(s){
+      var i=ORDERS_DATA.findIndex(function(x){return x.id===s.id;});
+      if(i===-1)ORDERS_DATA.push(s);
+      else if((s.updated_at||'')>(ORDERS_DATA[i].updated_at||''))ORDERS_DATA[i]=s;
+    });
+    if(sb.length)lsSave('orders_data',ORDERS_DATA);
+    var sbIds=sb.map(function(x){return x.id;});
+    var miss=ORDERS_DATA.filter(function(x){return sbIds.indexOf(x.id)===-1;});
+    if(miss.length)SB.from('app_orders').upsert(miss.map(function(t){return{id:t.id,data:t,dir:t.dir||'logistics'};}),{onConflict:'id'});
+    console.log('[ORDERS] synclandi:',sb.length);
+  });
+}
+function ordersGenId(){
+  var now=new Date(); var y=now.getFullYear();
+  var n=(ORDERS_DATA.length+1).toString().padStart(3,'0');
+  return 'BO-'+y+'-'+n;
+}
+
 
 function pipelineSave(){
   lsSave('pipeline', PIPELINE_DATA);
@@ -7384,7 +7425,221 @@ function closePipeModal(){
   if(m) m.innerHTML = '';
 }
 
+// ══════════════════════════════════════════════════════════════
+// ── ORDERS — Buyurtmalar moduli ────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+function renderOrders(focusDir){
+  setBc([{lbl:(DIRS.find(function(d){return d.id===focusDir;})||{}).name||focusDir,fn:"goNav('"+focusDir+"')"},{lbl:'📦 Buyurtmalar',fn:''}]);
+  var pg=document.getElementById('pg'); if(!pg) return;
+  var orders=(focusDir?ORDERS_DATA.filter(function(o){return o.dir===focusDir;}):ORDERS_DATA);
 
+  // KPI
+  var total=orders.length;
+  var active=orders.filter(function(o){return o.status!=='Yetkazildi'&&o.status!=='Bekor qilindi';}).length;
+  var delivered=orders.filter(function(o){return o.status==='Yetkazildi';}).length;
+  var totalAmt=orders.reduce(function(s,o){return s+(+o.total_amount||0);},0);
+  var paidAmt=orders.reduce(function(s,o){return s+(+o.avans_amount||0);},0);
+  var debtAmt=totalAmt-paidAmt;
+
+  var statusCount={};
+  ORDER_STATUSES.forEach(function(s){statusCount[s]=0;});
+  orders.forEach(function(o){if(statusCount[o.status]!==undefined)statusCount[o.status]++;});
+
+  var h='<div id="orders_modal"></div>';
+  // KPI cards
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px">';
+  var kpis=[
+    {l:'Jami buyurtma',v:total,s:'ta',c:'#6C8EFF'},
+    {l:'Faol',v:active,s:'ta',c:'#FFB830'},
+    {l:'Yetkazildi',v:delivered,s:'ta',c:'#17B374'},
+    {l:'Jami summa',v:'$'+fS(Math.round(totalAmt)),s:'',c:'#6C8EFF'},
+    {l:"To'langan",v:'$'+fS(Math.round(paidAmt)),s:'',c:'#17B374'},
+    {l:'Qoldiq',v:'$'+fS(Math.round(debtAmt)),s:'',c:'#FF5C8A'},
+  ];
+  kpis.forEach(function(k){
+    h+='<div class="kpi"><div style="font-size:10px;color:var(--t3);margin-bottom:4px">'+escHtml(k.l)+'</div>';
+    h+='<div style="font-size:20px;font-weight:700;color:'+k.c+';font-family:var(--mono)">'+k.v+'<span style="font-size:11px;color:var(--t3);margin-left:3px">'+k.s+'</span></div></div>';
+  });
+  h+='</div>';
+
+  // Status filter chips
+  h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center">';
+  h+='<button class="pb on" onclick="ordersFilterStatus(\'all\',\''+focusDir+'\')" id="ofsAll">Barchasi ('+total+')</button>';
+  ORDER_STATUSES.forEach(function(s){
+    if(!statusCount[s]) return;
+    var col=ORDER_STATUS_COLORS[s]||'#888';
+    h+='<button class="pb" onclick="ordersFilterStatus(\''+escHtml(s)+'\',\''+focusDir+'\')" id="ofs_'+s.replace(/[^a-z]/gi,'_')+'" style="border-color:'+col+'44;color:'+col+'">'+escHtml(s)+' ('+statusCount[s]+')</button>';
+  });
+  h+='<button onclick="ordersAddModal(\''+focusDir+'\')" style="margin-left:auto;padding:6px 14px;border-radius:8px;border:none;background:#6C8EFF;color:#fff;font-size:12px;font-weight:700;cursor:pointer">+ Yangi buyurtma</button>';
+  h+='</div>';
+
+  // Table
+  h+='<div id="orders_list">'+ordersTableHtml(orders)+'</div>';
+
+  pg.innerHTML=h;
+}
+
+function ordersTableHtml(orders){
+  if(!orders.length) return '<div style="text-align:center;padding:40px;color:var(--t3)">Buyurtmalar yo\'q</div>';
+  var h='<div class="twrap"><table><thead><tr>';
+  ['ID','Mijoz','Tovar turi','Yuk turi','Jami ($)','To\'lov','Qoldiq ($)','Yetkazish','Status','Amal'].forEach(function(col){
+    h+='<th>'+col+'</th>';
+  });
+  h+='</tr></thead><tbody>';
+  orders.forEach(function(o){
+    var col=ORDER_STATUS_COLORS[o.status]||'#888';
+    var paid=+o.avans_amount||0; var total=+o.total_amount||0; var debt=total-paid;
+    var paidPct=total>0?Math.round(paid/total*100):0;
+    var overdue=''; var now=new Date().toISOString().slice(0,10);
+    if(o.qoldiq_sana&&o.qoldiq_sana<now&&debt>0) overdue='<span style="color:#FF5C8A;font-size:10px">⚠️ muddati o\'tgan</span><br>';
+    h+='<tr onclick="ordersDetail(\''+o.id+'\')" style="cursor:pointer">';
+    h+='<td style="font-family:var(--mono);font-size:11px;color:var(--acc)">'+escHtml(o.order_id||'')+'</td>';
+    h+='<td><div style="font-weight:600;font-size:12px">'+escHtml(o.client_name||'')+'</div><div style="font-size:10px;color:var(--t3)">'+escHtml(o.client_phone||'')+'</div></td>';
+    h+='<td style="font-size:11px">'+escHtml(o.cargo_name||'')+'<br><span style="color:var(--t3);font-size:10px">'+escHtml(o.cargo_type_detail||'')+'</span></td>';
+    h+='<td><span style="background:#6C8EFF22;color:#6C8EFF;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:700">'+escHtml(o.cargo_type||'—')+'</span></td>';
+    h+='<td style="font-family:var(--mono);text-align:right">$'+fS(Math.round(total))+'</td>';
+    h+='<td><div style="background:var(--b1);border-radius:4px;height:6px;width:80px"><div style="background:#17B374;height:6px;border-radius:4px;width:'+paidPct+'%"></div></div><div style="font-size:10px;color:var(--t3);margin-top:2px">'+paidPct+'% to\'langan</div></td>';
+    h+='<td style="font-family:var(--mono);text-align:right">'+overdue+'<span style="color:'+(debt>0?'#FF5C8A':'#17B374')+'">$'+fS(Math.round(debt))+'</span></td>';
+    h+='<td style="font-size:11px">'+escHtml(o.delivery_method||'')+'</td>';
+    h+='<td><span style="background:'+col+'22;color:'+col+';padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">'+escHtml(o.status||'')+'</span></td>';
+    h+='<td><button onclick="event.stopPropagation();ordersEditModal(\''+o.id+'\')" style="padding:3px 8px;border-radius:5px;border:1px solid var(--b2);background:transparent;color:var(--t2);cursor:pointer;font-size:10px">✏️</button> ';
+    h+='<button onclick="event.stopPropagation();ordersDelete(\''+o.id+'\')" style="padding:3px 8px;border-radius:5px;border:1px solid #FF5C8A44;background:transparent;color:#FF5C8A;cursor:pointer;font-size:10px">🗑</button></td>';
+    h+='</tr>';
+  });
+  h+='</tbody></table></div>';
+  return h;
+}
+
+function ordersFilterStatus(status, focusDir){
+  var orders=(focusDir?ORDERS_DATA.filter(function(o){return o.dir===focusDir;}):ORDERS_DATA);
+  if(status!=='all') orders=orders.filter(function(o){return o.status===status;});
+  var el=document.getElementById('orders_list');
+  if(el) el.innerHTML=ordersTableHtml(orders);
+  document.querySelectorAll('[id^="ofs"]').forEach(function(b){b.classList.remove('on');});
+  var active=status==='all'?document.getElementById('ofsAll'):document.getElementById('ofs_'+status.replace(/[^a-z]/gi,'_'));
+  if(active) active.classList.add('on');
+}
+
+function ordersAddModal(focusDir){
+  var id=ordersGenId();
+  _ordersModal(null, focusDir, id);
+}
+function ordersEditModal(orderId){
+  var o=ORDERS_DATA.find(function(x){return x.id===orderId;}); if(!o) return;
+  _ordersModal(o, o.dir, null);
+}
+
+function _ordersModal(o, focusDir, newId){
+  var isNew=!o; var ord=o||{};
+  var selOpts=function(arr,val){ return arr.map(function(a){return '<option value="'+escHtml(a)+'"'+(a===val?' selected':'')+'>'+escHtml(a)+'</option>';}).join(''); };
+  var fld=function(lbl,id,type,val,extra){
+    return '<div style="display:flex;flex-direction:column;gap:3px"><label style="font-size:11px;color:var(--t3)">'+lbl+'</label>'
+      +'<input id="ord_'+id+'" type="'+(type||'text')+'" value="'+escHtml(String(val||''))+'" '+(extra||'')
+      +' style="padding:7px 10px;border-radius:6px;border:1px solid var(--b2);background:var(--s3);color:var(--t1);font-size:12px;font-family:var(--sans)"></div>';
+  };
+  var sel=function(lbl,id,arr,val){
+    return '<div style="display:flex;flex-direction:column;gap:3px"><label style="font-size:11px;color:var(--t3)">'+lbl+'</label>'
+      +'<select id="ord_'+id+'" style="padding:7px 10px;border-radius:6px;border:1px solid var(--b2);background:var(--s3);color:var(--t1);font-size:12px">'+selOpts(arr,val)+'</select></div>';
+  };
+
+  var h='<div style="position:fixed;inset:0;background:#0009;z-index:999;display:flex;align-items:center;justify-content:center;padding:16px">'
+    +'<div style="background:var(--s2);border-radius:14px;padding:20px;width:100%;max-width:720px;max-height:90vh;overflow-y:auto;border:1px solid var(--b2)">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
+    +'<h3 style="color:var(--t1);font-size:16px">'+(isNew?'➕ Yangi buyurtma':'✏️ Buyurtmani tahrirlash')+'</h3>'
+    +'<button onclick="ordersCloseModal()" style="background:transparent;border:none;color:var(--t3);font-size:20px;cursor:pointer">✕</button></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">';
+
+  h+=fld('Buyurtma ID','order_id','text',isNew?newId:ord.order_id,'readonly style="opacity:.7"');
+  h+=sel('Status','status',ORDER_STATUSES,ord.status||'Kutilmoqda');
+  h+=fld('Mijoz nomi','client_name','text',ord.client_name||'');
+  h+=fld('Mijoz telefon','client_phone','text',ord.client_phone||'');
+  h+=fld('Buyurtma nomi','cargo_name','text',ord.cargo_name||'');
+  h+=fld('Tovar turi (batafsil)','cargo_type_detail','text',ord.cargo_type_detail||'');
+  h+=sel('Yuk turi (LTL/FTL/FCL...)','cargo_type',ORDER_CARGO_TYPES,ord.cargo_type||'LTL');
+  h+=sel('Yetkazish usuli','delivery_method',ORDER_DELIVERY,ord.delivery_method||'Avtomobil');
+  h+=fld("Og'irlik (kg)",'weight','number',ord.weight||'');
+  h+=fld('Hajm (m³)','volume','number',ord.volume||'');
+  h+=sel('Narxlash birlik','price_unit',ORDER_PRICE_UNITS,ord.price_unit||'dona');
+  h+=fld('Miqdor','quantity','number',ord.quantity||'');
+  h+=fld('Narx/birlik (USD)','unit_price','number',ord.unit_price||'');
+  h+=fld('Jami summa (USD)','total_amount','number',ord.total_amount||'','id="ord_total_amount"');
+  h+=sel("To'lov tartibi",'pay_type',ORDER_PAY_TYPES,ord.pay_type||"Qisman to'lov (50%)");
+  h+=fld('Avans miqdori (USD)','avans_amount','number',ord.avans_amount||'');
+  h+=fld('Avans sanasi','avans_date','date',ord.avans_date||'');
+  h+=fld('Qoldiq to\'lov sanasi','qoldiq_sana','date',ord.qoldiq_sana||'');
+  h+=fld('Kelib tushgan sana','order_date','date',ord.order_date||new Date().toISOString().slice(0,10));
+  h+=fld('Yetkazish muddati','delivery_date','date',ord.delivery_date||'');
+
+  h+='</div>';
+  h+='<div style="margin-top:10px"><label style="font-size:11px;color:var(--t3)">Izoh</label>'
+    +'<textarea id="ord_note" style="width:100%;margin-top:3px;padding:7px 10px;border-radius:6px;border:1px solid var(--b2);background:var(--s3);color:var(--t1);font-size:12px;resize:vertical;min-height:60px">'+escHtml(ord.note||'')+'</textarea></div>';
+
+  h+='<div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">';
+  if(!isNew) h+='<button onclick="ordersDelete(\''+ord.id+'\')" style="padding:8px 16px;border-radius:8px;border:1px solid #FF5C8A44;background:transparent;color:#FF5C8A;cursor:pointer;font-size:12px">🗑 O\'chirish</button>';
+  h+='<button onclick="ordersCloseModal()" style="padding:8px 16px;border-radius:8px;border:1px solid var(--b2);background:var(--s3);color:var(--t2);cursor:pointer;font-size:12px">Bekor</button>';
+  h+='<button onclick="ordersSaveModal(\''+focusDir+'\',\''+(isNew?newId:ord.id)+'\')" style="padding:8px 20px;border-radius:8px;border:none;background:#6C8EFF;color:#fff;font-weight:700;cursor:pointer;font-size:12px">💾 Saqlash</button>';
+  h+='</div></div></div>';
+
+  var m=document.getElementById('orders_modal'); if(m) m.innerHTML=h;
+}
+
+function ordersGv(id){ var e=document.getElementById('ord_'+id); return e?e.value.trim():''; }
+
+function ordersSaveModal(focusDir, orderId){
+  var now=new Date().toISOString();
+  var existing=ORDERS_DATA.findIndex(function(x){return x.id===orderId;});
+  var obj={
+    id: orderId,
+    dir: focusDir||'logistics',
+    order_id: ordersGv('order_id'),
+    status: ordersGv('status'),
+    client_name: ordersGv('client_name'),
+    client_phone: ordersGv('client_phone'),
+    cargo_name: ordersGv('cargo_name'),
+    cargo_type_detail: ordersGv('cargo_type_detail'),
+    cargo_type: ordersGv('cargo_type'),
+    delivery_method: ordersGv('delivery_method'),
+    weight: +ordersGv('weight')||0,
+    volume: +ordersGv('volume')||0,
+    price_unit: ordersGv('price_unit'),
+    quantity: +ordersGv('quantity')||0,
+    unit_price: +ordersGv('unit_price')||0,
+    total_amount: +ordersGv('total_amount')||0,
+    pay_type: ordersGv('pay_type'),
+    avans_amount: +ordersGv('avans_amount')||0,
+    avans_date: ordersGv('avans_date'),
+    qoldiq_sana: ordersGv('qoldiq_sana'),
+    order_date: ordersGv('order_date'),
+    delivery_date: ordersGv('delivery_date'),
+    note: ordersGv('note'),
+    updated_at: now,
+  };
+  if(!obj.client_name){ toast('❌ Mijoz nomi majburiy!'); return; }
+  if(existing===-1) ORDERS_DATA.push(obj); else ORDERS_DATA[existing]=obj;
+  ordersSave();
+  ordersCloseModal();
+  toast('✅ Buyurtma saqlandi');
+  renderOrders(focusDir);
+}
+
+function ordersDelete(orderId){
+  if(!confirm('Buyurtmani o\'chirishni tasdiqlaysizmi?')) return;
+  ORDERS_DATA=ORDERS_DATA.filter(function(x){return x.id!==orderId;});
+  ordersSave();
+  ordersCloseModal();
+  toast('🗑 Buyurtma o\'chirildi');
+  var dir=(ORDERS_DATA.find(function(x){return x.id===orderId;})||{}).dir||ACTV;
+  renderOrders(ACTV);
+}
+
+function ordersCloseModal(){
+  var m=document.getElementById('orders_modal'); if(m) m.innerHTML='';
+}
+
+function ordersDetail(orderId){
+  var o=ORDERS_DATA.find(function(x){return x.id===orderId;}); if(!o) return;
+  ordersEditModal(orderId);
+}
 
 
 
@@ -9456,6 +9711,7 @@ function syncAllFromSB(){
   orgSyncFromSB();
   crmSyncFromSB();
   pipelineSyncFromSB();
+  ordersSyncFromSB();
   payrollSyncFromSB();
   kassaSyncFromSB();
   bankAccSyncFromSB();
@@ -11922,6 +12178,7 @@ const SUBNAV_DEFS = {
     {id:'debcred',   lbl:'Debitor/Kreditor', icon:'📋'},
     {id:'crm',       lbl:'Mijozlar',         icon:'👥'},
     {id:'pipeline',  lbl:'Pipeline',         icon:'📈'},
+    {id:'orders',    lbl:'Buyurtmalar',      icon:'📦'},
     {id:'payroll',   lbl:'Payroll',          icon:'👨‍💼'},
     {id:'hrm',       lbl:'Xodimlar',         icon:'👥'},
     {id:'tasks',     lbl:'Vazifalar',        icon:'✅'},
@@ -12948,6 +13205,10 @@ function goNav(id){
 
 
     renderPipeline(dirId);
+
+  } else if(subId==='orders'){
+
+    renderOrders(dirId);
 
 
   } else if(subId==='tasks'){
