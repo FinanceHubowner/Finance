@@ -22838,9 +22838,12 @@ function renderCashflow(focusDir){
   const op_opex      = -(sk(c,'expense')+sk(l,'expense')+sk(e,'expense')+sk(p,'expense'));
 
 
-  // ✅ IAS 7: Haqiqiy DC_DATA dan AR/AP o'zgarishi
-  const op_wc_ar     = -(DC_DATA.debitor.reduce(function(s,r){return s+(r.amount-r.paid);},0));
-  const op_wc_ap     =  (DC_DATA.kreditor.reduce(function(s,r){return s+(r.amount-r.paid);},0));
+  // ✅ IAS 7: Haqiqiy DC_DATA dan AR/AP o'zgarishi (yo'nalish bo'yicha filter)
+  var _cfDir = focusDir && focusDir !== 'holding' ? focusDir : null;
+  var _cfDeb = _cfDir ? (DC_DATA.debitor||[]).filter(function(r){return r.dir===_cfDir;}) : (DC_DATA.debitor||[]);
+  var _cfKred= _cfDir ? (DC_DATA.kreditor||[]).filter(function(r){return r.dir===_cfDir;}) : (DC_DATA.kreditor||[]);
+  const op_wc_ar     = -(_cfDeb.reduce(function(s,r){return s+(r.amount-r.paid);},0));
+  const op_wc_ap     =  (_cfKred.reduce(function(s,r){return s+(r.amount-r.paid);},0));
   // ✅ IAS 2: Inventar o'zgarishi haqiqiy TXNS dan
   const _invIn = TXNS.filter(function(t){return t.type==='inventory'&&t.status!=='Bekor';}).reduce(function(s,t){return s+Math.abs(+(t.amount)||0);},0);
   const _invOut= TXNS.filter(function(t){return t.type==='inventory_release'&&t.status!=='Bekor';}).reduce(function(s,t){return s+Math.abs(+(t.amount)||0);},0);
@@ -23459,7 +23462,7 @@ function renderCashflow(focusDir){
       +sec('DEBITORLAR RO\'YXATI')
 
 
-      +tbl(DC_DATA.debitor.map(function(d,i){
+      +tbl(_cfDeb.map(function(d,i){
 
 
         var rem=d.amount-d.paid; var dl=Math.round((new Date(d.due)-new Date())/86400000);
@@ -23513,7 +23516,7 @@ function renderCashflow(focusDir){
       +sec('KREDITORLAR RO\'YXATI')
 
 
-      +tbl(DC_DATA.kreditor.map(function(k,i){
+      +tbl(_cfKred.map(function(k,i){
 
 
         var rem=k.amount-k.paid; var dl=Math.round((new Date(k.due)-new Date())/86400000);
@@ -23945,6 +23948,10 @@ function renderBalance(focusDir){
 
   // ── IFRS Balance Sheet — HAQIQIY MA'LUMOTLAR ──────────────
 
+  // Holding darajasida barcha, yo'nalish darajasida faqat o'z DC_DATA si
+  var _bsDir = focusDir && focusDir !== 'holding' ? focusDir : null;
+  var _bsDebitors  = _bsDir ? (DC_DATA.debitor||[]).filter(function(r){return r.dir===_bsDir;})  : (DC_DATA.debitor||[]);
+  var _bsKreditors = _bsDir ? (DC_DATA.kreditor||[]).filter(function(r){return r.dir===_bsDir;}) : (DC_DATA.kreditor||[]);
 
   // ASSETS — ✅ CFO: AR/AP endi DC_DATA dan olinadi (formula emas)
 
@@ -24007,7 +24014,7 @@ function renderBalance(focusDir){
   // ✅ CFO: AR = DC_DATA debitorlardan haqiqiy qolgan qarz (rev×12% EMAS)
 
 
-  const ca_ar        = DC_DATA.debitor.reduce(function(s,r){return s+(r.amount-r.paid);},0);
+  const ca_ar        = _bsDebitors.reduce(function(s,r){return s+(r.amount-r.paid);},0);
 
 
 
@@ -24161,7 +24168,7 @@ function renderBalance(focusDir){
   // ✅ CFO: AP = DC_DATA kreditorlardan (savdo qarzlari ONLY, bank kreditlari EMAS)
 
 
-  const cl_ap        = DC_DATA.kreditor.reduce(function(s,r){return s+(r.amount-r.paid);},0);
+  const cl_ap        = _bsKreditors.reduce(function(s,r){return s+(r.amount-r.paid);},0);
 
 
 
@@ -25016,7 +25023,7 @@ function renderBalance(focusDir){
       +sec('DEBITORLAR RO\'YXATI')
 
 
-      +tbl(DC_DATA.debitor.map(function(d,i){
+      +tbl(_bsDebitors.map(function(d,i){
 
 
         var rem=d.amount-d.paid; var dl=Math.round((new Date(d.due)-new Date())/86400000);
@@ -25229,7 +25236,7 @@ function renderBalance(focusDir){
       +sec('KREDITORLAR RO\'YXATI')
 
 
-      +tbl(DC_DATA.kreditor.map(function(k,i){
+      +tbl(_bsKreditors.map(function(k,i){
 
 
         var rem=k.amount-k.paid; var dl=Math.round((new Date(k.due)-new Date())/86400000);
