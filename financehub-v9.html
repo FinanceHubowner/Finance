@@ -12270,9 +12270,11 @@ function exchClientSyncFromSB(onDone){
   // 2) Yangilash: sync + agar Exchange ochiq bo'lsa UI refresh
   window._exchLiveRefresh = function(){
     exchClientSyncFromSB(function(){
+      exchInjectToDATA();
       var isExch = (typeof ACTV!=='undefined'&&ACTV==='exchange') ||
-                   (typeof DRILL!=='undefined'&&DRILL.dir==='exchange');
-      if(isExch && typeof renderExchMijozlar==='function') renderExchMijozlar();
+                   (typeof DRILL!=='undefined'&&DRILL&&DRILL.dir==='exchange');
+      // goNavCurrent — joriy aktiv tabni render qiladi (P&L bo'lsa P&L, Mijozlar bo'lsa Mijozlar)
+      if(isExch && typeof goNavCurrent==='function') try{ goNavCurrent(); }catch(e){}
     });
   };
 
