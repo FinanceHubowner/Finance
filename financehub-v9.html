@@ -29725,31 +29725,32 @@ window.exchOpTypeChange = function(){
 window.juftCalc = function(){
   var aAmt=parseFloat((document.getElementById('_jA_amt')||{}).value)||0;
   var bAmt=parseFloat((document.getElementById('_jB_amt')||{}).value)||0;
-  var rAB =parseFloat((document.getElementById('_jRate_AB')||{}).value)||0;
   var rBA =parseFloat((document.getElementById('_jRate_BA')||{}).value)||0;
   var prev=document.getElementById('_jPreview');
-  // A kurs: A nin amtA -> bAmt = aAmt * rAB
-  if(aAmt&&rAB&&!bAmt){
-    var calc=+(aAmt*rAB).toFixed(2);
-    var bF=document.getElementById('_jB_amt'); if(bF){bF.value=calc;bAmt=calc;}
+  // A→B kurs avtomatik: bAmt / aAmt
+  var rABf=document.getElementById('_jRate_AB');
+  var rAB=0;
+  if(aAmt&&bAmt){
+    rAB=+(bAmt/aAmt).toFixed(4);
+    if(rABf) rABf.value=rAB;
+  } else if(rABf){
+    rAB=parseFloat(rABf.value)||0;
   }
-  // Margin = B nin bozor qiymati - A ga berilgan miqdor (USD bazasida)
+  // Margin = A ga ko'chadan ortib qolgan USD
   var margin=0;
-  if(aAmt&&bAmt&&rAB&&rBA){
-    // A: USD beradi, B: CNY beradi
-    // A kurs: 1 USD = rAB CNY (Aga berilgan kurs — ko'proq CNY)
-    // B kurs: 1 USD = rBA CNY (bozor kursi — kamroq CNY)
-    // margin = bAmt/rBA - aAmt (USD da)
-    margin=+(bAmt/rBA-aAmt).toFixed(2);
+  if(aAmt&&bAmt&&rBA){
+    margin=+(aAmt - bAmt/rBA).toFixed(2);
     var mF=document.getElementById('_jMargin'); if(mF) mF.value=margin;
   }
   if(prev){
     if(aAmt&&bAmt){
       var aCur=(document.getElementById('_jA_cur')||{}).value||'USD';
       var bCur=(document.getElementById('_jB_cur')||{}).value||'CNY';
+      var bOut=rBA>0?+(bAmt/rBA).toFixed(2):0;
       prev.style.display='block';
       prev.innerHTML='<b>A Mijoz:</b> '+aCur+' '+fS(aAmt)+' → '+bCur+' '+fS(bAmt)
-        +(margin?' &nbsp;|&nbsp; <b style="color:#17B374">Marja: $'+fS(margin)+'</b>':'');
+        +(bOut?' &nbsp;|&nbsp; <b>Ko\'cha oladi:</b> $'+fS(bOut):'')
+        +(margin>0?' &nbsp;|&nbsp; <b style="color:#17B374">Marja: $'+fS(margin)+'</b>':margin<0?' &nbsp;|&nbsp; <b style="color:#FF4D6A">Zarar: $'+fS(Math.abs(margin))+'</b>':'');
     } else { prev.style.display='none'; }
   }
 };
