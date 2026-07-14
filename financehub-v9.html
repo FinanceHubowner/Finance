@@ -21040,6 +21040,26 @@ function renderPL(focusDir){
     ebt:      function(pd){ return [{lbl:'EBIT',val:pd.ebit,col:'#A78BFF'},{lbl:'− Foiz',val:-pd.interest,col:'#FF4D6A'}]; },
     netIncome:function(pd){ return [{lbl:'EBT',val:pd.ebt,col:'#94A3C4'},{lbl:'− Soliq',val:-pd.tax,col:'#FF4D6A'}]; },
   };
+  // Exchange uchun EXCH_CLIENT_TXNS dan drilldown rows yasaydigan helper
+  function _exchDDRows(filterFn){
+    return EXCH_CLIENT_TXNS.filter(function(t){
+      if(!(t.date>=DATE_FROM && t.date<=DATE_TO)) return false;
+      return filterFn(t);
+    }).map(function(t){
+      var cli=(EXCH_CLIENTS||[]).find(function(c){return c.id===t.client_id;})||{name:'—'};
+      var typeLabel = t.type==='juftlash'?'🔀 Juftlash': t.type==='konversiya'?'🔄 Konversiya': t.type==='break'?'💹 Break': t.type==='kirim'?'💰 Kirim': t.type==='jonatish'?'📤 Jo\'natish': t.type||'—';
+      return {
+        date: t.date||'',
+        dir: 'Exchange',
+        type: typeLabel,
+        cat: t.type,
+        counterparty: cli.name||'—',
+        purpose: (t.note||'')+(t.spread_profit?' · marja: $'+fS(+(t.spread_profit||0).toFixed(2)):''),
+        amount: t.spread_profit||t.amount_in||0
+      };
+    });
+  }
+
   ['rev','cogs','opex','interest','tax','gp','ebitda','ebit','ebt','netIncome'].forEach(function(k){
     var lbl = _plLblMap[k]||k;
     // Per direction
@@ -21048,13 +21068,41 @@ function renderPL(focusDir){
       var typeMap = _plTypeMap[did]||{};
       var txnType = typeMap[k];
       var ddKey = 'pl_'+k+'_'+did;
-      var txns = txnType ? TXNS.filter(function(t){
-        return t.status!=='Bekor' && t.direction===did && t.type===txnType;
-      }).map(function(t){ return _txnToDD(t); }) : [];
+      var dirLabel = (pd.dir.e||'')+(pd.dir.e?' ':'')+pd.dir.name;
+      var txns;
+      // Exchange: TXNS emas, EXCH_CLIENT_TXNS dan
+      if(did==='exchange'){
+        if(k==='rev'){
+          txns = _exchDDRows(function(t){ return (t.spread_profit||0)>0; });
+        } else if(k==='opex'){
+          // Exchange xarajatlari DATA['exchange'] dan (expense rows)
+          txns = (DATA['exchange']||[]).filter(function(r){
+            return r._exch_inject && r.expense>0 && r.date>=DATE_FROM && r.date<=DATE_TO;
+          }).map(function(r){
+            return {date:r.date||'',dir:'Exchange',type:'💸 Xarajat',cat:'expense',counterparty:'—',purpose:r.note||'',amount:-(r.expense||0)};
+          });
+        } else {
+          txns = [];
+        }
+      } else {
+        txns = txnType ? TXNS.filter(function(t){
+          return t.status!=='Bekor' && t.direction===did && t.type===txnType;
+        }).map(function(t){ return _txnToDD(t); }) : [];
+      }
       var val = pd[k]||0;
       var brk = _plComputedBreak[k] ? _plComputedBreak[k](pd) : [];
+      // Exchange rev uchun tarkib: tur bo'yicha
+      if(did==='exchange' && k==='rev'){
+        var jMarja=EXCH_CLIENT_TXNS.filter(function(t){return t.type==='juftlash'&&(t.spread_profit||0)>0&&t.date>=DATE_FROM&&t.date<=DATE_TO;}).reduce(function(s,t){return s+(t.spread_profit||0);},0);
+        var cMarja=EXCH_CLIENT_TXNS.filter(function(t){return t.type==='konversiya'&&(t.spread_profit||0)>0&&t.date>=DATE_FROM&&t.date<=DATE_TO;}).reduce(function(s,t){return s+(t.spread_profit||0);},0);
+        var bMarja=EXCH_CLIENT_TXNS.filter(function(t){return t.type==='break'&&(t.spread_profit||0)>0&&t.date>=DATE_FROM&&t.date<=DATE_TO;}).reduce(function(s,t){return s+(t.spread_profit||0);},0);
+        brk=[];
+        if(jMarja>0) brk.push({lbl:'🔀 Juftlash marja',val:jMarja,col:'#6C8EFF'});
+        if(cMarja>0) brk.push({lbl:'🔄 Konversiya spread',val:cMarja,col:'#FFB830'});
+        if(bMarja>0) brk.push({lbl:'💹 Break spread',val:bMarja,col:'#00D4FF'});
+      }
       _DD[ddKey] = {
-        title: pd.dir.icon+' '+pd.dir.name+' — '+lbl,
+        title: dirLabel+' — '+lbl,
         subtitle: 'Davr: '+DATE_FROM+' → '+DATE_TO,
         total: val, totalCol: val>=0?'#17B374':'#FF4D6A',
         txns: txns, breakdown: brk
@@ -21065,9 +21113,13 @@ function renderPL(focusDir){
     plData.forEach(function(pd){
       var did = pd.dir.id;
       var txnType = (_plTypeMap[did]||{})[k];
-      if(txnType) TXNS.filter(function(t){
-        return t.status!=='Bekor'&&t.direction===did&&t.type===txnType;
-      }).forEach(function(t){ allTxns.push(_txnToDD(t)); });
+      if(did==='exchange'){
+        if(k==='rev') _exchDDRows(function(t){return (t.spread_profit||0)>0;}).forEach(function(r){allTxns.push(r);});
+      } else {
+        if(txnType) TXNS.filter(function(t){
+          return t.status!=='Bekor'&&t.direction===did&&t.type===txnType;
+        }).forEach(function(t){ allTxns.push(_txnToDD(t)); });
+      }
     });
     var totalVal = totals[k]||0;
     _DD['pl_'+k+'_consolidated'] = {
@@ -21075,7 +21127,7 @@ function renderPL(focusDir){
       subtitle: 'Barcha yo\'nalishlar · Davr: '+DATE_FROM+' → '+DATE_TO,
       total: totalVal, totalCol: totalVal>=0?'#17B374':'#FF4D6A',
       txns: allTxns,
-      breakdown: plData.map(function(pd){ return {lbl:pd.dir.icon+' '+pd.dir.name, val:pd[k]||0, col:pd.dir.c||'#6C8EFF'}; })
+      breakdown: plData.map(function(pd){ return {lbl:(pd.dir.e||'')+' '+pd.dir.name, val:pd[k]||0, col:pd.dir.c||'#6C8EFF'}; })
     };
   });
 
