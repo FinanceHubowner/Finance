@@ -12305,11 +12305,17 @@ function exchClientBalance(clientId){
     .forEach(function(t){
       // transfer: balansga ta'sir qilmaydi (xizmat tranzaksiyasi)
       if(t.type==='transfer') return;
+      // juftlash: faqat depozit valyutasini yechish (amount_in).
+      // amount_out — bu boshqa mijozning puli (balansga ta'sir etmaydi)
+      var vi = t.currency_in  || 'USD';
+      var vo = t.currency_out || '';
+      if(t.type==='juftlash'){
+        bal[vi] = (bal[vi]||0) - (t.amount_in||0);
+        return;
+      }
       // kirim: +amount_in
       // jonatish/qaytarish: -amount_in
       // konversiya: -amount_in valyuta_in, +amount_out valyuta_out
-      var vi = t.currency_in  || 'USD';
-      var vo = t.currency_out || '';
       bal[vi] = (bal[vi]||0) + (t.amount_in||0) * (t.type==='kirim'?1:-1);
       if(vo && t.amount_out){
         bal[vo] = (bal[vo]||0) + (t.amount_out||0) * (t.type==='konversiya'?1:-1);
