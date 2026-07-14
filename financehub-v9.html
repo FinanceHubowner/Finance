@@ -29825,7 +29825,8 @@ window.saveExchOp = function(){
       created_at: new Date().toISOString(),
       created_by: (CUR_USER&&CUR_USER.name)||''
     };
-    // B txn: B mijoz beradi jBCur jBAmt → oladi jACur jAAmt; margin yoziladi
+    // B txn: B mijoz beradi jBCur jBAmt → oladi jACur (jBAmt/jRateBA); margin yoziladi
+    var jBAmtOut = jRateBA>0 ? +( jBAmt/jRateBA ).toFixed(2) : jAAmt;
     var txnB={
       id: exchGenId('JFB'),
       client_id: jBCli,
@@ -29834,7 +29835,7 @@ window.saveExchOp = function(){
       currency_in:  jBCur,
       amount_in:    jBAmt,
       currency_out: jACur,
-      amount_out:   jAAmt,
+      amount_out:   jBAmtOut,
       rate: jRateBA||0,
       bank_rate: jRateAB||0,
       spread_profit: jMargin,
