@@ -23003,14 +23003,27 @@ function renderCashflow(focusDir){
   const _kassaTotCF=(function(){
     var tot=0; ensureKassaData();
     if(focusDir==='exchange'){
-      // Exchange: EXCH_CHANNELS balanslaridan USD ekvivalentida
-      var fx=EX_FX_RATE||7.2;
-      (EXCH_CHANNELS||[]).forEach(function(ch){
-        var b=ch.balances||{};
-        tot+=(b.USD||0);
-        tot+=(b.CNY||0)/fx;
-        tot+=(b.UZS||0)/(OB.fx_rate_uzs||12700);
+      // Exchange naqd pul pozitsiyasi = kirimlar - chiqimlar (tranzaksiyalardan)
+      var fx=EX_FX_RATE||7.2; var uzsFx=OB.fx_rate_uzs||12700;
+      var excBal={USD:0,CNY:0,UZS:0};
+      (EXCH_CLIENT_TXNS||[]).forEach(function(t){
+        var cur_in=t.currency_in||'USD'; var cur_out=t.currency_out||'';
+        if(t.type==='kirim'){
+          // Exchange qabul qildi: kanal balansi oshadi
+          excBal[cur_in]=(excBal[cur_in]||0)+(t.amount_in||0);
+        } else if(t.type==='jonatish'){
+          // Exchange yubordi: kanal balansi kamayadi
+          excBal[cur_in]=(excBal[cur_in]||0)-(t.amount_in||0);
+        } else if(t.type==='juftlash'){
+          // Juftlash: amount_in keldi (boshqa mijozdan olindi), amount_out chiqdi (boshqa mijozga berildi)
+          excBal[cur_in]=(excBal[cur_in]||0)+(t.amount_in||0);
+          if(cur_out) excBal[cur_out]=(excBal[cur_out]||0)-(t.amount_out||0);
+        } else if(t.type==='konversiya'){
+          excBal[cur_in]=(excBal[cur_in]||0)-(t.amount_in||0);
+          if(cur_out) excBal[cur_out]=(excBal[cur_out]||0)+(t.amount_out||0);
+        }
       });
+      tot+=Math.round((excBal.USD||0)+(excBal.CNY||0)/fx+(excBal.UZS||0)/uzsFx);
     } else {
       // Holding/boshqa: KASSA_DATA dan
       var dirFilter = focusDir ? [focusDir] : DIRS.filter(function(d){return d.id!=='exchange';}).map(function(d){return d.id;});
