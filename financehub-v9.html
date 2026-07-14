@@ -29486,9 +29486,44 @@ window.openExchOpModal = function(clientId, prefillType){
     +'<option value="kirim">💰 Depozit (mijoz pul qoldiradi)</option>'
     +'<option value="konversiya">🔄 Konversiya (valyuta almashish)</option>'
     +'<option value="qaytarish">🔙 Qaytarish (mijozga qaytarish)</option>'
+    +'<option value="juftlash">🔀 Juftlash — 2 mijozni birlashtirish (Matched Deal)</option>'
     +'</select></div>'
-    // Mijoz
-    +'<div><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Mijoz *</label>'
+    // Juftlash bloki (faqat juftlash turida ko'rinadi)
+    +'<div id="_eOJuftBlock" style="display:none;background:rgba(108,142,255,0.07);border:1px solid rgba(108,142,255,0.3);border-radius:12px;padding:16px;gap:12px;flex-direction:column">'
+    +'<div style="font-size:12px;font-weight:700;color:#6C8EFF;margin-bottom:4px">🔀 Matched Deal — 2 mijoz o\'rtasida valyuta almashinuvi</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+    // A taraf
+    +'<div style="background:var(--s2);border:1px solid var(--b1);border-radius:9px;padding:12px">'
+    +'<div style="font-size:11px;font-weight:700;color:#17B374;margin-bottom:8px">👤 A Mijoz (USD beradi)</div>'
+    +'<select id="_jA_cli" style="width:100%;padding:8px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:11px;margin-bottom:6px">'
+    +(cliOpts||'<option value="">—</option>')+'</select>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">'
+    +'<select id="_jA_cur" style="padding:8px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:11px">'+curOpts+'</select>'
+    +'<input id="_jA_amt" type="number" placeholder="95000" oninput="juftCalc()" style="padding:8px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:11px;box-sizing:border-box">'
+    +'</div></div>'
+    // B taraf
+    +'<div style="background:var(--s2);border:1px solid var(--b1);border-radius:9px;padding:12px">'
+    +'<div style="font-size:11px;font-weight:700;color:#FFB830;margin-bottom:8px">👤 B Mijoz (CNY beradi)</div>'
+    +'<select id="_jB_cli" style="width:100%;padding:8px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:11px;margin-bottom:6px">'
+    +(cliOpts||'<option value="">—</option>')+'</select>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">'
+    +'<select id="_jB_cur" style="padding:8px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:11px">'+curOpts+'</select>'
+    +'<input id="_jB_amt" type="number" placeholder="650000" oninput="juftCalc()" style="padding:8px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:11px;box-sizing:border-box">'
+    +'</div></div>'
+    +'</div>'
+    // Margin / Kurs
+    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px">'
+    +'<div><label style="font-size:10px;color:var(--t3);display:block;margin-bottom:3px">A → B kurs</label>'
+    +'<input id="_jRate_AB" type="number" step="0.0001" placeholder="6.842" oninput="juftCalc()" style="width:100%;padding:7px 9px;background:var(--s3);border:1px solid var(--b1);border-radius:7px;color:var(--t1);font-size:11px;box-sizing:border-box"></div>'
+    +'<div><label style="font-size:10px;color:#FFB830;display:block;margin-bottom:3px">B → A kurs (bozor)</label>'
+    +'<input id="_jRate_BA" type="number" step="0.0001" placeholder="6.914" oninput="juftCalc()" style="width:100%;padding:7px 9px;background:var(--s3);border:1px solid rgba(255,184,48,0.3);border-radius:7px;color:#FFB830;font-size:11px;box-sizing:border-box"></div>'
+    +'<div><label style="font-size:10px;color:#6C8EFF;display:block;margin-bottom:3px">Marja (foyda)</label>'
+    +'<input id="_jMargin" type="number" step="0.01" placeholder="0" oninput="juftCalcFromMargin()" style="width:100%;padding:7px 9px;background:var(--s3);border:1px solid rgba(108,142,255,0.3);border-radius:7px;color:#6C8EFF;font-size:11px;box-sizing:border-box"></div>'
+    +'</div>'
+    +'<div id="_jPreview" style="display:none;margin-top:8px;padding:10px 12px;background:rgba(23,179,116,0.08);border:1px solid rgba(23,179,116,0.2);border-radius:8px;font-size:11px;color:var(--t2)"></div>'
+    +'</div>'
+    // Mijoz (oddiy operatsiyalar uchun — juftlashda yashiriladi)
+    +'<div id="_eOCBlock"><label style="font-size:11px;color:var(--t3);display:block;margin-bottom:4px">Mijoz *</label>'
     +'<select id="_eOC" style="width:100%;padding:9px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px">'
     +(cliOpts||'<option value="">— Avval mijoz qo\'shing —</option>')
     +'</select></div>'
@@ -29666,6 +29701,68 @@ window.exchOpTypeChange = function(){
     if(amtLbl) amtLbl.textContent='Qaytarilgan miqdor *';
     if(chanLbl) chanLbl.textContent='Chiqim kanali (qaytarish kanali)';
   }
+  // Juftlash bloki va oddiy mijoz bloki
+  var juftBlock=document.getElementById('_eOJuftBlock');
+  var cliBlock=document.getElementById('_eOCBlock');
+  var isJuft=(t==='juftlash');
+  if(juftBlock) juftBlock.style.display=isJuft?'flex':'none';
+  if(cliBlock) cliBlock.style.display=isJuft?'none':'block';
+  // Juftlashda asosiy bloklar ham yashiriladi
+  if(isJuft){
+    if(outBlock) outBlock.style.display='none';
+    if(tgtBlock) tgtBlock.style.display='none';
+    if(chanInBlock) chanInBlock.style.display='none';
+    if(komBlock) komBlock.style.display='none';
+    if(kursBlock) kursBlock.style.display='none';
+  }
+};
+
+window.juftCalc = function(){
+  var aAmt=parseFloat((document.getElementById('_jA_amt')||{}).value)||0;
+  var bAmt=parseFloat((document.getElementById('_jB_amt')||{}).value)||0;
+  var rAB =parseFloat((document.getElementById('_jRate_AB')||{}).value)||0;
+  var rBA =parseFloat((document.getElementById('_jRate_BA')||{}).value)||0;
+  var prev=document.getElementById('_jPreview');
+  // A kurs: A nin amtA -> bAmt = aAmt * rAB
+  if(aAmt&&rAB&&!bAmt){
+    var calc=+(aAmt*rAB).toFixed(2);
+    var bF=document.getElementById('_jB_amt'); if(bF){bF.value=calc;bAmt=calc;}
+  }
+  // Margin = B nin bozor qiymati - A ga berilgan miqdor (USD bazasida)
+  var margin=0;
+  if(aAmt&&bAmt&&rAB&&rBA){
+    // A: USD beradi, B: CNY beradi
+    // A kurs: 1 USD = rAB CNY (Aga berilgan kurs — ko'proq CNY)
+    // B kurs: 1 USD = rBA CNY (bozor kursi — kamroq CNY)
+    // margin = bAmt/rBA - aAmt (USD da)
+    margin=+(bAmt/rBA-aAmt).toFixed(2);
+    var mF=document.getElementById('_jMargin'); if(mF) mF.value=margin;
+  }
+  if(prev){
+    if(aAmt&&bAmt){
+      var aCur=(document.getElementById('_jA_cur')||{}).value||'USD';
+      var bCur=(document.getElementById('_jB_cur')||{}).value||'CNY';
+      prev.style.display='block';
+      prev.innerHTML='<b>A Mijoz:</b> '+aCur+' '+fS(aAmt)+' → '+bCur+' '+fS(bAmt)
+        +(margin?' &nbsp;|&nbsp; <b style="color:#17B374">Marja: $'+fS(margin)+'</b>':'');
+    } else { prev.style.display='none'; }
+  }
+};
+
+window.juftCalcFromMargin = function(){
+  var margin=parseFloat((document.getElementById('_jMargin')||{}).value)||0;
+  var aAmt  =parseFloat((document.getElementById('_jA_amt')||{}).value)||0;
+  var rAB   =parseFloat((document.getElementById('_jRate_AB')||{}).value)||0;
+  if(!aAmt||!rAB||!margin) return;
+  // bAmt = (aAmt + margin) * rBA => rBA = bAmt / (aAmt + margin)
+  // Yoki: foydalanuvchi margin kiritsa, B miqdor qancha bo'lishi kerak?
+  // margin = bAmt/rBA - aAmt => bAmt = (aAmt+margin)*rBA
+  // Biz rBA ni bilmasak, avval rAB bilan: bAmt = aAmt*rAB (A kurs)
+  // Keyin rBA = bAmt/(aAmt+margin)
+  var bAmt=aAmt*rAB;
+  var rBA=+(bAmt/(aAmt+margin)).toFixed(6);
+  var rBAf=document.getElementById('_jRate_BA'); if(rBAf) rBAf.value=rBA;
+  juftCalc();
 };
 
 window.saveExchOp = function(){
@@ -29688,6 +29785,70 @@ window.saveExchOp = function(){
   var spreadProfit=0;
   if(type==='konversiya'&&bankRate>0&&kurs>0&&amtIn>0) spreadProfit=(bankRate-kurs)*amtIn;
 
+  // ── JUFTLASH alohida ────────────────────────────────────────
+  if(type==='juftlash'){
+    var jACli=(document.getElementById('_jA_cli')||{}).value||'';
+    var jBCli=(document.getElementById('_jB_cli')||{}).value||'';
+    var jACur=(document.getElementById('_jA_cur')||{}).value||'USD';
+    var jBCur=(document.getElementById('_jB_cur')||{}).value||'CNY';
+    var jAAmt=parseFloat((document.getElementById('_jA_amt')||{}).value)||0;
+    var jBAmt=parseFloat((document.getElementById('_jB_amt')||{}).value)||0;
+    var jRateAB=parseFloat((document.getElementById('_jRate_AB')||{}).value)||0;
+    var jRateBA=parseFloat((document.getElementById('_jRate_BA')||{}).value)||0;
+    var jMargin=parseFloat((document.getElementById('_jMargin')||{}).value)||0;
+    if(!jACli){toast('A Mijoz tanlanishi shart!','error');return;}
+    if(!jBCli){toast('B Mijoz tanlanishi shart!','error');return;}
+    if(jACli===jBCli){toast('A va B mijoz bir xil bo\'lmasligi kerak!','error');return;}
+    if(!jAAmt||jAAmt<=0){toast('A Mijoz miqdori kiritilishi shart!','error');return;}
+    if(!jBAmt||jBAmt<=0){toast('B Mijoz miqdori kiritilishi shart!','error');return;}
+    // A txn: A mijoz beradi jACur jAAmt → oladi jBCur jBAmt
+    var txnA={
+      id: exchGenId('JFA'),
+      client_id: jACli,
+      type: 'juftlash',
+      date: date,
+      currency_in:  jACur,
+      amount_in:    jAAmt,
+      currency_out: jBCur,
+      amount_out:   jBAmt,
+      rate: jRateAB||0,
+      bank_rate: jRateBA||0,
+      spread_profit: 0,
+      target: '', note: (note||'Juftlash operatsiyasi').trim(),
+      channel_id: '', channel_in_id: '', partner_id: partId||'',
+      commission_currency: '', commission_amount: 0,
+      created_at: new Date().toISOString(),
+      created_by: (CUR_USER&&CUR_USER.name)||''
+    };
+    // B txn: B mijoz beradi jBCur jBAmt → oladi jACur jAAmt; margin yoziladi
+    var txnB={
+      id: exchGenId('JFB'),
+      client_id: jBCli,
+      type: 'juftlash',
+      date: date,
+      currency_in:  jBCur,
+      amount_in:    jBAmt,
+      currency_out: jACur,
+      amount_out:   jAAmt,
+      rate: jRateBA||0,
+      bank_rate: jRateAB||0,
+      spread_profit: jMargin,
+      target: '', note: (note||'Juftlash operatsiyasi').trim(),
+      channel_id: '', channel_in_id: '', partner_id: partId||'',
+      commission_currency: '', commission_amount: 0,
+      created_at: new Date().toISOString(),
+      created_by: (CUR_USER&&CUR_USER.name)||''
+    };
+    EXCH_CLIENT_TXNS.push(txnA);
+    EXCH_CLIENT_TXNS.push(txnB);
+    exchClientSave();
+    var ov2=document.getElementById('_exchOpModal'); if(ov2) ov2.remove();
+    var cardOv2=document.getElementById('_exchCardOv');
+    if(cardOv2) openExchClientCard(jACli); else renderExchMijozlar();
+    toast('✓ Juftlash operatsiyasi saqlandi'+(jMargin?' · Marja: $'+fS(jMargin):''),'success');
+    return;
+  }
+  // ── Oddiy operatsiyalar ─────────────────────────────────────
   if(!cliId){toast('Mijoz tanlanishi shart!','error');return;}
   if(!amtIn||amtIn<=0){toast('Miqdor 0 dan katta bo\'lishi kerak!','error');return;}
   if(type==='konversiya'&&(!amtOut||amtOut<=0)){toast('Konversiya natijasi miqdori kiritilishi shart!','error');return;}
@@ -29727,7 +29888,7 @@ window.saveExchOp = function(){
   var cardOv=document.getElementById('_exchCardOv');
   if(cardOv) openExchClientCard(cliId);
   else renderExchMijozlar();
-  var typeNames={transfer:'Transfer xizmati',kirim:'Kirim',jonatish:"Jo'natish",konversiya:'Konversiya',qaytarish:'Qaytarish'};
+  var typeNames={transfer:'Transfer xizmati',kirim:'Kirim',jonatish:"Jo'natish",konversiya:'Konversiya',qaytarish:'Qaytarish',juftlash:'Juftlash'};
   toast('✓ '+( typeNames[type]||'Operatsiya')+' saqlandi','success');
 };
 
@@ -29739,9 +29900,9 @@ window.openExchClientCard = function(clientId){
     .sort(function(a,z){return (z.date||'').localeCompare(a.date||'');});
   var old=document.getElementById('_exchCardOv'); if(old) old.remove();
 
-  var typeIcon={transfer:'💱',kirim:'💰',jonatish:'📤',konversiya:'🔄',qaytarish:'🔙'};
-  var typeName={transfer:'Transfer xizmati',kirim:'Kirim',jonatish:"Jo'natish",konversiya:'Konversiya',qaytarish:'Qaytarish'};
-  var typeCol= {transfer:'#6C8EFF',kirim:'#17B374',jonatish:'#FF4D6A',konversiya:'#FFB830',qaytarish:'#6C8EFF'};
+  var typeIcon={transfer:'💱',kirim:'💰',jonatish:'📤',konversiya:'🔄',qaytarish:'🔙',juftlash:'🔀'};
+  var typeName={transfer:'Transfer xizmati',kirim:'Kirim',jonatish:"Jo'natish",konversiya:'Konversiya',qaytarish:'Qaytarish',juftlash:'Juftlash'};
+  var typeCol= {transfer:'#6C8EFF',kirim:'#17B374',jonatish:'#FF4D6A',konversiya:'#FFB830',qaytarish:'#6C8EFF',juftlash:'#A78BFA'};
 
   var balCards=Object.keys(bal).filter(function(k){return bal[k]!==0;}).map(function(cur){
     var v=bal[cur];
