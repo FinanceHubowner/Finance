@@ -12166,6 +12166,19 @@ function exchInjectToDATA(){
         });
       }
     }
+    // Juftlash: faqat B txn da spread_profit yoziladi (A txn da 0)
+    if(t.type==='juftlash' && t.spread_profit && Math.abs(t.spread_profit)>0.001){
+      var jSpUSD = +(t.spread_profit||0); // spread_profit allaqachon USD da saqlanadi
+      DATA['exchange'].push({
+        date:    t.date||new Date().toISOString().slice(0,10),
+        spread:  jSpUSD>0?jSpUSD:0,
+        expense: jSpUSD<0?Math.abs(jSpUSD):0,
+        net:     jSpUSD,
+        note:    'Juftlash marja: '+(cli.name||'')+' ('+(t.currency_in||'')+'→'+(t.currency_out||'')+' | kurs: '+(t.rate||0)+')',
+        _exch_inject: true,
+        _txn_id: t.id
+      });
+    }
   });
   // EXCH_EXPENSES — operatsion xarajatlarni inject qilish (kassoviy metod)
   EXCH_EXPENSES.forEach(function(x){
