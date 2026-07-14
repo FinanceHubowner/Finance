@@ -23003,27 +23003,7 @@ function renderCashflow(focusDir){
   const _kassaTotCF=(function(){
     var tot=0; ensureKassaData();
     if(focusDir==='exchange'){
-      // Exchange naqd pul pozitsiyasi = kirimlar - chiqimlar (tranzaksiyalardan)
-      var fx=EX_FX_RATE||7.2; var uzsFx=OB.fx_rate_uzs||12700;
-      var excBal={USD:0,CNY:0,UZS:0};
-      (EXCH_CLIENT_TXNS||[]).forEach(function(t){
-        var cur_in=t.currency_in||'USD'; var cur_out=t.currency_out||'';
-        if(t.type==='kirim'){
-          // Exchange qabul qildi: kanal balansi oshadi
-          excBal[cur_in]=(excBal[cur_in]||0)+(t.amount_in||0);
-        } else if(t.type==='jonatish'){
-          // Exchange yubordi: kanal balansi kamayadi
-          excBal[cur_in]=(excBal[cur_in]||0)-(t.amount_in||0);
-        } else if(t.type==='juftlash'){
-          // Juftlash: amount_in keldi (boshqa mijozdan olindi), amount_out chiqdi (boshqa mijozga berildi)
-          excBal[cur_in]=(excBal[cur_in]||0)+(t.amount_in||0);
-          if(cur_out) excBal[cur_out]=(excBal[cur_out]||0)-(t.amount_out||0);
-        } else if(t.type==='konversiya'){
-          excBal[cur_in]=(excBal[cur_in]||0)-(t.amount_in||0);
-          if(cur_out) excBal[cur_out]=(excBal[cur_out]||0)+(t.amount_out||0);
-        }
-      });
-      tot+=Math.round((excBal.USD||0)+(excBal.CNY||0)/fx+(excBal.UZS||0)/uzsFx);
+      tot += exchCashNetUSD();
     } else {
       // Holding/boshqa: KASSA_DATA dan
       var dirFilter = focusDir ? [focusDir] : DIRS.filter(function(d){return d.id!=='exchange';}).map(function(d){return d.id;});
@@ -23035,16 +23015,8 @@ function renderCashflow(focusDir){
           tot+=((kas['UZS_'+tp]||{}).balance||0)/(OB.fx_rate_uzs||12700);
         });
       });
-      // Konsolidatsiya (Holding): Exchange kanallarini ham qo'shish
-      if(!focusDir){
-        var fx=EX_FX_RATE||7.2;
-        (EXCH_CHANNELS||[]).forEach(function(ch){
-          var b=ch.balances||{};
-          tot+=(b.USD||0);
-          tot+=(b.CNY||0)/fx;
-          tot+=(b.UZS||0)/(OB.fx_rate_uzs||12700);
-        });
-      }
+      // Konsolidatsiya (Holding): Exchange tranzaksiyalaridan hisoblash
+      if(!focusDir){ tot += exchCashNetUSD(); }
     }
     return Math.round(tot);
   })();
@@ -24145,10 +24117,11 @@ function renderBalance(focusDir){
   })();
 
 
-  // Exchange kassoviy metod: fizik kassa = net daromad (spread - expense)
-  // Holding konsolidatsiyada ham Exchange neti qo'shiladi
-  const exNetCash = Math.max(0, Math.round(sk(e,'net')));
-  const ca_cash   = EHSON_DATA.chinwakil_balance + kassaTotalUSD + exNetCash;
+  // Exchange naqd pul pozitsiyasi — barcha tranzaksiyalardan (kirim-chiqim neti)
+  const exNetCash = Math.max(0, exchCashNetUSD());
+  // Exchange-only BS: faqat Exchange naqd pul; Holding: barcha yo'nalishlar + Chinwakil
+  const ca_cash   = (_bsDir==='exchange') ? exNetCash
+                  : (EHSON_DATA.chinwakil_balance + kassaTotalUSD + exNetCash);
 
 
 
@@ -25928,21 +25901,17 @@ function renderBalance(focusDir){
         ])},
 
 
-      ca_cash:{t:'💵 Naqd va Bank Mablag\'lari',h:sumC(ca_cash,'Cash & Equivalents','Chinwakil + yo\'nalishlar bank','#00E5A0')
+      ca_cash:{t:'💵 Naqd va Bank Mablag\'lari',h:sumC(ca_cash,'Cash & Equivalents',_bsDir==='exchange'?'Exchange kassoviy net':'Chinwakil + yo\'nalishlar bank','#00E5A0')
 
 
-        +tbl([
-
-
-          {l:'🏦 Chinwakil kassa',s:'Asosiy holding kassa',v:EHSON_DATA.chinwakil_balance,nosign:true,fn:"_dgo('bs_chinwakil')"},
-
-
-          {l:'🏧 Yo\'nalishlar bank hisoblari',s:'Operatsion bank hisoblari',v:kassaTotalUSD,nosign:true,fn:"_dgo('bs_cash_dirs')"},
-
-
+        +tbl(_bsDir==='exchange'?[
+          {l:'💱 Exchange naqd pul',s:'Kirim − jonatish/juftlash neti',v:exNetCash,nosign:true},
           {l:'Naqd Jami',v:ca_cash,bold:true,nosign:true,c:'#00E5A0'},
-
-
+        ]:[
+          {l:'🏦 Chinwakil kassa',s:'Asosiy holding kassa',v:EHSON_DATA.chinwakil_balance,nosign:true,fn:"_dgo('bs_chinwakil')"},
+          {l:'🏧 Yo\'nalishlar bank hisoblari',s:'Operatsion bank hisoblari',v:kassaTotalUSD,nosign:true,fn:"_dgo('bs_cash_dirs')"},
+          {l:'💱 Exchange bank hisobi',s:'Kassoviy metod: kirim−chiqim neti',v:exNetCash,nosign:true,fn:"_dgo('bs_dir_exchange')"},
+          {l:'Naqd Jami',v:ca_cash,bold:true,nosign:true,c:'#00E5A0'},
         ])},
 
 
@@ -29509,6 +29478,28 @@ function exchAllChannelBalances(){
     // initial_balance ham qo'shildi yuqorida
   });
   return tot;
+}
+
+// Exchange naqd pul pozitsiyasi (USD ekv.) — EXCH_CLIENT_TXNS barcha tranzaksiyalardan
+// CF va BS ikkalasi shu funksiyadan foydalanadi
+function exchCashNetUSD(){
+  var bal={USD:0,CNY:0,UZS:0};
+  var fx=EX_FX_RATE||7.2; var uzsFx=(OB&&OB.fx_rate_uzs)||12700;
+  (EXCH_CLIENT_TXNS||[]).forEach(function(t){
+    var ci=t.currency_in||'USD'; var co=t.currency_out||'';
+    if(t.type==='kirim'){
+      bal[ci]=(bal[ci]||0)+(t.amount_in||0);
+    } else if(t.type==='jonatish'){
+      bal[ci]=(bal[ci]||0)-(t.amount_in||0);
+    } else if(t.type==='juftlash'){
+      // amount_in allaqachon kirim txn da hisoblanган — faqat chiqim qayd etiladi
+      if(co) bal[co]=(bal[co]||0)-(t.amount_out||0);
+    } else if(t.type==='konversiya'){
+      bal[ci]=(bal[ci]||0)-(t.amount_in||0);
+      if(co) bal[co]=(bal[co]||0)+(t.amount_out||0);
+    }
+  });
+  return Math.round((bal.USD||0)+(bal.CNY||0)/fx+(bal.UZS||0)/uzsFx);
 }
 
 function exchGenId(prefix){ return prefix+'-'+Date.now()+'-'+Math.random().toString(36).slice(2,7); }
