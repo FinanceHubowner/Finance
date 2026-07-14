@@ -23012,7 +23012,7 @@ function renderCashflow(focusDir){
         tot+=(b.UZS||0)/(OB.fx_rate_uzs||12700);
       });
     } else {
-      // Holding/boshqa: KASSA_DATA dan (exchange tashqari)
+      // Holding/boshqa: KASSA_DATA dan
       var dirFilter = focusDir ? [focusDir] : DIRS.filter(function(d){return d.id!=='exchange';}).map(function(d){return d.id;});
       dirFilter.forEach(function(did){
         var kas=KASSA_DATA[did]||{};
@@ -23022,6 +23022,16 @@ function renderCashflow(focusDir){
           tot+=((kas['UZS_'+tp]||{}).balance||0)/(OB.fx_rate_uzs||12700);
         });
       });
+      // Konsolidatsiya (Holding): Exchange kanallarini ham qo'shish
+      if(!focusDir){
+        var fx=EX_FX_RATE||7.2;
+        (EXCH_CHANNELS||[]).forEach(function(ch){
+          var b=ch.balances||{};
+          tot+=(b.USD||0);
+          tot+=(b.CNY||0)/fx;
+          tot+=(b.UZS||0)/(OB.fx_rate_uzs||12700);
+        });
+      }
     }
     return Math.round(tot);
   })();
