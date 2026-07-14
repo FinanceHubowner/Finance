@@ -22999,8 +22999,32 @@ function renderCashflow(focusDir){
   const net_change = cfo+cfi+cff;
 
 
-  // ✅ Yopilish kassasi — haqiqiy KASSA_DATA joriy holati
-  const _kassaTotCF=(function(){var tot=0;ensureKassaData();DIRS.forEach(function(d){if(d.id==='exchange')return;var kas=KASSA_DATA[d.id]||{};KTYPES.forEach(function(tp){tot+=(kas['USD_'+tp]||{}).balance||0;tot+=((kas['RMB_'+tp]||{}).balance||0)/(OB.fx_rate_rmb||7.1);tot+=((kas['UZS_'+tp]||{}).balance||0)/(OB.fx_rate_uzs||12700);});});return Math.round(tot);})();
+  // ✅ Yopilish kassasi — focusDir bo'yicha to'g'ri hisob
+  const _kassaTotCF=(function(){
+    var tot=0; ensureKassaData();
+    if(focusDir==='exchange'){
+      // Exchange: EXCH_CHANNELS balanslaridan USD ekvivalentida
+      var fx=EX_FX_RATE||7.2;
+      (EXCH_CHANNELS||[]).forEach(function(ch){
+        var b=ch.balances||{};
+        tot+=(b.USD||0);
+        tot+=(b.CNY||0)/fx;
+        tot+=(b.UZS||0)/(OB.fx_rate_uzs||12700);
+      });
+    } else {
+      // Holding/boshqa: KASSA_DATA dan (exchange tashqari)
+      var dirFilter = focusDir ? [focusDir] : DIRS.filter(function(d){return d.id!=='exchange';}).map(function(d){return d.id;});
+      dirFilter.forEach(function(did){
+        var kas=KASSA_DATA[did]||{};
+        KTYPES.forEach(function(tp){
+          tot+=(kas['USD_'+tp]||{}).balance||0;
+          tot+=((kas['RMB_'+tp]||{}).balance||0)/(OB.fx_rate_rmb||7.1);
+          tot+=((kas['UZS_'+tp]||{}).balance||0)/(OB.fx_rate_uzs||12700);
+        });
+      });
+    }
+    return Math.round(tot);
+  })();
   // IAS 7: end_cash = joriy kassa (KASSA_DATA), begin_cash = end - net_change
   const end_cash   = Math.max(0, _kassaTotCF);
   const begin_cash = end_cash - net_change;
