@@ -22839,9 +22839,9 @@ function renderCashflow(focusDir){
 
 
   // ✅ IAS 7: Haqiqiy DC_DATA dan AR/AP o'zgarishi (yo'nalish bo'yicha filter)
-  var _cfDir = focusDir && focusDir !== 'holding' ? focusDir : null;
-  var _cfDeb = _cfDir ? (DC_DATA.debitor||[]).filter(function(r){return r.dir===_cfDir;}) : (DC_DATA.debitor||[]);
-  var _cfKred= _cfDir ? (DC_DATA.kreditor||[]).filter(function(r){return r.dir===_cfDir;}) : (DC_DATA.kreditor||[]);
+  var _dcFilterDir = focusDir && focusDir !== 'holding' ? focusDir : null;
+  var _cfDeb = _dcFilterDir ? (DC_DATA.debitor||[]).filter(function(r){return r.dir===_dcFilterDir;}) : (DC_DATA.debitor||[]);
+  var _cfKred= _dcFilterDir ? (DC_DATA.kreditor||[]).filter(function(r){return r.dir===_dcFilterDir;}) : (DC_DATA.kreditor||[]);
   const op_wc_ar     = -(_cfDeb.reduce(function(s,r){return s+(r.amount-r.paid);},0));
   const op_wc_ap     =  (_cfKred.reduce(function(s,r){return s+(r.amount-r.paid);},0));
   // ✅ IAS 2: Inventar o'zgarishi haqiqiy TXNS dan
