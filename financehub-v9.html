@@ -12437,6 +12437,31 @@ function exchInjectToDATA(){
       });
     }
   });
+  // EX_TXNS (eski format) → komissiyalarni DATA['exchange'] ga inject qilish
+  var _fxOld = EX_FX_RATE||7.1;
+  EX_TXNS.forEach(function(t){
+    var u=+(t.usd||0), c=+(t.cny||0), fx=+(t.fx_rate||_fxOld);
+    var commUSD=0;
+    if(t.type==='break'){
+      commUSD = u * +(t.comm_rate||0.02); // commission CNY → USD
+    } else if(t.type==='send_cny'){
+      commUSD = c * +(t.comm_rate||0.005) / _fxOld;
+    } else if(t.type==='send_usd'||t.type==='cashout'||t.type==='cashin'){
+      commUSD = u * +(t.comm_rate||0.0006);
+    }
+    if(commUSD>0.001){
+      DATA['exchange'].push({
+        date:    t.date||new Date().toISOString().slice(0,10),
+        spread:  commUSD,
+        expense: 0,
+        net:     commUSD,
+        note:    'Eski operatsiya ('+(t.type||'')+')'+(t.note?' — '+t.note:''),
+        _exch_inject:   true,
+        _exch_old_txn:  true
+      });
+    }
+  });
+
   // EXCH_EXPENSES — operatsion xarajatlarni inject qilish (kassoviy metod)
   EXCH_EXPENSES.forEach(function(x){
     var _uzsRate = (typeof OB!=='undefined'&&OB.fx_rate_uzs)||12700;
@@ -29091,15 +29116,23 @@ function exCalcBalance(txns){
       b.client_usd-=u; b.client_cny-=c;
     }
   });
-  // Yangi EXCH_CLIENT_TXNS dagi Transfer komissiyalarini qo'shish
+  // Yangi EXCH_CLIENT_TXNS dagi barcha foyda turlarini qo'shish
   // (faqat to'liq hisoblashda, ya'ni txns argument berilmagan bo'lsa)
   if(!arguments[0]){
+    var _fx = EX_FX_RATE||7.1;
     EXCH_CLIENT_TXNS.forEach(function(t){
       if(t.type==='transfer' && t.commission_amount){
         var komCur = t.commission_currency || 'USD';
         var komAmt = +(t.commission_amount||0);
         if(komCur==='CNY'){ b.co_cny+=komAmt; b.comm_total_cny+=komAmt; }
         else { b.co_usd+=komAmt; b.comm_total_usd+=komAmt; }
+      } else if(t.type==='konversiya' && t.spread_profit){
+        var spK = +(t.spread_profit||0);
+        var spKusd = (t.currency_out==='CNY') ? spK/_fx : spK;
+        b.co_usd+=spKusd; b.comm_total_usd+=spKusd;
+      } else if(t.type==='juftlash' && t.spread_profit){
+        var spJ = +(t.spread_profit||0); // allaqachon USD da
+        b.co_usd+=spJ; b.comm_total_usd+=spJ;
       }
     });
   }
@@ -29748,11 +29781,20 @@ function exchAllChannelBalances(){
   return tot;
 }
 
-// Exchange naqd pul pozitsiyasi (USD ekv.) — EXCH_CLIENT_TXNS barcha tranzaksiyalardan
+// Exchange naqd pul pozitsiyasi (USD ekv.) — EX_TXNS + EXCH_CLIENT_TXNS barcha tranzaksiyalardan
 // CF va BS ikkalasi shu funksiyadan foydalanadi
 function exchCashNetUSD(){
   var bal={USD:0,CNY:0,UZS:0};
   var fx=EX_FX_RATE||7.2; var uzsFx=(OB&&OB.fx_rate_uzs)||12700;
+
+  // Eski EX_TXNS — tangachining o'z kassasi (company profit: co_usd + co_cny)
+  if((EX_TXNS||[]).length){
+    var ob = exCalcBalance(EX_TXNS);
+    bal.USD += ob.co_usd;
+    bal.CNY += ob.co_cny;
+  }
+
+  // Yangi EXCH_CLIENT_TXNS — kassoviy metod
   (EXCH_CLIENT_TXNS||[]).forEach(function(t){
     var ci=t.currency_in||'USD'; var co=t.currency_out||'';
     if(t.type==='kirim'){
@@ -29760,7 +29802,7 @@ function exchCashNetUSD(){
     } else if(t.type==='jonatish'){
       bal[ci]=(bal[ci]||0)-(t.amount_in||0);
     } else if(t.type==='juftlash'){
-      // amount_in allaqachon kirim txn da hisoblanган — faqat chiqim qayd etiladi
+      // amount_in allaqachon kirim txn da hisoblangan — faqat chiqim qayd etiladi
       if(co) bal[co]=(bal[co]||0)-(t.amount_out||0);
     } else if(t.type==='konversiya'){
       bal[ci]=(bal[ci]||0)-(t.amount_in||0);
