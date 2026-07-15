@@ -24316,7 +24316,7 @@ function renderBalance(focusDir){
   const rev=sk(c,'revenue')+sk(l,'revenue')+sk(e,'spread')+sk(p,'commission');
 
 
-  const netIncome=sk(c,'margin')+sk(l,'margin')+sk(e,'net')+sk(p,'net');
+  const netIncomeAll=sk(c,'margin')+sk(l,'margin')+sk(e,'net')+sk(p,'net');
 
 
 
@@ -24326,6 +24326,13 @@ function renderBalance(focusDir){
 
   // Holding darajasida barcha, yo'nalish darajasida faqat o'z DC_DATA si
   var _bsDir = focusDir && focusDir !== 'holding' ? focusDir : null;
+
+  // Direction-specific netIncome — faqat o'z yo'nalishi foydasi
+  var netIncome = _bsDir==='cargo'        ? sk(c,'margin')
+                : _bsDir==='logistics'    ? sk(l,'margin')
+                : _bsDir==='exchange'     ? sk(e,'net')
+                : _bsDir==='procurement'  ? sk(p,'net')
+                : netIncomeAll;
   var _bsDebitors  = _bsDir ? (DC_DATA.debitor||[]).filter(function(r){return r.dir===_bsDir;})  : (DC_DATA.debitor||[]);
   var _bsKreditors = _bsDir ? (DC_DATA.kreditor||[]).filter(function(r){return r.dir===_bsDir;}) : (DC_DATA.kreditor||[]);
 
