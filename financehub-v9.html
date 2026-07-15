@@ -12437,30 +12437,9 @@ function exchInjectToDATA(){
       });
     }
   });
-  // EX_TXNS (eski format) → komissiyalarni DATA['exchange'] ga inject qilish
-  var _fxOld = EX_FX_RATE||7.1;
-  EX_TXNS.forEach(function(t){
-    var u=+(t.usd||0), c=+(t.cny||0), fx=+(t.fx_rate||_fxOld);
-    var commUSD=0;
-    if(t.type==='break'){
-      commUSD = u * +(t.comm_rate||0.02); // commission CNY → USD
-    } else if(t.type==='send_cny'){
-      commUSD = c * +(t.comm_rate||0.005) / _fxOld;
-    } else if(t.type==='send_usd'||t.type==='cashout'||t.type==='cashin'){
-      commUSD = u * +(t.comm_rate||0.0006);
-    }
-    if(commUSD>0.001){
-      DATA['exchange'].push({
-        date:    t.date||new Date().toISOString().slice(0,10),
-        spread:  commUSD,
-        expense: 0,
-        net:     commUSD,
-        note:    'Eski operatsiya ('+(t.type||'')+')'+(t.note?' — '+t.note:''),
-        _exch_inject:   true,
-        _exch_old_txn:  true
-      });
-    }
-  });
+  // EX_TXNS (eski format) — DATA['exchange'] ga inject QILINMAYDI.
+  // Sabab: EX_TXNS avvalgi davr tranzaksiyalari — cashga ta'sir qiladi (exchCashNetUSD),
+  // lekin joriy P&L ga aralashmasligi kerak → shunda eq_retained da to'g'ri ko'rinadi.
 
   // EXCH_EXPENSES — operatsion xarajatlarni inject qilish (kassoviy metod)
   EXCH_EXPENSES.forEach(function(x){
