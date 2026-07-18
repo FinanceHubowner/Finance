@@ -132,6 +132,9 @@ body{background:var(--bg) !important;color:var(--t1);font-family:var(--sans);fon
 
 
 .snbtn:hover{background:var(--b1);color:var(--t2)}
+.snbtn[draggable="true"]{cursor:grab}.snbtn[draggable="true"]:active{cursor:grabbing}
+.snbtn.drag-over{outline:2px dashed var(--acc);outline-offset:2px;background:var(--acc)22}
+.snbtn.dragging{opacity:.4;transform:scale(.97)}
 
 
 .snbtn.on{background:var(--b2);color:var(--t1);border-color:var(--b3);font-weight:500}
@@ -12851,6 +12854,18 @@ function buildNav(){
 
 
   // ── Sub-nav ──────────────────────────────────────────────────
+  // Tab tartib yordamchi funksiyalar
+  function _getTabOrder(dir){ try{ return JSON.parse(localStorage.getItem('tab_order_'+dir)||'null'); }catch(e){ return null; } }
+  function _saveTabOrder(dir,ids){ localStorage.setItem('tab_order_'+dir,JSON.stringify(ids)); }
+  function _applyTabOrder(dir,items){
+    var saved=_getTabOrder(dir);
+    if(!saved||!saved.length) return items;
+    var ordered=[];
+    saved.forEach(function(id){ var f=items.find(function(s){return s.id===id;}); if(f) ordered.push(f); });
+    items.forEach(function(s){ if(saved.indexOf(s.id)===-1) ordered.push(s); }); // yangi tablar oxiriga
+    return ordered;
+  }
+  window._resetTabOrder=function(dir){ localStorage.removeItem('tab_order_'+dir); if(typeof renderNav==='function') renderNav(); };
 
 
   var subEl = document.getElementById('subNav');
@@ -12886,6 +12901,8 @@ function buildNav(){
   }
   // holding_fin: barcha tablar ko'rinadi (cheklov yo'q)
 
+  // Saqlangan tartibni qo'llash (yangi tablar oxiriga qo'shiladi)
+  snItems = _applyTabOrder(topActive, snItems);
 
   var dirInfo = {
 
@@ -12923,9 +12940,14 @@ function buildNav(){
   h += '<div id="snScrollArea" class="subnav" style="flex:1;min-width:0;border:none;padding:6px 0;overflow-x:auto;scrollbar-width:none" '
      + 'onscroll="(function(){var el=document.getElementById(\'snScrollArea\');var L=document.getElementById(\'snScrollL\');var R=document.getElementById(\'snScrollR\');if(L){L.style.display=el.scrollLeft>4?\'block\':\'none\';}if(R){R.style.display=(el.scrollWidth-el.clientWidth-el.scrollLeft)>4?\'block\':\'none\';}})()">';
 
-  // Direction badge
+  // Direction badge + Reset tartib tugmasi
   h += '<div class="subnav-dir" style="color:'+di.col+';background:'+di.col+'11;border:1px solid '+di.col+'33;flex-shrink:0">'
      + di.icon+' '+di.name+'</div>';
+  if(_getTabOrder(topActive)){
+    h += '<button title="Asl tartibni tiklash" onclick="_resetTabOrder(\''+topActive+'\')" '
+       + 'style="flex-shrink:0;background:none;border:none;color:var(--t3);cursor:pointer;font-size:11px;padding:2px 6px;opacity:.6" '
+       + 'onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.6">↺</button>';
+  }
   h += '<div class="snbtn-sep" style="flex-shrink:0"></div>';
 
   // Sub-nav buttons
@@ -12941,7 +12963,7 @@ function buildNav(){
       var tc=(typeof getOpenTaskCount==='function')?getOpenTaskCount():0;
       if(tc>0) badge='<span style="display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;margin-left:5px;background:#6C8EFF;color:#fff;font-size:9px;font-weight:700;border-radius:999px;line-height:1">'+tc+'</span>';
     }
-    h += '<button class="snbtn'+(isOn?' on':'')+'" style="flex-shrink:0" onclick="goNav(\''+navId+'\')">'
+    h += '<button class="snbtn'+(isOn?' on':'')+'" style="flex-shrink:0" draggable="true" data-tabid="'+s.id+'" data-dir="'+topActive+'" onclick="goNav(\''+navId+'\')">'
        + s.icon+' '+s.lbl+badge+'</button>';
   });
 
@@ -12969,12 +12991,78 @@ function buildNav(){
     var area = document.getElementById('snScrollArea');
     var activeBtn = area && area.querySelector('.snbtn.on');
     if(activeBtn) activeBtn.scrollIntoView({block:'nearest',inline:'center'});
-    // Scroll tugmalar holatini yangilash
     if(area){
       var R = document.getElementById('snScrollR');
       if(R) R.style.display = (area.scrollWidth - area.clientWidth) > 4 ? 'block' : 'none';
     }
+    // Drag-and-drop tartib o'zgartirish
+    _initSubnavDrag(topActive);
   }, 80);
+
+  function _initSubnavDrag(dir){
+    var area = document.getElementById('snScrollArea');
+    if(!area) return;
+    var btns = area.querySelectorAll('[data-tabid]');
+    var dragging = null;
+    btns.forEach(function(btn){
+      // Desktop HTML5 drag
+      btn.addEventListener('dragstart',function(e){
+        dragging=btn; btn.classList.add('dragging');
+        e.dataTransfer.effectAllowed='move';
+        e.dataTransfer.setData('text/plain',btn.dataset.tabid);
+      });
+      btn.addEventListener('dragend',function(){
+        btn.classList.remove('dragging');
+        area.querySelectorAll('[data-tabid]').forEach(function(b){b.classList.remove('drag-over');});
+        dragging=null;
+      });
+      btn.addEventListener('dragover',function(e){
+        e.preventDefault();
+        if(!dragging||dragging===btn) return;
+        area.querySelectorAll('[data-tabid]').forEach(function(b){b.classList.remove('drag-over');});
+        btn.classList.add('drag-over');
+      });
+      btn.addEventListener('drop',function(e){
+        e.preventDefault();
+        if(!dragging||dragging===btn) return;
+        var all=Array.from(area.querySelectorAll('[data-tabid]'));
+        var fi=all.indexOf(dragging), ti=all.indexOf(btn);
+        if(fi<ti) btn.after(dragging); else btn.before(dragging);
+        btn.classList.remove('drag-over');
+        var newOrder=Array.from(area.querySelectorAll('[data-tabid]')).map(function(b){return b.dataset.tabid;});
+        _saveTabOrder(dir,newOrder);
+      });
+      // Mobile: long-press 400ms
+      var _tt=null, _dm=false, _clone=null;
+      btn.addEventListener('touchstart',function(e){
+        _tt=setTimeout(function(){
+          _dm=true; dragging=btn; btn.classList.add('dragging');
+          navigator.vibrate&&navigator.vibrate(40);
+        },400);
+      },{passive:true});
+      btn.addEventListener('touchend',function(){
+        clearTimeout(_tt);
+        if(_dm){ btn.classList.remove('dragging'); area.querySelectorAll('[data-tabid]').forEach(function(b){b.classList.remove('drag-over');}); }
+        _dm=false; dragging=null;
+      },{passive:true});
+      btn.addEventListener('touchmove',function(e){
+        clearTimeout(_tt);
+        if(!_dm||!dragging) return;
+        e.preventDefault();
+        var t=e.touches[0];
+        var el=document.elementFromPoint(t.clientX,t.clientY);
+        if(el&&el.dataset&&el.dataset.tabid&&el!==dragging){
+          area.querySelectorAll('[data-tabid]').forEach(function(b){b.classList.remove('drag-over');});
+          el.classList.add('drag-over');
+          var all=Array.from(area.querySelectorAll('[data-tabid]'));
+          var fi=all.indexOf(dragging),ti=all.indexOf(el);
+          if(fi<ti) el.after(dragging); else el.before(dragging);
+          var newOrder=Array.from(area.querySelectorAll('[data-tabid]')).map(function(b){return b.dataset.tabid;});
+          _saveTabOrder(dir,newOrder);
+        }
+      },{passive:false});
+    });
+  }
 
 }
 
