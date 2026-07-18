@@ -14422,7 +14422,7 @@ function orgOcDraw(){
     var x2=tn.x+ox, y2=tn.y+oy;
     var my=(y1+y2)/2;
     var dash=e.type==='func'?'stroke-dasharray="6,4"':'';
-    lines+='<path d="M'+x1+','+y1+' C'+x1+','+my+' '+x2+','+my+' '+x2+','+y2+'" fill="none" stroke="rgba(108,142,255,0.45)" stroke-width="1.5" '+dash+'/>';
+    lines+='<path d="M'+x1+','+y1+' L'+x1+','+my+' L'+x2+','+my+' L'+x2+','+y2+'" fill="none" stroke="rgba(108,142,255,0.45)" stroke-width="1.5" '+dash+'/>';
   });
   svg.innerHTML=lines;
 
