@@ -12347,6 +12347,7 @@ function rebuildProcNav(){
     });
     var canManage = CUR_USER && ['owner','holding_head','dir_head','holding_fin'].indexOf(CUR_USER.role)!==-1;
     if(canManage) tabs.push({id:'addagent', lbl:'+ Agent', icon:'➕'});
+    tabs.push({id:'dtkt', lbl:'Dt/Kt', icon:'📒'});
   }
   SUBNAV_DEFS.procurement = tabs;
   buildNav();
@@ -13343,6 +13344,8 @@ function goNav(id){
     renderProcOverview();
   } else if(dirId==='procurement' && subId.indexOf('agent_')===0){
     renderProcAgentView(subId.replace('agent_',''));
+  } else if(dirId==='procurement' && subId==='dtkt'){
+    renderProcDtKt();
   } else if(dirId==='procurement' && subId==='addagent'){
     renderProcAddAgent();
   } else {
@@ -19916,6 +19919,217 @@ var PL_INTERCO = true;     // intercompany elimination on/off
 
 
 
+
+// ══════════════════════════════════════════════════════════════
+// PROCUREMENT — 3 TOMONLAMA DT/KT HISOBOT
+// ══════════════════════════════════════════════════════════════
+function renderProcDtKt(){
+  var el=document.getElementById('pg-l2'); el.classList.add('on');
+  setBc([{lbl:'🏭 Procurement',fn:"goNav('procurement')"},{lbl:'📒 Dt/Kt',fn:''}]);
+  var cny=PROC_CNY_RATE||7.15;
+  var orders=(PROC_ORDERS||[]).filter(function(o){return o.stage!=='cancelled';});
+
+  // ── Hisob-kitob: har bir buyurtma uchun ──
+  var rows=orders.map(function(o){
+    var agent=(PROC_AGENTS||[]).find(function(a){return a.id===o.agent_id;})||{};
+    // Mijoz tomonidan
+    var clientInvoice = +(o.client_price||0);
+    var clientPaid    = +(o.client_paid_usd||0);
+    var clientDebt    = clientInvoice - clientPaid; // mijoz bizga qarzdor
+
+    // Zavod tomonida (RMB → USD)
+    var supplierTotal = (+(o.supplier_total_rmb||0))/cny;
+    var supplierPaid  = (+(o.supplier_paid_rmb||0))/cny;
+    var supplierDebt  = supplierTotal - supplierPaid; // biz zavodga qarzdorik
+
+    // Komissiya va sof foyda
+    var pl = procOrderPL(o);
+
+    return {
+      o:o, agent:agent,
+      clientInvoice:clientInvoice, clientPaid:clientPaid, clientDebt:clientDebt,
+      supplierTotal:supplierTotal, supplierPaid:supplierPaid, supplierDebt:supplierDebt,
+      commission:pl.commission, net:pl.net
+    };
+  });
+
+  // ── Jami ──
+  var totCI=0,totCP=0,totCD=0,totST=0,totSP=0,totSD=0,totCom=0,totNet=0;
+  rows.forEach(function(r){
+    totCI+=r.clientInvoice; totCP+=r.clientPaid; totCD+=r.clientDebt;
+    totST+=r.supplierTotal; totSP+=r.supplierPaid; totSD+=r.supplierDebt;
+    totCom+=r.commission; totNet+=r.net;
+  });
+
+  function usd(v,colored){
+    var s='$'+Math.abs(v).toLocaleString('en',{minimumFractionDigits:0,maximumFractionDigits:0});
+    if(!colored) return s;
+    var c=v>0?'#FF4D6A':v<0?'#17B374':'var(--t3)';
+    return '<span style="color:'+c+'">'+s+'</span>';
+  }
+  function statusBadge(paid,total){
+    if(total<=0) return '<span style="color:var(--t3);font-size:10px">—</span>';
+    if(paid>=total) return '<span style="background:#17B37420;color:#17B374;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700">✓ To\'liq</span>';
+    if(paid>0)      return '<span style="background:#FFB83020;color:#FFB830;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700">~ Qisman</span>';
+    return '<span style="background:#FF4D6A20;color:#FF4D6A;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700">✗ To\'lanmagan</span>';
+  }
+
+  // ── FILTER ──
+  var fStage=window._pdkStage||'all', fAgent=window._pdkAgent||'all';
+  var agents=(PROC_AGENTS||[]);
+  var agentOpts='<option value="all">— Barcha agentlar —</option>';
+  agents.forEach(function(a){ agentOpts+='<option value="'+a.id+'"'+(fAgent===a.id?' selected':'')+'>'+escHtml(a.name)+'</option>'; });
+  var stageOpts='<option value="all">— Barcha bosqichlar —</option>';
+  (PROC_STAGES||[]).forEach(function(s){ stageOpts+='<option value="'+s.id+'"'+(fStage===s.id?' selected':'')+'>'+escHtml(s.lbl)+'</option>'; });
+
+  var filteredRows=rows.filter(function(r){
+    if(fAgent!=='all'&&r.o.agent_id!==fAgent) return false;
+    if(fStage!=='all'&&r.o.stage!==fStage) return false;
+    return true;
+  });
+
+  var h='<div style="padding:20px 24px;max-width:1400px">';
+
+  // ── Summary tiles ──
+  h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">';
+  var tiles=[
+    {lbl:'Mijozdan kutilmoqda',val:totCD,col:'#FF4D6A',icon:'👥',sub:'Debitor'},
+    {lbl:'Zavodga to\'lash kerak',val:totSD,col:'#FFB830',icon:'🏭',sub:'Kreditor'},
+    {lbl:'Jami komissiya',val:totCom,col:'#6C8EFF',icon:'💼',sub:'Daromad'},
+    {lbl:'Sof foyda',val:totNet,col:'#17B374',icon:'📈',sub:'Net P&L'},
+  ];
+  tiles.forEach(function(t){
+    h+='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;padding:16px">';
+    h+='<div style="font-size:10px;color:var(--t3);font-weight:600;letter-spacing:.5px">'+t.icon+' '+t.sub+'</div>';
+    h+='<div style="font-size:22px;font-weight:800;color:'+t.col+';margin:6px 0">$'+Math.round(t.val).toLocaleString()+'</div>';
+    h+='<div style="font-size:11px;color:var(--t3)">'+t.lbl+'</div>';
+    h+='</div>';
+  });
+  h+='</div>';
+
+  // ── Filter bar ──
+  h+='<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">';
+  h+='<select onchange="window._pdkAgent=this.value;renderProcDtKt()" style="padding:7px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px">'+agentOpts+'</select>';
+  h+='<select onchange="window._pdkStage=this.value;renderProcDtKt()" style="padding:7px 10px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t1);font-size:12px">'+stageOpts+'</select>';
+  h+='<button onclick="window._pdkAgent=\'all\';window._pdkStage=\'all\';renderProcDtKt()" style="padding:7px 12px;background:var(--s2);border:1px solid var(--b1);border-radius:8px;color:var(--t3);font-size:12px;cursor:pointer">↺ Reset</button>';
+  h+='<div style="flex:1"></div>';
+  h+='<div style="font-size:12px;color:var(--t3);display:flex;align-items:center">'+filteredRows.length+' ta buyurtma</div>';
+  h+='</div>';
+
+  // ── 3 tomonlama jadval ──
+  h+='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:12px;overflow:hidden">';
+
+  // Jadval sarlavhasi — 3 blok
+  h+='<div style="display:grid;grid-template-columns:220px 1fr 1fr 1fr;background:var(--s2);border-bottom:2px solid var(--b1)">';
+  h+='<div style="padding:10px 14px;font-size:11px;color:var(--t3);font-weight:700;border-right:1px solid var(--b1)">BUYURTMA</div>';
+  h+='<div style="padding:10px 14px;text-align:center;font-size:11px;font-weight:700;color:#FF4D6A;border-right:1px solid var(--b1)">👥 MIJOZ (DEBITOR)</div>';
+  h+='<div style="padding:10px 14px;text-align:center;font-size:11px;font-weight:700;color:#FFB830;border-right:1px solid var(--b1)">🏭 ZAVOD (KREDITOR)</div>';
+  h+='<div style="padding:10px 14px;text-align:center;font-size:11px;font-weight:700;color:#17B374">💼 BIZNING POZITSIYA</div>';
+  h+='</div>';
+
+  // Sub-sarlavha
+  h+='<div style="display:grid;grid-template-columns:220px 1fr 1fr 1fr;background:var(--s2);border-bottom:1px solid var(--b1)">';
+  h+='<div style="padding:6px 14px;font-size:10px;color:var(--t3);border-right:1px solid var(--b1)">№ / Mijoz / Agent / Bosqich</div>';
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-right:1px solid var(--b1)">';
+  ['Hisob (Dt)','To\'landi (Kt)','Qoldiq'].forEach(function(c){
+    h+='<div style="padding:6px 8px;font-size:10px;color:var(--t3);text-align:right;border-right:1px solid var(--b1)22">'+c+'</div>';
+  });
+  h+='</div>';
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-right:1px solid var(--b1)">';
+  ['Hisob (Kt)','To\'landi (Dt)','Qoldiq'].forEach(function(c){
+    h+='<div style="padding:6px 8px;font-size:10px;color:var(--t3);text-align:right;border-right:1px solid var(--b1)22">'+c+'</div>';
+  });
+  h+='</div>';
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr">';
+  ['Komissiya','Sof foyda'].forEach(function(c){
+    h+='<div style="padding:6px 8px;font-size:10px;color:var(--t3);text-align:right;border-right:1px solid var(--b1)22">'+c+'</div>';
+  });
+  h+='</div>';
+  h+='</div>';
+
+  if(!filteredRows.length){
+    h+='<div style="padding:40px;text-align:center;color:var(--t3)">Buyurtmalar topilmadi</div>';
+  } else {
+    filteredRows.forEach(function(r,i){
+      var stage=(PROC_STAGES||[]).find(function(s){return s.id===r.o.stage;})||{};
+      var stageCol=stage.col||'#6C8EFF';
+      var bg=i%2===0?'var(--s1)':'var(--s2)';
+      h+='<div style="display:grid;grid-template-columns:220px 1fr 1fr 1fr;border-bottom:1px solid var(--b1);background:'+bg+'">';
+
+      // Col 1: Buyurtma info
+      h+='<div style="padding:10px 14px;border-right:1px solid var(--b1);min-width:0">';
+      h+='<div style="font-size:11px;font-weight:700;color:var(--t1)">'+escHtml(r.o.order_no||r.o.id)+'</div>';
+      h+='<div style="font-size:11px;color:var(--t2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+escHtml(r.o.client_name||'')+'">'+escHtml(r.o.client_name||'—')+'</div>';
+      h+='<div style="font-size:10px;color:var(--t3);margin-top:1px">'+escHtml(r.agent.name||'—')+'</div>';
+      h+='<div style="margin-top:4px"><span style="background:'+stageCol+'22;color:'+stageCol+';padding:2px 7px;border-radius:10px;font-size:9px;font-weight:700">'+escHtml(stage.lbl||r.o.stage)+'</span></div>';
+      h+='</div>';
+
+      // Col 2: Mijoz Debitor
+      h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-right:1px solid var(--b1)">';
+      h+='<div style="padding:10px 8px;text-align:right;font-size:12px;color:var(--t2);border-right:1px solid var(--b1)11">'+usd(r.clientInvoice)+'</div>';
+      h+='<div style="padding:10px 8px;text-align:right;font-size:12px;color:#17B374;border-right:1px solid var(--b1)11">'+usd(r.clientPaid)+'</div>';
+      h+='<div style="padding:10px 8px;text-align:right">';
+      h+=r.clientDebt>0.5?'<div style="font-size:12px;color:#FF4D6A;font-weight:700">'+usd(r.clientDebt)+'</div>':'<div style="font-size:12px;color:#17B374">✓</div>';
+      h+=statusBadge(r.clientPaid,r.clientInvoice);
+      h+='</div>';
+      h+='</div>';
+
+      // Col 3: Zavod Kreditor
+      h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-right:1px solid var(--b1)">';
+      h+='<div style="padding:10px 8px;text-align:right;font-size:12px;color:var(--t2);border-right:1px solid var(--b1)11">'+usd(r.supplierTotal)+'</div>';
+      h+='<div style="padding:10px 8px;text-align:right;font-size:12px;color:#17B374;border-right:1px solid var(--b1)11">'+usd(r.supplierPaid)+'</div>';
+      h+='<div style="padding:10px 8px;text-align:right">';
+      h+=r.supplierDebt>0.5?'<div style="font-size:12px;color:#FFB830;font-weight:700">'+usd(r.supplierDebt)+'</div>':'<div style="font-size:12px;color:#17B374">✓</div>';
+      h+=statusBadge(r.supplierPaid,r.supplierTotal);
+      h+='</div>';
+      h+='</div>';
+
+      // Col 4: Bizning pozitsiya
+      h+='<div style="display:grid;grid-template-columns:1fr 1fr">';
+      h+='<div style="padding:10px 8px;text-align:right;font-size:12px;color:#6C8EFF;font-weight:600;border-right:1px solid var(--b1)11">'+usd(r.commission)+'</div>';
+      h+='<div style="padding:10px 8px;text-align:right;font-size:12px;font-weight:700;color:'+(r.net>=0?'#17B374':'#FF4D6A')+'">'+usd(r.net)+'</div>';
+      h+='</div>';
+
+      h+='</div>';
+    });
+
+    // ── Jami qator ──
+    h+='<div style="display:grid;grid-template-columns:220px 1fr 1fr 1fr;background:var(--s2);border-top:2px solid var(--b1)">';
+    h+='<div style="padding:12px 14px;font-size:12px;font-weight:700;color:var(--t1);border-right:1px solid var(--b1)">JAMI ('+filteredRows.length+' ta)</div>';
+    // Mijoz jami
+    h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-right:1px solid var(--b1)">';
+    h+='<div style="padding:12px 8px;text-align:right;font-size:12px;font-weight:700;color:var(--t1);border-right:1px solid var(--b1)11">$'+Math.round(filteredRows.reduce(function(s,r){return s+r.clientInvoice;},0)).toLocaleString()+'</div>';
+    h+='<div style="padding:12px 8px;text-align:right;font-size:12px;font-weight:700;color:#17B374;border-right:1px solid var(--b1)11">$'+Math.round(filteredRows.reduce(function(s,r){return s+r.clientPaid;},0)).toLocaleString()+'</div>';
+    h+='<div style="padding:12px 8px;text-align:right;font-size:12px;font-weight:700;color:#FF4D6A">$'+Math.round(filteredRows.reduce(function(s,r){return s+r.clientDebt;},0)).toLocaleString()+'</div>';
+    h+='</div>';
+    // Zavod jami
+    h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-right:1px solid var(--b1)">';
+    h+='<div style="padding:12px 8px;text-align:right;font-size:12px;font-weight:700;color:var(--t1);border-right:1px solid var(--b1)11">$'+Math.round(filteredRows.reduce(function(s,r){return s+r.supplierTotal;},0)).toLocaleString()+'</div>';
+    h+='<div style="padding:12px 8px;text-align:right;font-size:12px;font-weight:700;color:#17B374;border-right:1px solid var(--b1)11">$'+Math.round(filteredRows.reduce(function(s,r){return s+r.supplierPaid;},0)).toLocaleString()+'</div>';
+    h+='<div style="padding:12px 8px;text-align:right;font-size:12px;font-weight:700;color:#FFB830">$'+Math.round(filteredRows.reduce(function(s,r){return s+r.supplierDebt;},0)).toLocaleString()+'</div>';
+    h+='</div>';
+    // Net jami
+    h+='<div style="display:grid;grid-template-columns:1fr 1fr">';
+    h+='<div style="padding:12px 8px;text-align:right;font-size:12px;font-weight:700;color:#6C8EFF;border-right:1px solid var(--b1)11">$'+Math.round(filteredRows.reduce(function(s,r){return s+r.commission;},0)).toLocaleString()+'</div>';
+    h+='<div style="padding:12px 8px;text-align:right;font-size:13px;font-weight:800;color:#17B374">$'+Math.round(filteredRows.reduce(function(s,r){return s+r.net;},0)).toLocaleString()+'</div>';
+    h+='</div>';
+    h+='</div>';
+  }
+
+  h+='</div>';
+
+  // ── Izoh ──
+  h+='<div style="margin-top:16px;padding:12px 16px;background:rgba(108,142,255,0.06);border:1px solid rgba(108,142,255,0.2);border-radius:10px;font-size:11px;color:var(--t3)">';
+  h+='<b style="color:var(--t2)">Izoh:</b> '
+   +'Mijoz Debitori = Hisob narxi (USD) | '
+   +'Zavod Kreditori = Jami to\'lov (RMB→USD @ '+cny+') | '
+   +'Qoldiq = To\'lanmagan summa. '
+   +'Barcha summalar USD da ko\'rsatilgan.';
+  h+='</div>';
+
+  h+='</div>';
+  document.getElementById('pg-l2').innerHTML=h;
+}
 
 // ══════════════════════════════════════════════════════════════
 // PROCUREMENT MODULE — Render Functions
