@@ -20283,14 +20283,17 @@ function procSaveAgent(editId, isEdit){
 
 function procDeleteAgent(agentId){
   var hasOrders=PROC_ORDERS.some(function(o){return o.agent_id===agentId;});
-  if(hasOrders){alert('Bu agentning buyurtmalari bor! Avval buyurtmalarni o\'chiring.');return;}
-  if(!confirm('Bu agentni o\'chirasizmi?'))return;
+  var msg='Bu agentni o\'chirasizmi?'+(hasOrders?' Agentning barcha buyurtmalari va xarajatlari ham o\'chiriladi!':'');
+  if(!confirm(msg))return;
+  PROC_ORDERS=PROC_ORDERS.filter(function(o){return o.agent_id!==agentId;});
   PROC_AGENTS=PROC_AGENTS.filter(function(a){return a.id!==agentId;});
   PROC_EXPENSES=PROC_EXPENSES.filter(function(e){return e.agent_id!==agentId;});
+  lsSave('proc_orders', PROC_ORDERS);
   lsSave('proc_agents', PROC_AGENTS);
   lsSave('proc_expenses', PROC_EXPENSES);
   // Supabase dan ham o'chirish
   if(SB&&!DEMO_MODE){
+    SB.from('proc_orders').delete().eq('agent_id',agentId).then(function(r){if(r.error)console.warn('[PROC del orders]',r.error.message);});
     SB.from('proc_agents').delete().eq('id',agentId).then(function(r){if(r.error)console.warn('[PROC del agent]',r.error.message);});
     SB.from('proc_expenses').delete().eq('agent_id',agentId).then(function(r){if(r.error)console.warn('[PROC del exp]',r.error.message);});
   }
